@@ -1,0 +1,60 @@
+# Aegis NestJS 规则集
+# 防止 AI Agent 破坏 NestJS 项目结构
+
+name: aegis/nestjs
+version: "1.0.0"
+description: "NestJS framework protection rules"
+
+rules:
+  # BLOCK — 绝对禁止
+  - pattern: "\\bnpm\\s+publish\\b.*\\b--access\\s+public\\b"
+    description: "npm public publish"
+    severity: block
+    category: "nestjs"
+
+  - pattern: "\\bnode\\s+.*\\beval\\b|\\bnode\\s+-e\\s+.*require\\s*\\(\\s*['\"]child_process"
+    description: "node eval with child_process"
+    severity: block
+    category: "nestjs"
+
+  # ERROR — 需要审批
+  - pattern: "\\bnpm\\s+uninstall\\s+.*\\b(@nestjs|nestjs)\\b"
+    description: "npm uninstall NestJS core"
+    severity: error
+    category: "nestjs"
+
+  - pattern: "\\bnpx\\s+.*\\b(nest\\s+generate|nest\\s+g)\\b.*\\b(module|app\\.module|main)\\b"
+    description: "NestJS generate core module"
+    severity: error
+    category: "nestjs"
+
+  - pattern: "\\bnpx\\s+.*\\b(nest\\s+generate|nest\\s+g)\\b.*\\b(guard|interceptor|filter|middleware)\\b"
+    description: "NestJS generate security component"
+    severity: error
+    category: "nestjs"
+
+  - pattern: "\\bnpm\\s+audit\\s+fix\\s+.*\\b--force\\b"
+    description: "npm audit fix force"
+    severity: error
+    category: "nestjs"
+
+  - pattern: "\\bnpm\\s+install\\s+.*\\b-g\\b|\\bnpm\\s+i\\s+.*\\b-g\\b"
+    description: "npm global install"
+    severity: error
+    category: "nestjs"
+
+  # WARN — 记录放行
+  - pattern: "\\bnpx\\s+.*\\b(nest\\s+generate|nest\\s+g)\\b.*\\b(controller|service|resolver|dto|entity)\\b"
+    description: "NestJS generate standard component"
+    severity: warn
+    category: "nestjs"
+
+  - pattern: "\\bnest\\s+build\\b|\\bnpm\\s+run\\s+build\\b"
+    description: "NestJS build"
+    severity: warn
+    category: "nestjs"
+
+  - pattern: "\\bnest\\s+start\\b.*\\b--watch\\b|\\bnpm\\s+run\\s+start:dev\\b"
+    description: "NestJS dev start"
+    severity: warn
+    category: "nestjs"

@@ -1,0 +1,50 @@
+# Aegis MySQL 规则集
+# 防止 AI Agent 执行破坏性数据库操作
+
+name: aegis/mysql
+version: "1.0.0"
+description: "MySQL database protection rules"
+
+rules:
+  # BLOCK — 绝对禁止
+  - pattern: "\\bmysql\\b.*\\b(drop\\s+database|drop\\s+table|truncate\\s+table)\\b"
+    description: "MySQL destructive DDL"
+    severity: block
+    category: "mysql"
+
+  - pattern: "\\bmysql\\b.*\\b(flush\\s+privileges|reset\\s+master|reset\\s+slave)\\b"
+    description: "MySQL privilege reset"
+    severity: block
+    category: "mysql"
+
+  - pattern: "\\bmysqldump\\b.*\\b--all-databases|--databases\\s+mysql|information_schema"
+    description: "MySQL system dump"
+    severity: block
+    category: "mysql"
+
+  # ERROR — 需要审批
+  - pattern: "\\bmysql\\b.*\\b(delete\\s+from|update\\s+.*\\bset\\b).*\\b(where\\s+1\\s*=\\s*1|where\\s+true|;)"
+    description: "MySQL unqualified DELETE/UPDATE"
+    severity: error
+    category: "mysql"
+
+  - pattern: "\\bmysql\\b.*\\balter\\s+table\\s+.*\\bdrop\\s+column\\b"
+    description: "MySQL drop column"
+    severity: error
+    category: "mysql"
+
+  - pattern: "\\bmysql\\b.*\\bgrant\\s+all\\s+privileges\\b"
+    description: "MySQL grant all privileges"
+    severity: error
+    category: "mysql"
+
+  - pattern: "\\bmysql\\b.*\\bset\\s+global\\b"
+    description: "MySQL set global variable"
+    severity: error
+    category: "mysql"
+
+  # WARN — 记录放行
+  - pattern: "\\bmysql\\b.*\\bselect\\s+.*\\binto\\s+outfile\\b"
+    description: "MySQL outfile export"
+    severity: warn
+    category: "mysql"

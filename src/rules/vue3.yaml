@@ -1,0 +1,55 @@
+# Aegis Vue3 规则集
+# 防止 AI Agent 执行破坏性前端操作
+
+name: aegis/vue3
+version: "1.0.0"
+description: "Vue3 framework protection rules"
+
+rules:
+  # BLOCK — 绝对禁止
+  - pattern: "\\bnpm\\s+publish\\b.*\\b--access\\s+public\\b"
+    description: "npm public publish"
+    severity: block
+    category: "vue3"
+
+  # ERROR — 需要审批
+  - pattern: "\\bnpm\\s+run\\s+build\\b.*\\b--mode\\s+(production|prod)\\b"
+    description: "Vue production build"
+    severity: error
+    category: "vue3"
+
+  - pattern: "\\bnpx\\s+vite\\b.*\\b--host\\b.*\\b0\\.0\\.0\\.0\\b"
+    description: "Vite bind all interfaces"
+    severity: error
+    category: "vue3"
+
+  - pattern: "\\bnpm\\s+run\\s+serve\\b.*\\b--public\\b"
+    description: "Vue dev server public mode"
+    severity: error
+    category: "vue3"
+
+  - pattern: "\\bnpm\\s+uninstall\\s+.*\\b(vue|@vue|vite|@vitejs)\\b"
+    description: "npm uninstall Vue core"
+    severity: error
+    category: "vue3"
+
+  - pattern: "\\bnpm\\s+install\\s+.*\\b-g\\b|\\bnpm\\s+i\\s+.*\\b-g\\b"
+    description: "npm global install"
+    severity: error
+    category: "vue3"
+
+  # WARN — 记录放行
+  - pattern: "\\bnpm\\s+run\\s+dev\\b|\\bnpm\\s+run\\s+serve\\b"
+    description: "Vue dev server"
+    severity: warn
+    category: "vue3"
+
+  - pattern: "\\bnpm\\s+run\\s+build\\b"
+    description: "Vue build"
+    severity: warn
+    category: "vue3"
+
+  - pattern: "\\bnpx\\s+vite\\b"
+    description: "Vite command"
+    severity: warn
+    category: "vue3"

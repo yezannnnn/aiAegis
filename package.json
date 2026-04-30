@@ -1,0 +1,27 @@
+{
+  "name": "aegis",
+  "version": "1.0.0",
+  "description": "AI Agent Security Monitor",
+  "main": "dist/index.js",
+  "bin": {
+    "aegis": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "monitor": "node dist/index.js monitor",
+    "setup": "node dist/index.js setup"
+  },
+  "dependencies": {
+    "commander": "^9.0.0",
+    "shell-quote": "^1.7.4",
+    "ws": "^8.13.0",
+    "yaml": "^2.3.0",
+    "chalk": "^4.1.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^18.0.0",
+    "@types/ws": "^8.5.0"
+  }
+}
