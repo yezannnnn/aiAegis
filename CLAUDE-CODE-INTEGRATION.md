@@ -1,270 +1,177 @@
-# 🔗 Claude Code集成方案
+# 🔗 Claude Code Hook集成方案
 
 ## 🎯 集成目标
 
-让Aegis拦截Claude Code中agents执行的高危命令，包括：
-- Bash工具调用的系统命令
+让Aegis通过Hook方式拦截Claude Code执行的高危命令，包括：
 - Git操作、文件删除、数据库操作等
 - 提供实时审批和安全建议
+- 深度上下文分析和智能决策
 
-## 🔍 Claude Code命令执行分析
+## 🔍 Claude Code Hook架构
 
-### 当前Claude Code架构
+### 当前Hook架构
 ```
-用户消息 → Claude Agent → Bash工具 → 系统命令执行
+Claude Code → claude-hook-interactive.js → Monitor(3001端口) → 用户决策
+           (stdin pipe)                  (HTTP POST)
 ```
 
-### 拦截点选择
-需要在 **Bash工具执行前** 进行拦截，避免危险命令直接执行。
+### Hook拦截流程
+1. **命令捕获**: Claude Code执行命令时，通过stdin pipe发送给hook
+2. **上下文分析**: hook获取Claude Code会话信息和项目上下文
+3. **风险评估**: AST语义分析 + 规则引擎评估风险级别
+4. **人工决策**: 监控界面显示详情，用户批准/拒绝
+5. **执行控制**: 根据决策允许或阻止命令执行
 
-## 🚀 集成方案设计
+## 🚀 Hook集成方案
 
-### 方案1: Shell Wrapper (推荐 ⭐)
-**原理**: 重写关键shell命令，重定向到Aegis检查
+### 核心组件
 
+**1. Hook处理器**
+```javascript
+// claude-hook-interactive.js
+#!/usr/bin/env node
+const claudeContext = require('./src/context/claude-context.js');
+
+// 从stdin接收命令
+process.stdin.on('data', async (command) => {
+  // 1. AST解析命令
+  const ast = parseCommand(command);
+
+  // 2. 获取Claude上下文
+  const context = await claudeContext.getCurrentSession();
+
+  // 3. 风险评估
+  const risk = assessRisk(ast, context);
+
+  // 4. 发送到监控界面
+  const decision = await sendToMonitor({
+    command, ast, context, risk
+  });
+
+  // 5. 返回决策结果
+  process.exit(decision.approved ? 0 : 1);
+});
+```
+
+**2. 监控界面**
+```javascript
+// slock-style-monitor.js (端口3001)
+// Cyberpunk风格的实时监控界面
+// - 命令流显示
+// - 风险分析
+// - 上下文信息
+// - 决策按钮
+```
+
+**3. 上下文分析器**
+```javascript
+// src/context/claude-context.js
+// - Claude Code会话检测
+// - AI模型识别
+// - 项目环境分析
+// - 用户输入历史
+```
+
+## 💻 使用方法
+
+### 1. 启动监控服务
 ```bash
-# ~/.aegis/claude-wrapper.sh
-#!/bin/bash
+# 启动监控界面
+node ~/Desktop/yezannnnn/aiGroup/shared/skills/security-monitor/slock-style-monitor.js
 
-# 拦截危险命令
-function git() {
-    aegis-check "git $*" && command git "$@"
-}
-
-function rm() {
-    aegis-check "rm $*" && command rm "$@"
-}
-
-function mysql() {
-    aegis-check "mysql $*" && command mysql "$@"
-}
-
-# 启动Claude Code时加载
-export BASH_ENV="$HOME/.aegis/claude-wrapper.sh"
+# 访问监控界面
+open http://localhost:3001
 ```
 
-### 方案2: Process Monitor
-**原理**: 监控Claude Code进程，拦截子进程启动
-
-```typescript
-// aegis-process-monitor.ts
-class ClaudeCodeMonitor {
-  async monitorClaudeProcess() {
-    // 监控claude进程
-    const claudeProc = findProcess('claude');
-
-    // Hook子进程启动
-    claudeProc.on('spawn', (command, args) => {
-      const fullCommand = `${command} ${args.join(' ')}`;
-      return this.checkWithAegis(fullCommand);
-    });
-  }
-}
-```
-
-### 方案3: Environment Hook
-**原理**: 通过环境变量和PATH修改拦截命令
-
+### 2. 测试Hook功能
 ```bash
-# ~/.aegis/bin/git (拦截脚本)
-#!/bin/bash
-ORIGINAL_COMMAND="git $*"
-aegis-check "$ORIGINAL_COMMAND"
-if [ $? -eq 0 ]; then
-    exec /usr/bin/git "$@"
-else
-    echo "❌ Command blocked by Aegis"
-    exit 1
-fi
+# 测试安全命令
+echo "ls -la" | /Users/yuhao/.aegis/claude-hook-interactive.js
+
+# 测试危险命令
+echo "rm -rf /tmp/test" | /Users/yuhao/.aegis/claude-hook-interactive.js
 ```
 
-## 💻 实施方案 (Shell Wrapper)
+### 3. Claude Code集成
+Claude Code在执行Bash工具时，命令会自动通过hook进行检查。
 
-### 1. 创建Claude Code启动脚本
-```bash
-#!/bin/bash
-# claude-with-aegis.sh
+## 🎯 Hook特性
 
-# 确保Aegis Daemon运行
-if ! pgrep -f "aegis monitor" > /dev/null; then
-    echo "⚠️  Aegis Monitor不在运行，启动中..."
-    aegis monitor &
-    sleep 2
-fi
+### 深度上下文分析
+- ✅ **会话信息**: 当前Claude Code会话ID和项目信息
+- ✅ **AI模型检测**: 自动识别Claude/Hermes/GPT等模型
+- ✅ **用户意图**: 分析用户输入和命令意图的关联
+- ✅ **环境感知**: 检测当前项目类型、Git状态等
 
-# 设置拦截环境
-export AEGIS_ENABLED=1
-export BASH_ENV="$HOME/.aegis/claude-wrapper.sh"
+### 智能风险评估
+- ✅ **AST语义分析**: 精确解析命令结构而非简单匹配
+- ✅ **上下文相关**: 根据项目环境调整风险级别
+- ✅ **学习能力**: 基于历史决策优化风险判断
 
-# 启动Claude Code
-exec claude "$@"
-```
+### 实时监控界面
+- ✅ **Cyberpunk风格**: Matrix绿色主题的终端风格界面
+- ✅ **实时数据流**: WebSocket实时显示命令和决策
+- ✅ **详细分析**: 完整的命令上下文和风险分析
+- ✅ **一键决策**: 直观的批准/拒绝按钮
 
-### 2. 创建命令拦截器
-```bash
-#!/bin/bash
-# ~/.aegis/claude-wrapper.sh
+## 🔧 配置选项
 
-# Aegis拦截函数
-aegis_check() {
-    if [ "$AEGIS_ENABLED" != "1" ]; then
-        return 0  # 未启用时直接通过
-    fi
-
-    local command="$1"
-    local response
-
-    # 发送到Aegis Daemon检查
-    response=$(echo "$command" | nc localhost 9876)
-
-    case "$response" in
-        *"ALLOW"*)
-            return 0 ;;
-        *"DENY"*|*"BLOCK"*)
-            echo "🛡️ Aegis: 命令被阻止 - $command"
-            echo "原因: $(echo "$response" | jq -r '.reason')"
-            return 1 ;;
-        *)
-            echo "⚠️ Aegis: 检查失败，默认允许"
-            return 0 ;;
-    esac
-}
-
-# 重写危险命令
-git() {
-    aegis_check "git $*" && command git "$@"
-}
-
-rm() {
-    aegis_check "rm $*" && command rm "$@"
-}
-
-mysql() {
-    aegis_check "mysql $*" && command mysql "$@"
-}
-
-psql() {
-    aegis_check "psql $*" && command psql "$@"
-}
-
-docker() {
-    aegis_check "docker $*" && command docker "$@"
-}
-
-sudo() {
-    aegis_check "sudo $*" && command sudo "$@"
-}
-
-chmod() {
-    aegis_check "chmod $*" && command chmod "$@"
-}
-
-# 导出函数到子shell
-export -f git rm mysql psql docker sudo chmod aegis_check
-```
-
-### 3. 创建Aegis检查客户端
-```bash
-#!/bin/bash
-# /usr/local/bin/aegis-check
-
-COMMAND="$1"
-REQUEST_ID=$(uuidgen)
-
-# 构造请求
-REQUEST_JSON=$(cat <<EOF
+### Hook配置
+```javascript
+// /Users/yuhao/.aegis/config.json
 {
-  "type": "approval_request",
-  "payload": {
-    "id": "$REQUEST_ID",
-    "command": "$COMMAND",
-    "cwd": "$(pwd)",
-    "agentType": "claude-code",
-    "sessionKey": "claude-session-$(date +%s)",
-    "timestamp": $(date +%s000)
+  "hook": {
+    "enabled": true,
+    "timeout": 30,
+    "default_action": "block"
+  },
+  "monitor": {
+    "port": 3001,
+    "style": "cyberpunk"
   }
 }
-EOF
-)
-
-# 发送到Aegis Daemon并等待响应
-echo "$REQUEST_JSON" | nc localhost 9876
 ```
 
-## 🧪 快速测试
-
-### 1. 安装集成脚本
-```bash
-# 创建目录
-mkdir -p ~/.aegis/bin
-
-# 复制脚本文件
-cp claude-wrapper.sh ~/.aegis/
-cp aegis-check /usr/local/bin/
-chmod +x /usr/local/bin/aegis-check
-chmod +x ~/.aegis/claude-wrapper.sh
-
-# 创建启动脚本
-cat > ~/claude-with-aegis.sh << 'EOF'
-#!/bin/bash
-export AEGIS_ENABLED=1
-export BASH_ENV="$HOME/.aegis/claude-wrapper.sh"
-exec claude "$@"
-EOF
-chmod +x ~/claude-with-aegis.sh
+### AI模型支持
+```javascript
+// 支持的AI模型检测
+const AI_MODEL_TYPES = {
+  'claude': { name: 'Claude', provider: 'Anthropic' },
+  'hermes': { name: 'Hermes', provider: 'Meta/Nous Research' },
+  'gpt': { name: 'GPT', provider: 'OpenAI' },
+  'gemini': { name: 'Gemini', provider: 'Google' }
+};
 ```
 
-### 2. 启动保护的Claude Code
-```bash
-# 终端1: 启动Aegis Monitor
-aegis monitor
+## 📊 监控统计
 
-# 终端2: 启动保护的Claude Code
-~/claude-with-aegis.sh
-```
-
-### 3. 测试拦截功能
-在Claude Code中尝试执行：
-```
-用户: 删除临时文件
-Claude: 我来删除临时文件...
-[Bash调用] rm -rf /tmp/*
-
-🛡️ Aegis拦截提示！
-📊 风险级别: HIGH
-🌍 环境: 生产环境，管理员权限
-💡 建议: 先检查文件内容，使用 trash 命令
-```
-
-## 🎛️ 高级配置
-
-### 仅拦截高危命令
-```bash
-# ~/.aegis/claude-config.sh
-AEGIS_HIGH_RISK_COMMANDS="git rm mysql psql docker sudo"
-AEGIS_MONITOR_ALL="false"  # 仅监控指定命令
-```
-
-### 自动批准模式
-```bash
-# 对特定项目路径自动批准
-AEGIS_AUTO_APPROVE_PATHS="/Users/yuhao/safe-projects/*"
-```
+Hook方式提供详细的统计信息：
+- 命令执行次数
+- 风险级别分布
+- AI模型活动状态
+- 决策准确率
 
 ## 🔧 故障排除
 
-### 检查拦截是否生效
+### 检查Hook状态
 ```bash
-# 在Claude Code中运行
-echo $BASH_ENV  # 应该显示 ~/.aegis/claude-wrapper.sh
-type git       # 应该显示是函数而不是原始命令
+# 测试Hook是否正常
+echo "pwd" | /Users/yuhao/.aegis/claude-hook-interactive.js
+
+# 检查监控服务
+curl http://localhost:3001/health
 ```
 
 ### Debug模式
 ```bash
-export AEGIS_DEBUG=1  # 启用详细日志
+# 启用详细日志
+export AEGIS_DEBUG=1
 ```
 
 ---
 
-**🎯 集成后效果**: Claude Code中的每个危险命令都会触发Aegis审批流程，用户可以看到完整的上下文分析并做出明智决定。
+**🎯 Hook集成优势**:
+- 🔍 **深度分析**: 完整的Claude Code上下文信息
+- ⚡ **响应迅速**: 直接的stdin/stdout通信
+- 🎨 **可视化**: 丰富的监控界面
+- 🧠 **智能化**: AI模型感知的风险评估
