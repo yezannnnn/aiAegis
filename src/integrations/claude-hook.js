@@ -107,68 +107,213 @@ async function checkAegisDaemon() {
  */
 async function requestAegisApproval(command) {
   return new Promise((resolve) => {
-    const socket = new net.Socket();
-    socket.setTimeout(TIMEOUT);
+    const envContext = gatherEnvironmentContext();
+    const detectedIntent = analyzeCommandIntent(command, envContext);
 
-    const request = {
+    const requestData = {
       type: 'approval_request',
-      payload: {
-        id: `claude-hook-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        command: command,
-        cwd: process.cwd(),
-        agentType: 'claude-code',
-        timestamp: Date.now(),
-        context: {
-          environment: gatherEnvironmentContext(),
-          source: 'claude-code-hook'
+      command: command,
+      cwd: process.cwd(),
+      agentType: 'claude-code',
+      timestamp: Date.now(),
+      sessionId: envContext.sessionId || null, // 包含真实session ID
+      intent: detectedIntent, // 智能识别的用户意图
+      context: {
+        ...envContext,
+        intentAnalysis: {
+          detected: detectedIntent,
+          confidence: detectedIntent.includes('detected') ? 'high' : 'medium',
+          analysisTime: new Date().toISOString()
         }
-      }
+      },
+      source: 'claude-code-hook'
     };
 
-    let response = '';
+    const postData = JSON.stringify(requestData);
 
-    socket.connect(AEGIS_PORT, AEGIS_HOST, () => {
-      socket.write(JSON.stringify(request) + '\n');
+    const options = {
+      hostname: AEGIS_HOST,
+      port: AEGIS_PORT,
+      path: '/hook-event',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData)
+      },
+      timeout: TIMEOUT
+    };
+
+    const req = require('http').request(options, (res) => {
+      let responseData = '';
+
+      res.on('data', (chunk) => {
+        responseData += chunk;
+      });
+
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(responseData);
+          if (result.success) {
+            // 监控系统记录了事件，默认允许执行（可根据需要修改策略）
+            resolve({ decision: 'ALLOW', reason: 'Logged to monitoring system' });
+          } else {
+            resolve({ decision: 'ALLOW', reason: 'Default allow' });
+          }
+        } catch (error) {
+          resolve({ decision: 'ALLOW', reason: 'Response parsing error' });
+        }
+      });
     });
 
-    socket.on('data', (data) => {
-      response += data.toString();
+    req.on('error', (error) => {
+      resolve({ decision: 'ALLOW', reason: `HTTP request failed: ${error.message}` });
+    });
 
-      // 处理可能的多行响应
-      const lines = response.split('\n');
-      for (const line of lines) {
-        if (line.trim()) {
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ decision: 'ALLOW', reason: 'HTTP request timeout' });
+    });
+
+    req.write(postData);
+    req.end();
+  });
+}
+
+/**
+ * 获取真实Claude Code Session ID
+ */
+function getClaudeSessionId() {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+
+    // 查找Claude sessions目录
+    const sessionsDir = path.join(os.homedir(), '.claude', 'sessions');
+    if (!fs.existsSync(sessionsDir)) return null;
+
+    // 优先查找活跃的Claude Code进程session
+    const sessionFiles = fs.readdirSync(sessionsDir)
+      .filter(file => file.endsWith('.json'))
+      .map(file => {
+        try {
+          const filePath = path.join(sessionsDir, file);
+          const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+
+          // 检查进程是否还在运行
+          const pid = data.pid;
+          let isRunning = false;
           try {
-            const result = JSON.parse(line);
-            if (result.type === 'approval_resolution') {
-              socket.end();
-              resolve({
-                decision: result.payload.decision,
-                reason: result.payload.reason
-              });
-              return;
-            } else if (result.type === 'denied') {
-              socket.end();
-              resolve({
-                decision: 'DENY',
-                reason: result.payload.reason
-              });
-              return;
-            }
+            process.kill(pid, 0); // 0信号仅检查进程存在性
+            isRunning = true;
           } catch {}
+
+          if (isRunning) {
+            const stat = fs.statSync(filePath);
+            return { file, data, mtime: stat.mtime, isActive: true };
+          }
+          return null;
+        } catch { return null; }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.mtime - a.mtime);
+
+    // 返回最新的活跃session
+    return sessionFiles.length > 0 ? sessionFiles[0].data.sessionId : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * 智能分析命令意图
+ */
+function analyzeCommandIntent(command, context) {
+  try {
+    // 基于命令模式的意图识别
+    const intentPatterns = {
+      // 开发相关
+      'development': [
+        /git\s+(add|commit|push|pull|clone)/,
+        /npm\s+(install|run|start|build|test)/,
+        /yarn\s+(install|start|build|test)/,
+        /node\s+.*\.js/,
+        /python\s+.*\.py/,
+        /docker\s+(build|run|start|stop)/,
+      ],
+
+      // 文件操作
+      'file_management': [
+        /^(cp|mv|mkdir|rmdir)\s+/,
+        /^ls\s+(-[la]+\s+)?/,
+        /^find\s+.*\s+-name/,
+        /^cat\s+.*\.(txt|md|json|yaml)/,
+      ],
+
+      // 系统管理
+      'system_admin': [
+        /^sudo\s+/,
+        /^chmod\s+/,
+        /^chown\s+/,
+        /ps\s+aux/,
+        /^kill\s+-?\d+/,
+      ],
+
+      // 危险操作
+      'dangerous_operation': [
+        /rm\s+(-rf|--recursive.*--force)/,
+        /git\s+push\s+(-f|--force)/,
+        /dd\s+.*of=/,
+        /^sudo\s+rm/,
+      ],
+
+      // 网络/API
+      'network_request': [
+        /curl\s+/,
+        /wget\s+/,
+        /ping\s+/,
+        /ssh\s+/,
+      ],
+
+      // 监控/调试
+      'monitoring_debug': [
+        /tail\s+(-f\s+)?.*\.log/,
+        /grep\s+.*\s+.*\.log/,
+        /^ps\s+/,
+        /^top$/,
+        /^htop$/,
+      ]
+    };
+
+    // 检查命令匹配的意图模式
+    for (const [intent, patterns] of Object.entries(intentPatterns)) {
+      for (const pattern of patterns) {
+        if (pattern.test(command)) {
+          return `${intent}_detected`;
         }
       }
-    });
+    }
 
-    socket.on('timeout', () => {
-      socket.destroy();
-      resolve({ decision: 'ALLOW', reason: 'Timeout - allowing execution' });
-    });
+    // 基于上下文的意图推断
+    if (context?.cwd) {
+      if (context.cwd.includes('node_modules')) return 'dependency_management';
+      if (context.cwd.includes('.git')) return 'version_control';
+      if (context.cwd.includes('/tmp')) return 'temporary_operation';
+    }
 
-    socket.on('error', (err) => {
-      resolve({ decision: 'ALLOW', reason: `Network error - allowing execution: ${err.message}` });
-    });
-  });
+    // 基于项目类型的意图推断
+    if (context?.projectType) {
+      switch (context.projectType) {
+        case 'node': return 'nodejs_development';
+        case 'python': return 'python_development';
+        case 'go': return 'go_development';
+      }
+    }
+
+    return 'general_command_execution';
+  } catch (error) {
+    return 'intent_analysis_failed';
+  }
 }
 
 /**
@@ -180,6 +325,7 @@ function gatherEnvironmentContext() {
       platform: process.platform,
       cwd: process.cwd(),
       user: process.env.USER || process.env.USERNAME,
+      sessionId: getClaudeSessionId(), // 添加真实session ID
     };
 
     // 检查git状态

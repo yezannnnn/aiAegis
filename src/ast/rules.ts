@@ -241,14 +241,14 @@ export const databaseASTRules: ASTRule[] = [
  * 文件系统相关的 AST 规则
  */
 export const filesystemASTRules: ASTRule[] = [
-  // 危险的 rm -rf
+  // 危险的 rm -rf (支持组合和分离标志)
   {
     id: 'rm-recursive-force',
     description: 'Recursive force delete operation',
     category: 'filesystem',
     conditions: {
       binary: 'rm',
-      hasFlags: ['r', 'f'],
+      hasFlags: ['r', 'f', 'rf', 'recursive', 'force'],  // 支持 -r -f, -rf, --recursive --force
     },
     assessRisk: (ast: CommandNode, context: CommandContext): RiskAssessment => {
       const args = getArgumentValues(ast);
@@ -318,13 +318,234 @@ export const filesystemASTRules: ASTRule[] = [
 ];
 
 /**
+ * NPM/包管理相关的 AST 规则
+ */
+export const npmASTRules: ASTRule[] = [
+  // NPM package installation
+  {
+    id: 'npm-install',
+    description: 'NPM package installation',
+    category: 'package',
+    conditions: {
+      binary: ['npm', 'yarn', 'pnpm'],
+      subcommand: 'install',
+    },
+    assessRisk: (ast: CommandNode, context: CommandContext): RiskAssessment => {
+      const args = getArgumentValues(ast);
+      let level: RiskLevel = 'MEDIUM';
+      let score = 50;
+      const reasoning: string[] = ['检测到包管理工具安装操作'];
+
+      // 全局安装 - 更高风险
+      if (hasFlag(ast, 'global') || hasFlag(ast, 'g')) {
+        level = 'HIGH';
+        score = 75;
+        reasoning.push('全局安装包，可能影响系统环境');
+      }
+
+      // 不安全的registry或源
+      if (hasFlag(ast, 'registry') || args.some(arg => arg.includes('registry'))) {
+        score += 15;
+        reasoning.push('使用自定义registry，需要验证源的安全性');
+      }
+
+      // 强制覆盖安装
+      if (hasFlag(ast, 'force') || hasFlag(ast, 'f')) {
+        level = 'HIGH';
+        score = Math.min(100, score + 20);
+        reasoning.push('强制覆盖安装，可能破坏现有依赖');
+      }
+
+      // 开发依赖相对安全
+      if (hasFlag(ast, 'save-dev') || hasFlag(ast, 'D')) {
+        score = Math.max(30, score - 15);
+        reasoning.push('开发依赖安装，风险相对较低');
+      }
+
+      return {
+        level,
+        score,
+        reasoning,
+        impact: {
+          dataLoss: false,
+          systemDamage: level === 'HIGH' && hasFlag(ast, 'global'),
+          securityRisk: true,
+          reversible: true,
+        },
+        suggestions: {
+          alternatives: [
+            'npm audit  # 检查安全漏洞',
+            'npm list  # 查看当前安装的包',
+            'npm info <package>  # 查看包信息',
+          ],
+          safetyChecks: [
+            '检查包的维护状态和社区信任度',
+            '查看包的许可证和依赖',
+            '确认包的下载来源和完整性',
+          ],
+          mitigations: [
+            'npm audit --audit-level=moderate',
+            'npm install --package-lock-only  # 仅更新lock文件',
+          ],
+        },
+        triggeredRules: ['npm-install'],
+        confidence: 0.85,
+      };
+    },
+  },
+
+  // NPM script execution
+  {
+    id: 'npm-script',
+    description: 'NPM script execution',
+    category: 'package',
+    conditions: {
+      binary: ['npm', 'yarn', 'pnpm'],
+      subcommand: ['run', 'start', 'build', 'test'],
+    },
+    assessRisk: (ast: CommandNode, context: CommandContext): RiskAssessment => {
+      const args = getArgumentValues(ast);
+      let level: RiskLevel = 'LOW';
+      let score = 25;
+      const reasoning: string[] = ['检测到 NPM 脚本执行'];
+
+      // 分析脚本名称
+      const scriptName = args[0] || '';
+      if (scriptName.includes('start') || scriptName.includes('serve')) {
+        score = 40;
+        reasoning.push('启动服务脚本，可能开放网络端口');
+      } else if (scriptName.includes('build') || scriptName.includes('compile')) {
+        score = 35;
+        reasoning.push('构建脚本，可能修改文件系统');
+      } else if (scriptName.includes('deploy') || scriptName.includes('publish')) {
+        level = 'MEDIUM';
+        score = 60;
+        reasoning.push('部署/发布脚本，可能影响生产环境');
+      }
+
+      return {
+        level,
+        score,
+        reasoning,
+        impact: {
+          dataLoss: false,
+          systemDamage: false,
+          securityRisk: scriptName.includes('deploy'),
+          reversible: true,
+        },
+        suggestions: {
+          alternatives: [
+            'cat package.json  # 查看脚本定义',
+            'npm run  # 列出可用脚本',
+          ],
+          safetyChecks: [
+            '检查package.json中的脚本内容',
+            '确认脚本不包含恶意代码',
+          ],
+          mitigations: [],
+        },
+        triggeredRules: ['npm-script'],
+        confidence: 0.75,
+      };
+    },
+  },
+];
+
+/**
+ * 增强的文件系统规则 (包含 /tmp 特殊处理)
+ */
+export const enhancedFilesystemASTRules: ASTRule[] = [
+  ...filesystemASTRules,
+
+  // 专门针对 /tmp 目录的 rm -rf 规则
+  {
+    id: 'rm-tmp-directory',
+    description: 'Remove files from /tmp directory',
+    category: 'filesystem',
+    conditions: {
+      binary: 'rm',
+      hasFlags: ['r', 'f', 'rf', 'recursive', 'force'],  // 支持 -r -f, -rf, --recursive --force
+    },
+    assessRisk: (ast: CommandNode, context: CommandContext): RiskAssessment => {
+      const args = getArgumentValues(ast);
+      let level: RiskLevel = 'MEDIUM';
+      let score = 55;
+      const reasoning: string[] = ['检测到删除 /tmp 目录操作'];
+
+      // 检查是否针对 /tmp 相关路径
+      const tmpPaths = args.filter(arg =>
+        arg.startsWith('/tmp/') ||
+        arg === '/tmp' ||
+        arg === '/tmp/*' ||
+        arg.includes('/tmp/')
+      );
+
+      if (tmpPaths.length > 0) {
+        level = 'MEDIUM';
+        score = 60;
+        reasoning.push(`删除临时目录内容: ${tmpPaths.join(', ')}`);
+
+        // /tmp/* 或 /tmp/ 批量删除
+        if (tmpPaths.some(p => p.includes('*') || p === '/tmp' || p === '/tmp/')) {
+          level = 'HIGH';
+          score = 70;
+          reasoning.push('批量删除临时目录，可能影响其他程序');
+        }
+      } else {
+        // 不是 /tmp 相关，返回安全
+        return {
+          level: 'SAFE',
+          score: 0,
+          reasoning: ['不涉及 /tmp 目录'],
+          impact: { dataLoss: false, systemDamage: false, securityRisk: false, reversible: true },
+          suggestions: { alternatives: [], safetyChecks: [], mitigations: [] },
+          triggeredRules: [],
+          confidence: 1.0
+        };
+      }
+
+      return {
+        level,
+        score,
+        reasoning,
+        impact: {
+          dataLoss: true,
+          systemDamage: false,
+          securityRisk: false,
+          reversible: false,
+        },
+        suggestions: {
+          alternatives: [
+            'ls -la /tmp/  # 先查看要删除的内容',
+            'find /tmp -name "pattern" -delete  # 精确删除',
+            'tmpwatch 24 /tmp  # 删除24小时前的文件',
+          ],
+          safetyChecks: [
+            '确认临时文件不被其他程序使用',
+            '检查是否有重要的临时数据',
+            '确认删除范围和影响',
+          ],
+          mitigations: [
+            'lsof /tmp  # 检查正在使用的文件',
+            'find /tmp -type f -newer /tmp/reference  # 查找新文件',
+          ],
+        },
+        triggeredRules: ['rm-tmp-directory'],
+        confidence: 0.9,
+      };
+    },
+  },
+];
+
+/**
  * 主规则引擎
  */
 export class ASTRuleEngine {
   private rules: ASTRule[] = [
     ...gitASTRules,
     ...databaseASTRules,
-    ...filesystemASTRules,
+    ...enhancedFilesystemASTRules,
+    ...npmASTRules,
   ];
 
   /**

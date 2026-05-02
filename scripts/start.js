@@ -209,173 +209,48 @@ class AegisNpmStart {
   }
 
   getMonitorHtml() {
+    try {
+      // 使用我们的 Dark Minimal UI
+      const uiPath = path.join(__dirname, '..', 'monitor-ui.html');
+      if (fs.existsSync(uiPath)) {
+        return fs.readFileSync(uiPath, 'utf8');
+      }
+    } catch (error) {
+      console.log('⚠️ 无法加载 Dark Minimal UI，使用备用界面');
+    }
+
+    // 备用的简化界面
     return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🛡️ Aegis 安全监控 (npm版本)</title>
+    <title>🛡️ Aegis 安全监控 (备用界面)</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .header { text-align: center; margin-bottom: 30px; }
-        .header h1 { color: #3b82f6; margin-bottom: 10px; }
-        .header p { color: #94a3b8; }
-        .status-bar { display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; }
-        .status-item { display: flex; align-items: center; gap: 8px; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; }
-        .controls { margin-bottom: 20px; text-align: center; }
-        .btn { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin: 0 5px; transition: background 0.2s; }
-        .btn:hover { background: #2563eb; }
-        .events-container { background: #1e293b; border-radius: 8px; padding: 20px; max-height: 600px; overflow-y: auto; }
-        .event { margin-bottom: 15px; padding: 15px; border-radius: 6px; border-left: 4px solid; }
-        .event-blocked { background: rgba(239, 68, 68, 0.1); border-left-color: #ef4444; }
-        .event-allowed { background: rgba(16, 185, 129, 0.1); border-left-color: #10b981; }
-        .event-header { display: flex; justify-content: between; align-items: center; margin-bottom: 8px; }
-        .event-type { font-weight: bold; text-transform: uppercase; font-size: 12px; }
-        .event-time { font-size: 12px; opacity: 0.7; margin-left: auto; }
-        .event-message { margin-bottom: 8px; }
-        .event-command { font-family: 'SF Mono', 'Monaco', monospace; background: rgba(0, 0, 0, 0.3); padding: 8px; border-radius: 4px; font-size: 12px; }
-        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
-        .stat-card { background: #1e293b; padding: 20px; border-radius: 8px; text-align: center; }
-        .stat-number { font-size: 28px; font-weight: bold; margin-bottom: 5px; }
-        .stat-label { font-size: 14px; opacity: 0.8; }
-        .empty-state { text-align: center; padding: 40px; opacity: 0.6; }
+        body {
+            font-family: monospace;
+            background: #0f172a;
+            color: #f1f5f9;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 40px;
+            border: 1px solid #334155;
+        }
+        h1 { color: #3b82f6; margin-bottom: 20px; }
+        .note { opacity: 0.7; margin-top: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🛡️ Aegis 安全监控</h1>
-            <p>npm版本 - 实时保护您的AI Agent</p>
-        </div>
-
-        <div class="status-bar">
-            <div class="status-item">
-                <div class="status-dot"></div>
-                <span>服务运行中</span>
-            </div>
-            <div class="status-item">
-                <span id="event-count">事件: 0</span>
-            </div>
-            <div class="status-item">
-                <span id="last-update">等待更新...</span>
-            </div>
-        </div>
-
-        <div class="stats">
-            <div class="stat-card">
-                <div class="stat-number" id="blocked-count" style="color: #ef4444;">0</div>
-                <div class="stat-label">🛡️ 已拦截</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="allowed-count" style="color: #10b981;">0</div>
-                <div class="stat-label">✅ 已允许</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="uptime">00:00</div>
-                <div class="stat-label">⏱️ 运行时间</div>
-            </div>
-        </div>
-
-        <div class="controls">
-            <button class="btn" onclick="loadEvents()">🔄 刷新事件</button>
-            <button class="btn" onclick="clearEvents()">🗑️ 清空事件</button>
-            <button class="btn" onclick="window.open('/api/events')">📊 原始数据</button>
-        </div>
-
-        <div class="events-container" id="events">
-            <div class="empty-state">📡 加载事件数据...</div>
-        </div>
+        <h1>🛡️ Aegis 安全监控</h1>
+        <p>Dark Minimal UI 加载失败，使用备用界面</p>
+        <p class="note">请检查 monitor-ui.html 文件是否存在</p>
+        <p class="note">推荐使用: <code>node real-time-monitor.js</code></p>
     </div>
-
-    <script>
-        let startTime = Date.now();
-        let stats = { blocked: 0, allowed: 0 };
-
-        async function loadEvents() {
-            try {
-                const response = await fetch('/api/events');
-                const events = await response.json();
-
-                updateStats(events);
-                displayEvents(events);
-                updateLastUpdate();
-
-            } catch (error) {
-                console.error('加载事件失败:', error);
-                document.getElementById('events').innerHTML =
-                    '<div class="empty-state">❌ 加载失败，请检查服务状态</div>';
-            }
-        }
-
-        function updateStats(events) {
-            stats = { blocked: 0, allowed: 0 };
-            events.forEach(event => {
-                if (event.type === 'blocked') stats.blocked++;
-                else if (event.type === 'allowed') stats.allowed++;
-            });
-
-            document.getElementById('blocked-count').textContent = stats.blocked;
-            document.getElementById('allowed-count').textContent = stats.allowed;
-            document.getElementById('event-count').textContent = \`事件: \${events.length}\`;
-        }
-
-        function displayEvents(events) {
-            const container = document.getElementById('events');
-
-            if (events.length === 0) {
-                container.innerHTML = '<div class="empty-state">📝 暂无安全事件</div>';
-                return;
-            }
-
-            const recentEvents = events.slice(-20).reverse(); // 最近20个，新的在前
-
-            container.innerHTML = recentEvents.map(event => \`
-                <div class="event event-\${event.type}">
-                    <div class="event-header">
-                        <span class="event-type">\${getEventIcon(event.type)} \${event.type}</span>
-                        <span class="event-time">\${new Date(event.timestamp).toLocaleString()}</span>
-                    </div>
-                    <div class="event-message">\${event.reason}</div>
-                    <div class="event-command">命令: \${event.command}</div>
-                </div>
-            \`).join('');
-        }
-
-        function getEventIcon(type) {
-            const icons = { blocked: '🛡️', allowed: '✅', warning: '⚠️' };
-            return icons[type] || '📝';
-        }
-
-        function updateLastUpdate() {
-            document.getElementById('last-update').textContent =
-                \`最后更新: \${new Date().toLocaleTimeString()}\`;
-        }
-
-        function updateUptime() {
-            const uptime = Math.floor((Date.now() - startTime) / 1000);
-            const minutes = Math.floor(uptime / 60);
-            const seconds = uptime % 60;
-            document.getElementById('uptime').textContent =
-                \`\${minutes.toString().padStart(2, '0')}:\${seconds.toString().padStart(2, '0')}\`;
-        }
-
-        function clearEvents() {
-            if (confirm('确定要清空所有事件记录吗？')) {
-                // 这里可以调用清空API
-                console.log('清空事件功能待实现');
-            }
-        }
-
-        // 自动刷新
-        setInterval(loadEvents, 5000);
-        setInterval(updateUptime, 1000);
-
-        // 初始加载
-        loadEvents();
-    </script>
 </body>
 </html>`;
   }

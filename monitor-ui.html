@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aegis 多Agent监控 - Dark Minimal Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* 暗夜线条简约配色 */
+            --bg-primary: #0F172A;
+            --bg-card: rgba(255, 255, 255, 0.02);
+            --accent-green: #22C55E;
+            --text-primary: #FFFFFF;
+            --text-secondary: rgba(255, 255, 255, 0.7);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-accent: rgba(34, 197, 94, 0.3);
+            --danger: #DC2626;
+            --warning: #F59E0B;
+            --info: #3B82F6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+
+        /* 主标题 - 极简线条风格 */
+        .header {
+            margin-bottom: 3rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .header-main {
+            flex: 1;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        /* 语言切换按钮 */
+        .lang-switch {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            position: relative;
+        }
+
+        .lang-switch:hover {
+            border-color: var(--border-accent);
+            color: var(--accent-green);
+            background: rgba(34, 197, 94, 0.05);
+        }
+
+        .lang-switch::before {
+            content: '>';
+            margin-right: 0.5rem;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .lang-switch:hover::before {
+            opacity: 1;
+        }
+
+        .title {
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: var(--text-primary);
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .title::before {
+            content: '>';
+            color: var(--accent-green);
+            margin-right: 0.5rem;
+            animation: cursor-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes cursor-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .subtitle {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            position: relative;
+            padding-left: 1rem;
+        }
+
+        .subtitle::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 0.5rem;
+            height: 1px;
+            background: var(--accent-green);
+            transform: translateY(-50%);
+        }
+
+        /* 状态统计卡片 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: var(--accent-green);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .stat-card:hover {
+            border-color: var(--border-accent);
+            background: rgba(34, 197, 94, 0.02);
+        }
+
+        .stat-number {
+            font-family: 'Orbitron', monospace;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent-green);
+            margin-bottom: 0.5rem;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-secondary);
+            position: relative;
+            padding-left: 0.75rem;
+        }
+
+        .stat-label::before {
+            content: '—';
+            position: absolute;
+            left: 0;
+            color: var(--accent-green);
+        }
+
+        /* Agent面板网格 */
+        .agent-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        /* 活跃Agent列表 */
+        .agents-panel, .sessions-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: rgba(34, 197, 94, 0.05);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 1rem;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--accent-green);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .agent-list, .session-list {
+            padding: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-green) transparent;
+        }
+
+        .agent-list::-webkit-scrollbar, .session-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .agent-list::-webkit-scrollbar-track, .session-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .agent-list::-webkit-scrollbar-thumb, .session-list::-webkit-scrollbar-thumb {
+            background: var(--accent-green);
+            border-radius: 0;
+        }
+
+        .agent-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .agent-item:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .agent-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .agent-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .agent-name {
+            color: var(--text-primary);
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .agent-session, .agent-intent {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.15rem;
+        }
+
+        .agent-last-command {
+            font-size: 0.7rem;
+            color: var(--accent-green);
+            font-family: 'JetBrains Mono', monospace;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .agent-time {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .agent-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            flex-shrink: 0;
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+            animation: online-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes online-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .agent-status.offline {
+            background: var(--text-secondary);
+            box-shadow: none;
+            animation: none;
+        }
+
+        /* 会话信息 */
+        .session-item {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            border-left: 3px solid var(--accent-green);
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .session-id {
+            font-size: 0.8rem;
+            color: var(--accent-green);
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .session-user, .session-project {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.15rem;
+        }
+
+        .session-time {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+        }
+
+        /* 事件列表 - 超简约风格 */
+        .events-section {
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+        }
+
+        .events-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            font-family: 'Orbitron', monospace;
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--accent-green);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+        }
+
+        .events-detailed {
+            max-height: 500px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-green) transparent;
+        }
+
+        .events-detailed::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .events-detailed::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .events-detailed::-webkit-scrollbar-thumb {
+            background: var(--accent-green);
+            border-radius: 0;
+        }
+
+        /* 详细事件项 */
+        .event-item-detailed {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 1rem;
+            align-items: start;
+            transition: background 0.2s ease;
+        }
+
+        .event-item-detailed:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .event-item-detailed:last-child {
+            border-bottom: none;
+        }
+
+        .event-item-detailed.new-event {
+            animation: slideInEvent 0.5s ease;
+            background: rgba(34, 197, 94, 0.05);
+        }
+
+        @keyframes slideInEvent {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+                background: rgba(34, 197, 94, 0.1);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+                background: rgba(34, 197, 94, 0.05);
+            }
+        }
+
+        .event-status {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            flex-shrink: 0;
+            margin-top: 0.5rem;
+        }
+
+        .event-status.critical {
+            background: var(--danger);
+            box-shadow: 0 0 8px rgba(220, 38, 38, 0.5);
+        }
+
+        .event-status.high {
+            background: var(--warning);
+            box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+        }
+
+        .event-main {
+            min-width: 0;
+        }
+
+        .event-command {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-primary);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .event-context {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .context-tag {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            padding: 0.2rem 0.5rem;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .context-tag.agent-tag {
+            border-color: var(--border-accent);
+        }
+
+        .event-user-context {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+            font-style: italic;
+        }
+
+        .event-meta {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: flex-end;
+        }
+
+        .event-time {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .event-action {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid;
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--accent-green);
+            border-color: var(--accent-green);
+        }
+
+        .event-item-detailed.blocked .event-action {
+            color: var(--danger);
+            border-color: var(--danger);
+            background: rgba(220, 38, 38, 0.1);
+        }
+
+        .event-item-detailed.warning .event-action {
+            color: var(--warning);
+            border-color: var(--warning);
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .event-item-detailed.pending .event-action {
+            color: var(--info);
+            border-color: var(--info);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        /* 状态指示器 */
+        .status-bar {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--accent-green);
+            animation: status-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes status-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .connection-status {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .connection-status.connected {
+            color: var(--accent-green);
+        }
+
+        .connection-status.disconnected {
+            color: var(--danger);
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        /* 大型连接状态指示器 */
+        .connection-status-large {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            margin: 1rem auto;
+            max-width: 300px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .connection-status-large #status-dot-large {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--danger);
+            flex-shrink: 0;
+        }
+
+        .connection-status-large.connected #status-dot-large {
+            background: var(--accent-green);
+            box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+            animation: online-pulse 2s ease-in-out infinite;
+        }
+
+        .connection-status-large.connected #connection-text-large {
+            color: var(--accent-green);
+        }
+
+        .connection-status-large.disconnected #connection-text-large {
+            color: var(--danger);
+        }
+
+        /* 响应式 */
+        @media (max-width: 1024px) {
+            .agent-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+
+            .title {
+                font-size: 2rem;
+            }
+
+            .event-item-detailed {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            .event-meta {
+                align-items: flex-start;
+                text-align: left;
+            }
+
+            .context-tag {
+                font-size: 0.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 主标题区域 -->
+    <div class="header">
+        <div class="header-main">
+            <h1 class="title">AEGIS</h1>
+            <p class="subtitle">Multi-Agent Security Monitor - Dark Minimal Edition</p>
+        </div>
+        <div class="header-controls">
+            <button class="lang-switch" id="lang-switch" onclick="toggleLanguage()">
+                中文
+            </button>
+            <div class="connection-status" id="connection-status">
+                CONNECTING...
+            </div>
+        </div>
+    </div>
+
+    <!-- 状态统计卡片 -->
+    <div class="stats-grid">
+        <div class="stat-card stat-total">
+            <div class="stat-number">0</div>
+            <div class="stat-label">Total Events</div>
+        </div>
+
+        <div class="stat-card stat-blocked">
+            <div class="stat-number">0</div>
+            <div class="stat-label">Commands Blocked</div>
+        </div>
+
+        <div class="stat-card stat-allowed">
+            <div class="stat-number">0</div>
+            <div class="stat-label">Commands Allowed</div>
+        </div>
+
+        <div class="stat-card stat-warning">
+            <div class="stat-number">0</div>
+            <div class="stat-label">Warnings</div>
+        </div>
+
+        <div class="stat-card stat-pending">
+            <div class="stat-number">0</div>
+            <div class="stat-label">Pending Review</div>
+        </div>
+    </div>
+
+    <!-- Agent状态面板 -->
+    <div class="agent-grid">
+        <!-- 活跃Agent列表 -->
+        <div class="agents-panel">
+            <div class="panel-header">[ Active Agents ]</div>
+            <div class="agent-list">
+                <div class="empty-state">暂无活跃代理</div>
+            </div>
+        </div>
+
+        <!-- 活跃会话 -->
+        <div class="sessions-panel">
+            <div class="panel-header">[ Active Sessions ]</div>
+            <div class="session-list">
+                <div class="empty-state">暂无活跃会话</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详细事件列表 -->
+    <div class="events-section">
+        <div class="events-header">
+            [ Real-time Security Events & Agent Context ]
+        </div>
+        <div class="events-detailed">
+            <div class="empty-state" id="events-empty-state">
+                <div style="margin-bottom: 1rem;">等待拦截事件...</div>
+                <div class="connection-status-large" id="connection-status-large">
+                    <div class="status-dot" id="status-dot-large" style="background: var(--danger);"></div>
+                    <span id="connection-text-large">正在连接到监控服务...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 状态指示器 -->
+    <div class="status-bar">
+        <div class="status-dot"></div>
+        <span>REAL-TIME MONITORING</span>
+    </div>
+
+    <!-- 测试按钮（用于演示） -->
+    <div style="position: fixed; bottom: 1rem; left: 1rem; display: flex; gap: 0.5rem;">
+        <button onclick="testSimulate()" style="background: rgba(34, 197, 94, 0.1); border: 1px solid var(--accent-green); color: var(--accent-green); padding: 0.5rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; cursor: pointer;">
+            TEST SIMULATE
+        </button>
+    </div>
+
+    <script>
+        // 语言配置
+        const languages = {
+            zh: {
+                title: 'AEGIS',
+                subtitle: '多代理安全监控 - 暗夜简约版',
+                totalEvents: '总事件',
+                commandsBlocked: '命令已阻止',
+                commandsAllowed: '命令已允许',
+                warnings: '警告',
+                pendingReview: '待审查',
+                activeAgents: '[ 活跃代理 ]',
+                activeSessions: '[ 活跃会话 ]',
+                securityEvents: '[ 实时安全事件与代理上下文 ]',
+                noActiveAgents: '暂无活跃代理',
+                noActiveSessions: '暂无活跃会话',
+                waitingForEvents: '等待拦截事件...',
+                realTimeMonitoring: '实时监控',
+                testSimulate: '测试模拟',
+                connected: '已连接',
+                disconnected: '已断开',
+                connecting: '连接中...',
+                connectedActive: '已连接 - 监控活跃',
+                disconnectedCheck: '已断开 - 请检查服务',
+                langSwitch: 'EN'
+            },
+            en: {
+                title: 'AEGIS',
+                subtitle: 'Multi-Agent Security Monitor - Dark Minimal Edition',
+                totalEvents: 'Total Events',
+                commandsBlocked: 'Commands Blocked',
+                commandsAllowed: 'Commands Allowed',
+                warnings: 'Warnings',
+                pendingReview: 'Pending Review',
+                activeAgents: '[ Active Agents ]',
+                activeSessions: '[ Active Sessions ]',
+                securityEvents: '[ Real-time Security Events & Agent Context ]',
+                noActiveAgents: 'No active agents',
+                noActiveSessions: 'No active sessions',
+                waitingForEvents: 'Waiting for intercept events...',
+                realTimeMonitoring: 'REAL-TIME MONITORING',
+                testSimulate: 'TEST SIMULATE',
+                connected: 'CONNECTED',
+                disconnected: 'DISCONNECTED',
+                connecting: 'CONNECTING...',
+                connectedActive: 'CONNECTED - MONITORING ACTIVE',
+                disconnectedCheck: 'DISCONNECTED - CHECK SERVICE',
+                langSwitch: '中文'
+            }
+        };
+
+        // 当前语言
+        let currentLang = localStorage.getItem('aegis-lang') || 'zh';
+
+        // 切换语言
+        function toggleLanguage() {
+            currentLang = currentLang === 'zh' ? 'en' : 'zh';
+            localStorage.setItem('aegis-lang', currentLang);
+            setLanguage(currentLang);
+        }
+
+        // 应用语言
+        function setLanguage(lang) {
+            const texts = languages[lang];
+
+            // 更新HTML语言属性
+            document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+
+            // 更新页面标题
+            document.title = texts.title + ' - ' + texts.subtitle;
+
+            // 更新副标题
+            document.querySelector('.subtitle').textContent = texts.subtitle;
+
+            // 更新统计卡片标签
+            const statLabels = document.querySelectorAll('.stat-label');
+            const statTexts = [
+                texts.totalEvents,
+                texts.commandsBlocked,
+                texts.commandsAllowed,
+                texts.warnings,
+                texts.pendingReview
+            ];
+            statLabels.forEach((label, index) => {
+                if (statTexts[index]) {
+                    label.textContent = statTexts[index];
+                }
+            });
+
+            // 更新面板标题
+            document.querySelector('.agents-panel .panel-header').textContent = texts.activeAgents;
+            document.querySelector('.sessions-panel .panel-header').textContent = texts.activeSessions;
+            document.querySelector('.events-header').textContent = texts.securityEvents;
+
+            // 更新空状态文本
+            const emptyStates = document.querySelectorAll('.empty-state');
+            if (emptyStates.length >= 3) {
+                emptyStates[0].textContent = texts.noActiveAgents;
+                emptyStates[1].textContent = texts.noActiveSessions;
+                emptyStates[2].textContent = texts.waitingForEvents;
+            }
+
+            // 更新状态栏
+            document.querySelector('.status-bar span').textContent = texts.realTimeMonitoring;
+
+            // 更新测试按钮
+            const testBtn = document.querySelector('button[onclick="testSimulate()"]');
+            if (testBtn) {
+                testBtn.textContent = texts.testSimulate;
+            }
+
+            // 更新语言切换按钮
+            document.getElementById('lang-switch').textContent = texts.langSwitch;
+
+            // 更新连接状态
+            updateConnectionStatus(wsConnected);
+        }
+
+        // 测试模拟函数
+        function testSimulate() {
+            fetch('/api/simulate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            }).then(response => response.json())
+            .then(data => {
+                console.log(currentLang === 'zh' ? '测试事件已生成:' : 'Test event generated:', data);
+            }).catch(error => {
+                console.error(currentLang === 'zh' ? '测试失败:' : 'Test failed:', error);
+            });
+        }
+
+        // WebSocket连接状态
+        const connectionStatusEl = document.getElementById('connection-status');
+        let wsConnected = false;
+
+        function updateConnectionStatus(connected) {
+            wsConnected = connected;
+            const texts = languages[currentLang];
+
+            // 更新右上角连接状态
+            if (connected) {
+                connectionStatusEl.textContent = texts.connected;
+                connectionStatusEl.className = 'connection-status connected';
+            } else {
+                connectionStatusEl.textContent = texts.disconnected;
+                connectionStatusEl.className = 'connection-status disconnected';
+            }
+
+            // 更新大型连接状态显示
+            const largeStatusEl = document.getElementById('connection-status-large');
+            const largeTextEl = document.getElementById('connection-text-large');
+            if (largeStatusEl && largeTextEl) {
+                if (connected) {
+                    largeStatusEl.className = 'connection-status-large connected';
+                    largeTextEl.textContent = texts.connectedActive;
+                } else {
+                    largeStatusEl.className = 'connection-status-large disconnected';
+                    largeTextEl.textContent = texts.disconnectedCheck;
+                }
+            }
+        }
+
+        // 页面加载完成后，WebSocket连接将通过real-time-monitor.js注入的脚本建立
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始化语言
+            setLanguage(currentLang);
+            updateConnectionStatus(false);
+        });
+    </script>
+</body>
+</html>

@@ -14,7 +14,8 @@
     "aegis:test": "node scripts/test.js",
     "aegis:status": "node scripts/status.js",
     "setup": "npm run aegis:setup",
-    "start": "npm run aegis:start",
+    "start": "node real-time-monitor.js",
+    "start:debug": "node src/port-manager.js diagnose && node real-time-monitor.js",
     "stop": "npm run aegis:stop",
     "monitor": "npm run aegis:monitor",
     "test": "npm run aegis:test",
@@ -43,7 +44,21 @@
     "index.js",
     "README.md"
   ],
-  "dependencies": {},
+  "dependencies": {
+    "@types/blessed": "^0.1.27",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.6.0",
+    "@types/shell-quote": "^1.7.5",
+    "blessed": "^0.1.81",
+    "blessed-contrib": "^4.11.0",
+    "commander": "^14.0.3",
+    "express": "^5.2.1",
+    "express-test": "^0.1.2",
+    "js-yaml": "^4.1.1",
+    "shell-quote": "^1.8.3",
+    "typescript": "^6.0.3",
+    "ws": "^8.20.0"
+  },
   "preferGlobal": true,
   "repository": {
     "type": "git",
