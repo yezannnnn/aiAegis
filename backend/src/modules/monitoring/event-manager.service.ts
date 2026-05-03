@@ -36,6 +36,17 @@ export class EventManagerService extends EventEmitter {
     return this.events.get(id);
   }
 
+  updateEventStatus(id: string, status: EventStatus): boolean {
+    const event = this.events.get(id);
+    if (event) {
+      event.status = status;
+      this.events.set(id, event);
+      this.emit('new_event', event);
+      return true;
+    }
+    return false;
+  }
+
   getEvents(): SecurityEvent[] {
     return Array.from(this.events.values())
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
