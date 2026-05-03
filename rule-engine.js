@@ -22,7 +22,7 @@ class AegisRuleEngine {
   loadRules() {
     try {
       if (!fs.existsSync(this.configPath)) {
-        console.error(`[Aegis] 规则文件不存在: ${this.configPath}`);
+        // console.error(`[Aegis] 规则文件不存在: ${this.configPath}`);
         this.useDefaultRules();
         return;
       }
@@ -34,10 +34,9 @@ class AegisRuleEngine {
       this.options = config.options || {};
       this.defaultAction = config.default || { action: 'allow', reason: '默认允许' };
 
-      // 输出到stderr避免污染JSON
-      process.stderr.write(`[Aegis] 规则配置已加载: ${Object.keys(this.rules).length} 个分类\n`);
+      // 完全禁用输出，避免污染JSON
     } catch (error) {
-      console.error(`[Aegis] 加载规则失败: ${error.message}`);
+      // console.error(`[Aegis] 加载规则失败: ${error.message}`);
       this.useDefaultRules();
     }
   }
@@ -159,7 +158,7 @@ class AegisRuleEngine {
       const regex = new RegExp(regexPattern, 'i'); // 不区分大小写
       return regex.test(command);
     } catch (error) {
-      console.error(`[Aegis] 模式匹配错误: ${pattern} - ${error.message}`);
+      // console.error(`[Aegis] 模式匹配错误: ${pattern} - ${error.message}`);
       return false;
     }
   }

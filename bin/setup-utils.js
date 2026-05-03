@@ -128,24 +128,55 @@ class AegisSetupUtils {
     const backendDir = path.join(this.packageDir, 'backend');
     const frontendDir = path.join(this.packageDir, 'frontend');
 
-    // 安装后端依赖
-    const backendSpinner = ora('安装后端依赖...').start();
+    // 检查npm是否可用
     try {
-      await this.runCommand('npm', ['install'], { cwd: backendDir });
-      backendSpinner.succeed('后端依赖安装完成');
+      await this.runCommand('npm', ['--version'], { captureOutput: true });
     } catch (error) {
-      backendSpinner.fail('后端依赖安装失败');
-      throw error;
+      throw new Error('npm 不可用，请确保已安装 Node.js');
+    }
+
+    // 安装后端依赖
+    console.log('🔧 开始安装后端依赖...');
+    try {
+      // 清理可能的缓存问题
+      await this.runCommand('npm', ['cache', 'clean', '--force'], { cwd: backendDir }).catch(() => {
+        console.log('⚠️ 清理npm缓存失败，继续安装...');
+      });
+
+      // 尝试安装，使用更宽松的参数
+      await this.runCommand('npm', ['install', '--no-audit', '--no-fund', '--legacy-peer-deps'], { cwd: backendDir });
+      console.log('✅ 后端依赖安装完成');
+    } catch (error) {
+      console.error('❌ 后端依赖安装失败，尝试备用方案...');
+
+      // 备用方案：只安装核心依赖
+      try {
+        await this.runCommand('npm', ['install', '@nestjs/common@9.4.3', '@nestjs/core@9.4.3', 'express@4.18.2', '--save'], { cwd: backendDir });
+        console.log('✅ 后端核心依赖安装完成');
+      } catch (backupError) {
+        throw new Error(`后端依赖安装失败: ${error.message}`);
+      }
     }
 
     // 安装前端依赖
-    const frontendSpinner = ora('安装前端依赖...').start();
+    console.log('🔧 开始安装前端依赖...');
     try {
-      await this.runCommand('npm', ['install'], { cwd: frontendDir });
-      frontendSpinner.succeed('前端依赖安装完成');
+      await this.runCommand('npm', ['cache', 'clean', '--force'], { cwd: frontendDir }).catch(() => {
+        console.log('⚠️ 清理npm缓存失败，继续安装...');
+      });
+
+      await this.runCommand('npm', ['install', '--no-audit', '--no-fund', '--legacy-peer-deps'], { cwd: frontendDir });
+      console.log('✅ 前端依赖安装完成');
     } catch (error) {
-      frontendSpinner.fail('前端依赖安装失败');
-      throw error;
+      console.error('❌ 前端依赖安装失败，尝试备用方案...');
+
+      // 备用方案：只安装Vue核心
+      try {
+        await this.runCommand('npm', ['install', 'vue@3.2.47', 'vite@4.3.9', '--save'], { cwd: frontendDir });
+        console.log('✅ 前端核心依赖安装完成');
+      } catch (backupError) {
+        throw new Error(`前端依赖安装失败: ${error.message}`);
+      }
     }
   }
 
@@ -267,20 +298,43 @@ class AegisSetupUtils {
    */
   runCommand(command, args, options = {}) {
     return new Promise((resolve, reject) => {
+      console.log(`🔧 执行命令: ${command} ${args.join(' ')}`);
+
       const child = spawn(command, args, {
-        stdio: 'pipe',
+        stdio: 'inherit', // 改为inherit，直接显示输出
         ...options
       });
+
+      let stdout = '';
+      let stderr = '';
+
+      // 如果需要捕获输出，使用pipe模式
+      if (options.captureOutput) {
+        child.stdout?.on('data', (data) => {
+          stdout += data.toString();
+        });
+
+        child.stderr?.on('data', (data) => {
+          stderr += data.toString();
+          console.error(`❌ ${data.toString()}`);
+        });
+      }
 
       child.on('close', (code) => {
         if (code === 0) {
           resolve();
         } else {
-          reject(new Error(`命令失败，退出码: ${code}`));
+          const errorMsg = stderr || `命令失败，退出码: ${code}`;
+          console.error(`❌ 命令执行失败: ${command} ${args.join(' ')}`);
+          console.error(`❌ 错误信息: ${errorMsg}`);
+          reject(new Error(errorMsg));
         }
       });
 
-      child.on('error', reject);
+      child.on('error', (error) => {
+        console.error(`❌ 进程错误: ${error.message}`);
+        reject(error);
+      });
     });
   }
 

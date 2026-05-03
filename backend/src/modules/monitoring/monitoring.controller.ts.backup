@@ -4,18 +4,6 @@ import { MonitoringService } from './monitoring.service';
 import { CreateEventDto, EventStatsDto, RiskLevel, EventStatus } from './dto';
 import { WebSocketGateway } from '../websocket/websocket.gateway';
 
-// 审批状态管理
-interface PendingApproval {
-  id: string;
-  sessionId: string;
-  command: string;
-  timestamp: Date;
-  status: 'pending' | 'approved' | 'denied';
-  reason?: string;
-}
-
-const pendingApprovals = new Map<string, PendingApproval>();
-
 @ApiTags('monitoring')
 @Controller('api/monitoring')
 export class MonitoringController {
@@ -72,24 +60,8 @@ export class MonitoringController {
   async handleApprovalRequest(@Body() approvalData: any) {
     console.log('🔔 收到Hook审批请求:', approvalData);
 
-    // 生成唯一的审批ID
-    const approvalId = `approval-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    // 存储待审批请求
-    const pendingApproval: PendingApproval = {
-      id: approvalId,
-      sessionId: approvalData.sessionId,
-      command: approvalData.command,
-      timestamp: new Date(),
-      status: 'pending',
-      reason: approvalData.context?.ruleEngine?.reason || '需要审批的命令'
-    };
-
-    pendingApprovals.set(approvalId, pendingApproval);
-
     // 广播审批请求到前端（用于弹出审批框）
     this.webSocketGateway.broadcastApprovalRequest({
-      approvalId: approvalId,
       sessionId: approvalData.sessionId,
       command: approvalData.command,
       agent: approvalData.agentType,
@@ -101,7 +73,6 @@ export class MonitoringController {
 
     // 🔔 发送event_update事件到前端（用于更新事件列表）
     this.webSocketGateway.server.emit('event_update', {
-      approvalId: approvalId,
       command: approvalData.command,
       agent: approvalData.agentType || 'Claude Code',
       sessionId: approvalData.sessionId,
@@ -109,7 +80,8 @@ export class MonitoringController {
       cwd: process.cwd(),
       reason: approvalData.context?.ruleEngine?.reason || '命令事件',
       action: approvalData.context?.ruleEngine?.action || 'unknown',
-      status: 'pending'
+      status: approvalData.context?.ruleEngine?.action === 'allow' ? 'allowed' :
+              approvalData.context?.ruleEngine?.action === 'deny' ? 'blocked' : 'pending'
     });
 
     // 创建监控事件
@@ -122,95 +94,12 @@ export class MonitoringController {
       description: approvalData.context?.ruleEngine?.reason || '待审批命令'
     });
 
-    // 返回审批ID供Hook轮询使用
+    // 这里应该等待用户的审批决定，暂时返回待审批状态
     return {
       success: true,
-      message: '审批请求已创建，等待用户决定',
-      approvalId: approvalId,
+      message: '审批请求已收到，等待用户决定',
       sessionId: approvalData.sessionId,
       eventId: event.data.id
-    };
-  }
-
-  @Get('approval-status/:approvalId')
-  @ApiOperation({ summary: '查询审批状态' })
-  getApprovalStatus(@Param('approvalId') approvalId: string) {
-    const approval = pendingApprovals.get(approvalId);
-
-    if (!approval) {
-      return {
-        success: false,
-        message: '审批请求不存在',
-        status: 'not_found'
-      };
-    }
-
-    return {
-      success: true,
-      approvalId: approvalId,
-      status: approval.status,
-      command: approval.command,
-      reason: approval.reason,
-      timestamp: approval.timestamp
-    };
-  }
-
-  @Post('approval-decision/:approvalId')
-  @ApiOperation({ summary: '处理审批决定' })
-  async handleApprovalDecision(
-    @Param('approvalId') approvalId: string,
-    @Body() decision: { action: 'approve' | 'deny', reason?: string }
-  ) {
-    console.log(`🔔 收到审批决定请求: ${approvalId} -> ${decision.action}`);
-
-    const approval = pendingApprovals.get(approvalId);
-
-    if (!approval) {
-      console.error(`❌ 审批请求不存在: ${approvalId}`);
-      return {
-        success: false,
-        message: '审批请求不存在'
-      };
-    }
-
-    if (approval.status !== 'pending') {
-      console.error(`❌ 审批已处理: ${approvalId} 当前状态: ${approval.status}`);
-      return {
-        success: false,
-        message: '审批已处理，无法重复操作'
-      };
-    }
-
-    // 更新审批状态
-    approval.status = decision.action === 'approve' ? 'approved' : 'denied';
-    approval.reason = decision.reason || approval.reason;
-
-    pendingApprovals.set(approvalId, approval);
-
-    console.log(`✅ 审批决定已更新: ${approvalId} -> ${approval.status}`);
-    console.log(`📊 当前待审批数量: ${pendingApprovals.size}`);
-
-    // 广播审批结果到前端
-    this.webSocketGateway.server.emit('approval_decision', {
-      approvalId: approvalId,
-      status: approval.status,
-      command: approval.command,
-      reason: approval.reason
-    });
-
-    console.log(`📡 已广播审批结果到前端: ${approvalId}`);
-
-    // 5分钟后清理已处理的审批记录
-    setTimeout(() => {
-      pendingApprovals.delete(approvalId);
-      console.log(`🗑️ 清理审批记录: ${approvalId}`);
-    }, 5 * 60 * 1000);
-
-    return {
-      success: true,
-      approvalId: approvalId,
-      status: approval.status,
-      message: `命令已${approval.status === 'approved' ? '批准' : '拒绝'}`
     };
   }
 }

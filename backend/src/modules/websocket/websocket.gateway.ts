@@ -15,7 +15,6 @@ import { EventManagerService } from '../monitoring/event-manager.service';
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true,
   },
-  namespace: '/monitor',
 })
 export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
@@ -53,13 +52,13 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   }
 
   @SubscribeMessage('ping')
-  handlePing(@ConnectedSocket() client: Socket) {
-    client.emit('pong');
+  handlePing(@MessageBody() data: any, @ConnectedSocket() client: Socket) {
+    client.emit('pong', data);
   }
 
   @SubscribeMessage('get_stats')
   handleGetStats(@ConnectedSocket() client: Socket) {
-    client.emit('stats_response', this.eventManager.getStats());
+    client.emit('stats_update', this.eventManager.getStats());
   }
 
   @SubscribeMessage('approval_response')

@@ -6,7 +6,7 @@
 const http = require('http');
 const path = require('path');
 
-const AEGIS_PORT = 9876;
+const AEGIS_PORT = 3001;
 const MAX_STDIN = 1024 * 1024;
 
 // 加载规则引擎
@@ -125,7 +125,7 @@ async function sendToMonitor(command, ruleResult = null) {
     const options = {
       hostname: '127.0.0.1',
       port: AEGIS_PORT,
-      path: '/hook-event',
+      path: '/api/monitoring/approval-request',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
