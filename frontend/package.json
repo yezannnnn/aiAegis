@@ -1,0 +1,40 @@
+{
+  "name": "aegis-frontend",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Aegis AI Security Monitor - Vue Frontend",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "vue": "^3.2.47",
+    "vue-router": "^4.1.6",
+    "pinia": "^2.0.36",
+    "element-plus": "^2.3.4",
+    "@element-plus/icons-vue": "^2.1.0",
+    "axios": "^1.4.0",
+    "socket.io-client": "^4.6.1",
+    "dayjs": "^1.11.7",
+    "@vueuse/core": "^10.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.16.3",
+    "@vitejs/plugin-vue": "^4.2.3",
+    "@vue/eslint-config-prettier": "^7.1.0",
+    "@vue/eslint-config-typescript": "^11.0.3",
+    "@vue/tsconfig": "^0.4.0",
+    "eslint": "^8.43.0",
+    "eslint-plugin-vue": "^9.14.1",
+    "prettier": "^2.8.8",
+    "sass": "^1.62.1",
+    "typescript": "^5.1.3",
+    "unplugin-auto-import": "^0.16.4",
+    "unplugin-vue-components": "^0.25.1",
+    "vite": "^4.3.9",
+    "vue-tsc": "^1.6.5"
+  }
+}

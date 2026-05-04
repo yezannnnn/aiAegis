@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "name": "aegis",
   "version": "1.0.0",
   "description": "AI Agent Security Monitor",
@@ -29,3 +30,58 @@
     "typescript": "^5.0.0"
   }
 }
+=======
+  "name": "aegis-security-monitor",
+  "version": "2.0.0",
+  "description": "AI Agent Security Monitor - Complete Solution",
+  "main": "index.js",
+  "bin": {
+    "aegis": "./bin/aegis.js"
+  },
+  "scripts": {
+    "postinstall": "node bin/post-install.js",
+    "dev": "./start.sh",
+    "build": "npm run build --prefix backend && npm run build --prefix frontend"
+  },
+  "keywords": [
+    "ai",
+    "security",
+    "monitor",
+    "agent",
+    "cli",
+    "nestjs",
+    "vue"
+  ],
+  "author": "Aegis Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "commander": "^11.0.0",
+    "chalk": "^4.1.2",
+    "ora": "^5.4.1",
+    "inquirer": "^8.2.4",
+    "fs-extra": "^11.0.0",
+    "child_process": "^1.0.2",
+    "path": "^0.12.7",
+    "cross-spawn": "^7.0.3"
+  },
+  "files": [
+    "bin/",
+    "backend/",
+    "frontend/",
+    "README.md",
+    "start.sh",
+    "install.sh"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yezannnnn/aegis-v2.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yezannnnn/aegis-v2/issues"
+  },
+  "homepage": "https://github.com/yezannnnn/aegis-v2#readme"
+}
+>>>>>>> origin/master
