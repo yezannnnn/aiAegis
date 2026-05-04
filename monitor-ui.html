@@ -889,7 +889,292 @@
             }
         }
 
-        // 页面加载完成后，WebSocket连接将通过real-time-monitor.js注入的脚本建立
+        // ===== 审批处理函数 (修复缺失的关键函数) =====
+
+        // 处理审批通知 - 在界面显示审批请求
+        function handleApprovalNotification_Real(data) {
+            console.log('🔔 收到审批请求:', data);
+
+            // 创建审批弹窗
+            showApprovalModal(data);
+
+            // 更新待审批统计
+            if (stats && typeof stats.pending !== 'undefined') {
+                stats.pending = (stats.pending || 0) + 1;
+                updateStats();
+            }
+        }
+
+        // 处理双重审批通知
+        function handleDualApprovalNotification_Real(data) {
+            console.log('🔔 收到双重审批请求:', data);
+            showApprovalModal(data);
+        }
+
+        // 保持原函数名作为向后兼容
+        function handleApprovalNotification(data) {
+            handleApprovalNotification_Real(data);
+        }
+
+        function handleDualApprovalNotification(data) {
+            handleDualApprovalNotification_Real(data);
+        }
+
+        // 显示审批模态框
+        function showApprovalModal(approvalData) {
+            console.log('🎯 显示审批模态框，数据:', approvalData);
+
+            // 移除已存在的模态框
+            const existingModal = document.querySelector('.approval-modal');
+            if (existingModal) {
+                console.log('删除现有模态框');
+                existingModal.remove();
+            }
+
+            // 提取数据字段 (适配实际数据结构)
+            const sessionId = approvalData.sessionId || 'unknown';
+            const command = approvalData.command || approvalData.payload?.command || 'unknown';
+            const agentName = approvalData.agent || approvalData.agentType || 'Claude Code';
+            const riskLevel = approvalData.risk || 'UNKNOWN';
+            const workingDir = approvalData.cwd || approvalData.context?.cwd || '/unknown';
+            const reason = approvalData.reason || approvalData.description || `${riskLevel} 风险命令`;
+
+            console.log('📋 解析后的数据:', { sessionId, command, agentName, riskLevel, workingDir, reason });
+
+            // 创建模态框HTML
+            const modal = document.createElement('div');
+            modal.className = 'approval-modal';
+            modal.innerHTML = `
+                <div class="modal-backdrop"></div>
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>🛡️ 命令审批请求</h2>
+                        <span class="session-id">Session: ${sessionId}</span>
+                        <span class="risk-badge risk-${riskLevel.toLowerCase()}">${riskLevel} 风险</span>
+                    </div>
+                    <div class="modal-body">
+                        <div class="command-info">
+                            <label>命令:</label>
+                            <code class="command-text">${command}</code>
+                        </div>
+                        <div class="context-info">
+                            <label>执行目录:</label>
+                            <span>${workingDir}</span>
+                        </div>
+                        <div class="agent-info">
+                            <label>AI代理:</label>
+                            <span>${agentName}</span>
+                        </div>
+                        <div class="reason-info">
+                            <label>检测原因:</label>
+                            <span>${reason}</span>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-deny" onclick="handleApprovalDecision('${sessionId}', false)">
+                            ❌ 拒绝执行
+                        </button>
+                        <button class="btn-approve" onclick="handleApprovalDecision('${sessionId}', true)">
+                            ✅ 批准执行
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // 添加样式
+            const style = document.createElement('style');
+            style.textContent = `
+                .approval-modal {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    z-index: 1000;
+                }
+                .modal-backdrop {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.8);
+                }
+                .modal-content {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: var(--bg-primary);
+                    border: 1px solid var(--border-accent);
+                    border-radius: 8px;
+                    padding: 2rem;
+                    min-width: 500px;
+                    max-width: 800px;
+                }
+                .modal-header h2 {
+                    color: var(--accent-green);
+                    margin-bottom: 0.5rem;
+                }
+                .session-id {
+                    color: var(--text-secondary);
+                    font-size: 0.8rem;
+                }
+                .risk-badge {
+                    display: inline-block;
+                    padding: 0.2rem 0.5rem;
+                    border-radius: 3px;
+                    font-size: 0.7rem;
+                    font-weight: bold;
+                    margin-left: 1rem;
+                }
+                .risk-badge.risk-low {
+                    background: var(--accent-green);
+                    color: var(--bg-primary);
+                }
+                .risk-badge.risk-medium {
+                    background: var(--warning);
+                    color: var(--bg-primary);
+                }
+                .risk-badge.risk-high, .risk-badge.risk-critical {
+                    background: var(--danger);
+                    color: white;
+                }
+                .modal-body {
+                    margin: 1.5rem 0;
+                }
+                .modal-body > div {
+                    margin-bottom: 1rem;
+                }
+                .modal-body label {
+                    display: inline-block;
+                    width: 100px;
+                    color: var(--text-secondary);
+                    font-size: 0.9rem;
+                }
+                .command-text {
+                    background: var(--bg-card);
+                    padding: 0.5rem;
+                    border-radius: 4px;
+                    color: var(--accent-green);
+                    font-family: 'JetBrains Mono', monospace;
+                }
+                .modal-actions {
+                    display: flex;
+                    gap: 1rem;
+                    justify-content: center;
+                }
+                .btn-approve, .btn-deny {
+                    padding: 0.8rem 1.5rem;
+                    border: none;
+                    border-radius: 4px;
+                    font-family: 'JetBrains Mono', monospace;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                }
+                .btn-approve {
+                    background: var(--accent-green);
+                    color: var(--bg-primary);
+                }
+                .btn-approve:hover {
+                    background: #16a085;
+                }
+                .btn-deny {
+                    background: var(--danger);
+                    color: white;
+                }
+                .btn-deny:hover {
+                    background: #c0392b;
+                }
+            `;
+
+            // 添加到页面
+            try {
+                console.log('📌 添加样式到head');
+                document.head.appendChild(style);
+
+                console.log('📌 添加模态框到body');
+                document.body.appendChild(modal);
+
+                console.log('✅ 模态框已添加到DOM');
+
+                // 验证模态框是否存在
+                const addedModal = document.querySelector('.approval-modal');
+                if (addedModal) {
+                    console.log('✅ 模态框DOM验证成功');
+                } else {
+                    console.error('❌ 模态框DOM验证失败');
+                }
+
+            } catch (error) {
+                console.error('❌ 添加模态框到DOM时出错:', error);
+            }
+        }
+
+        // 处理审批决定
+        function handleApprovalDecision(sessionId, approved) {
+            console.log(`📝 审批决定: ${sessionId} - ${approved ? '批准' : '拒绝'}`);
+
+            // 发送审批决定到后端
+            fetch('/api/approval', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    sessionId: sessionId,
+                    approved: approved,
+                    reason: approved ? '用户批准' : '用户拒绝',
+                    timestamp: new Date().toISOString()
+                })
+            }).then(response => {
+                if (response.ok) {
+                    console.log('✅ 审批决定已发送');
+                } else {
+                    console.error('❌ 发送审批决定失败');
+                }
+            }).catch(error => {
+                console.error('❌ 发送审批决定出错:', error);
+            });
+
+            // 移除模态框
+            const modal = document.querySelector('.approval-modal');
+            if (modal) {
+                modal.remove();
+            }
+
+            // 更新统计
+            if (stats && typeof stats.pending !== 'undefined' && stats.pending > 0) {
+                stats.pending = stats.pending - 1;
+                if (approved) {
+                    stats.allowed = (stats.allowed || 0) + 1;
+                } else {
+                    stats.blocked = (stats.blocked || 0) + 1;
+                }
+                updateStats();
+            }
+        }
+
+        // 添加事件到UI - 实际实现
+        function addEventToUI_Real(event) {
+            console.log('📊 添加新事件到界面:', event);
+
+            // 这里可以添加事件显示逻辑
+            // 暂时只在控制台显示
+        }
+
+        // 更新UI - 实际实现
+        function updateUI_Real(initialData) {
+            console.log('🔄 更新界面状态:', initialData);
+
+            if (initialData.stats) {
+                stats = initialData.stats;
+                updateStats();
+            }
+        }
+
+        // 页面加载完成后，WebSocket连接将通过TypeScript监控系统注入的脚本建立
         document.addEventListener('DOMContentLoaded', () => {
             // 初始化语言
             setLanguage(currentLang);

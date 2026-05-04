@@ -1,0 +1,106 @@
+# Aegis AI Security Rules Configuration
+# 类似ESLint的规则配置系统
+
+# 规则说明:
+# allow: 直接允许执行
+# deny: 直接阻止执行
+# review: 需要用户审核确认
+
+rules:
+  # 开发工具类 - 通常安全
+  development:
+    - pattern: "git (add|commit|status|log|diff|pull)"
+      action: allow
+      reason: "常规Git操作"
+
+    - pattern: "npm (start|test|run)"
+      action: allow
+      reason: "标准NPM脚本"
+
+    - pattern: "node .*\\.js"
+      action: allow
+      reason: "Node.js脚本执行"
+
+  # 危险操作类 - 需要审核或禁止
+  dangerous:
+    - pattern: "rm -rf /"
+      action: deny
+      reason: "删除根目录，极度危险"
+
+    - pattern: "rm -rf /usr|/bin|/sbin|/etc"
+      action: deny
+      reason: "删除系统目录，禁止执行"
+
+    - pattern: "rm -rf .*"
+      action: review
+      reason: "递归强制删除，需要确认"
+
+    - pattern: "sudo rm .*"
+      action: review
+      reason: "sudo删除操作，需要确认"
+
+    - pattern: "chmod 777 .*"
+      action: review
+      reason: "设置777权限，安全风险"
+
+  # 网络操作类 - 部分需要审核
+  network:
+    - pattern: "curl .*\\| (bash|sh)"
+      action: review
+      reason: "下载并执行脚本，安全风险"
+
+    - pattern: "wget .*\\| (bash|sh)"
+      action: review
+      reason: "下载并执行脚本，安全风险"
+
+    - pattern: "curl -s .*"
+      action: allow
+      reason: "静默网络请求"
+
+    - pattern: "ping .*"
+      action: allow
+      reason: "网络连接测试"
+
+  # 包管理类 - 需要审核
+  packages:
+    - pattern: "npm install .*"
+      action: review
+      reason: "安装NPM包，需要确认"
+
+    - pattern: "pip install .*"
+      action: review
+      reason: "安装Python包，需要确认"
+
+    - pattern: "apt install .*"
+      action: review
+      reason: "安装系统包，需要确认"
+
+  # 系统操作类
+  system:
+    - pattern: "docker run .*"
+      action: review
+      reason: "Docker容器操作，需要确认"
+
+    - pattern: "systemctl (start|stop|restart) .*"
+      action: review
+      reason: "系统服务操作，需要确认"
+
+    - pattern: "ps aux|top|htop|ls|pwd|whoami|date"
+      action: allow
+      reason: "系统信息查询"
+
+# 默认规则 - 当没有匹配时
+default:
+  action: allow
+  reason: "未匹配规则，默认允许"
+
+# 配置选项
+options:
+  # 审核超时时间(秒)
+  review_timeout: 30
+
+  # 是否记录所有命令
+  log_all_commands: true
+
+  # 是否启用严格模式(未匹配规则时拒绝)
+  strict_mode: false

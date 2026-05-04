@@ -23,12 +23,12 @@ rules:
   - pattern: "\\\\brm\\\\s+(-[^\\\\s]*\\\\s+)*(~|\\\\$HOME)(/?|/\\\\*)?(\\\\s|$)"
     description: "recursive delete of home directory"
     category: "file-system"
-    severity: block
+    severity: error
 
   - pattern: "\\\\brm\\\\s+(-[^\\\\s]*\\\\s+)*(/tmp/aegis-test)(\\\\s|$)"
     description: "delete aegis test directory"
     category: "file-system"
-    severity: block
+    severity: error
 
   - pattern: "\\\\bmkfs(\\\\.[a-z0-9]+)?\\\\b"
     description: "format filesystem"
@@ -145,6 +145,17 @@ rules:
   - pattern: "\\\\bgit\\\\s+branch\\\\s+-D\\\\b"
     description: "git branch force delete"
     category: "git"
+    severity: error
+
+  # Test command for approval demo - must be first to match
+  - pattern: "\\\\btouch\\\\s+.*demo-approval"
+    description: "test approval demo command"
+    category: "test-demo"
+    severity: error
+
+  - pattern: "\\\\becho\\\\s+.*test-approval"
+    description: "test approval command"
+    category: "test"
     severity: error
 
   # Database

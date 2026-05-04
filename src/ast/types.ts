@@ -148,3 +148,60 @@ export interface ASTRule {
   // 风险评估函数
   assessRisk: (ast: CommandNode, context: CommandContext) => RiskAssessment;
 }
+
+// =========================================================================
+// Rules Engine Types (for compatibility)
+// =========================================================================
+
+export type RuleSeverity = 'off' | 'warn' | 'error' | 'block';
+
+export interface MatchResult {
+  matched: boolean;
+  severity?: RuleSeverity;
+  description?: string;
+  source?: string;
+  metadata?: {
+    riskLevel?: RiskLevel;
+    riskScore?: number;
+    confidence?: number;
+    triggeredRules?: string[];
+    suggestions?: any;
+    // 允许语义解析的额外字段
+    ast?: any;
+    context?: any;
+    semanticFeatures?: any;
+    parseError?: string;
+    command?: string;
+    cwd?: string;
+    [key: string]: any; // 允许任意额外属性
+  };
+}
+
+export interface RuleDef {
+  id?: string;
+  description: string;
+  defaultSeverity: RuleSeverity;
+  pattern?: string | RegExp;
+  conditions?: any;
+  assess?: (command: string, context?: any) => any;
+  category?: string;
+  source?: string;
+}
+
+export interface ResolvedRule {
+  def: RuleDef;
+  severity: RuleSeverity;
+  source?: string;
+  resolved?: true;
+}
+
+export interface RulePackage {
+  name: string;
+  version: string;
+  rules: Record<string, RuleDef>;
+}
+
+export interface UserRuleOverrides {
+  extends?: string[];
+  rules?: Record<string, RuleSeverity | [RuleSeverity, any]>;
+}

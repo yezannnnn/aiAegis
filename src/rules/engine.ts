@@ -10,7 +10,7 @@
  */
 
 import * as shellQuote from "shell-quote";
-import { RuleDef, ResolvedRule, RuleSeverity, MatchResult } from "../types";
+import { RuleDef, ResolvedRule, RuleSeverity, MatchResult } from "../ast/types";
 
 export interface EngineConfig {
   /** Default behavior when no rule matches */
@@ -74,6 +74,7 @@ export function normalizeCommand(command: string): string {
  */
 function matchRuleDef(normalized: string, rule: RuleDef): boolean {
   try {
+    if (!rule.pattern) return false;
     return new RegExp(rule.pattern, "i").test(normalized);
   } catch {
     return false;
@@ -180,6 +181,7 @@ function severityRank(s: RuleSeverity): number {
     case "error": return 2;
     case "warn": return 1;
     case "off": return 0;
+    default: return 0;
   }
 }
 

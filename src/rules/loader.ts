@@ -15,8 +15,8 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import * as yaml from "js-yaml";
-import { RuleDef, RulePackage, RuleSeverity, UserRuleOverrides, ResolvedRule } from "../types";
+import { parse as parseYAML } from "yaml";
+import { RuleDef, RulePackage, RuleSeverity, UserRuleOverrides, ResolvedRule } from "../ast/types";
 import { mergeRuleDefs, resolveRules } from "./engine";
 
 /** Raw structure of a rules.yaml config file (user-side) */
@@ -112,7 +112,7 @@ function loadPackageRulesJson(filePath: string): RuleDef[] {
 
 function loadPackageRules(filePath: string): RuleDef[] {
   const content = fs.readFileSync(filePath, "utf-8");
-  const pkg = yaml.load(content) as RawRulePackage;
+  const pkg = parseYAML(content) as RawRulePackage;
 
   if (!pkg.rules) return [];
 
@@ -171,7 +171,7 @@ async function loadExtendsRules(ref: string, errors: string[]): Promise<RuleDef[
           return [];
         }
         const text = await resp.text();
-        const pkg = yaml.load(text) as RawRulePackage;
+        const pkg = parseYAML(text) as RawRulePackage;
         if (!pkg.rules) return [];
         return pkg.rules.map((r) => ({
           pattern: r.pattern,
@@ -226,7 +226,7 @@ export async function loadRules(userConfigPath: string): Promise<LoadResult> {
   // Load user config
   if (fs.existsSync(userConfigPath)) {
     try {
-      const raw = yaml.load(fs.readFileSync(userConfigPath, "utf-8")) as RawUserConfig;
+      const raw = parseYAML(fs.readFileSync(userConfigPath, "utf-8")) as RawUserConfig;
       extendsRefs = raw.extends || [];
       userOverrides = raw.rules || {};
       sources.push(userConfigPath);
@@ -249,7 +249,14 @@ export async function loadRules(userConfigPath: string): Promise<LoadResult> {
 
   // Merge
   const definitions = mergeRuleDefs(allDefs);
-  const rules = resolveRules(definitions, userOverrides);
+  // Process user overrides to extract severity values
+  const processedOverrides: Record<string, RuleSeverity> = {};
+  if (userOverrides.rules) {
+    for (const [key, value] of Object.entries(userOverrides.rules)) {
+      processedOverrides[key] = Array.isArray(value) ? value[0] : value;
+    }
+  }
+  const rules = resolveRules(definitions, processedOverrides);
 
   return { rules, definitions, overrides: userOverrides, sources, errors };
 }

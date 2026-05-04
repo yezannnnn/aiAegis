@@ -1,7 +1,0 @@
-# Aegis Plugin Manifest for Hermes
-name: aegis
-version: "0.1.0"
-description: "Aegis — AI Agent dangerous operation interceptor"
-author: "Aegis"
-provides_hooks:
-  - pre_tool_call

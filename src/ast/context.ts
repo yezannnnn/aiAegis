@@ -56,7 +56,7 @@ export class ContextAnalyzer {
 
       // 获取当前分支
       try {
-        gitInfo.currentBranch = execSync('git branch --show-current', {
+        gitInfo.currentBranch = execSync('git rev-parse --abbrev-ref HEAD', {
           cwd,
           encoding: 'utf8'
         }).trim();

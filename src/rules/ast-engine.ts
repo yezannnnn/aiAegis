@@ -1,29 +1,28 @@
 /**
- * AST-based Rules Engine — 基于语义解析的风险评估引擎
+ * AST-based Semantic Engine — 纯语义解析引擎 (无风险评估)
  *
- * 替代正则匹配，提供语义级命令理解和上下文感知风险评估
- * 大幅降低误报率：从25-40% → 5-10%
+ * 只提供命令语义解析和上下文信息，让YAML规则系统做风险判断
  */
 
 import { CommandParser } from '../ast/parser';
 import { ContextAnalyzer } from '../ast/context';
 import { ASTRuleEngine } from '../ast/rules';
-import { MatchResult, RuleSeverity } from '../types';
+import { MatchResult } from '../ast/types';
 import { EngineConfig } from './engine';
 
 export class ASTCommandEngine {
   private parser: CommandParser;
   private contextAnalyzer: ContextAnalyzer;
-  private ruleEngine: ASTRuleEngine;
+  private semanticEngine: ASTRuleEngine;
 
   constructor() {
     this.parser = new CommandParser();
     this.contextAnalyzer = new ContextAnalyzer();
-    this.ruleEngine = new ASTRuleEngine();
+    this.semanticEngine = new ASTRuleEngine();
   }
 
   /**
-   * AST-based command matching - 替代正则模式匹配
+   * AST-based semantic parsing - 只解析语义，不评估风险
    */
   async matchCommand(
     command: string,
@@ -37,98 +36,54 @@ export class ASTCommandEngine {
       // Step 2: 分析执行上下文
       const context = await this.contextAnalyzer.analyzeContext(cwd);
 
-      // Step 3: 基于 AST + 上下文评估风险
-      const riskAssessment = await this.ruleEngine.assessCommand(ast, context);
+      // Step 3: 获取语义特征 (不做风险评估)
+      const semanticResult = await this.semanticEngine.assessCommand(ast, context);
 
-      // Step 4: 转换为兼容的 MatchResult
-      return this.convertToMatchResult(riskAssessment);
+      // Step 4: 返回语义解析结果，让YAML规则决定风险
+      return {
+        matched: false, // 让YAML规则系统决定是否匹配
+        metadata: {
+          // 提供完整的语义信息供YAML规则使用
+          ast: {
+            binary: ast.binary,
+            subcommand: ast.subcommand,
+            flags: ast.flags.map(f => f.name),
+            arguments: ast.arguments.map(a => a.value),
+          },
+          context: {
+            cwd,
+            git: context.git,
+            project: context.project,
+            system: context.system,
+          },
+          // 从新语义引擎获取的特征
+          semanticFeatures: semanticResult.metadata?.semanticFeatures || {},
+        }
+      };
 
     } catch (error) {
-      // 解析失败时降级到安全模式
+      // 解析失败时返回基本信息
       console.warn(`AST parsing failed for command: ${command}`, error);
 
-      if (config.defaultMode === "deny") {
-        return {
-          matched: true,
-          severity: "error",
-          description: "AST parsing failed - safety fallback",
-          source: "ast-engine-fallback"
-        };
-      }
-
-      return { matched: false };
+      return {
+        matched: false,
+        metadata: {
+          parseError: error instanceof Error ? error.message : 'Unknown parsing error',
+          command,
+          cwd
+        }
+      };
     }
   }
 
   /**
-   * 将 RiskAssessment 转换为兼容的 MatchResult
+   * 获取详细的语义解析报告（用于Monitor显示）
    */
-  private convertToMatchResult(
-    assessment: import('../ast/types').RiskAssessment
-  ): MatchResult {
-    const { level, score, reasoning, triggeredRules } = assessment;
-
-    // 如果没有触发任何规则，视为安全
-    if (level === 'SAFE' || triggeredRules.length === 0) {
-      return { matched: false };
-    }
-
-    // 映射 AST 风险级别到规则严重性
-    const severity = this.mapRiskLevelToSeverity(level, score);
-
-    // 生成描述信息
-    const description = reasoning.length > 0
-      ? reasoning[0]
-      : `${level} risk detected`;
-
-    // 添加上下文信息到描述
-    const contextInfo = reasoning.length > 1
-      ? ` (${reasoning.slice(1).join(', ')})`
-      : '';
-
-    return {
-      matched: true,
-      severity,
-      description: description + contextInfo,
-      source: triggeredRules.join(', ') || 'ast-rules',
-      // 附加 AST 特有信息
-      metadata: {
-        riskLevel: level,
-        riskScore: score,
-        confidence: assessment.confidence,
-        triggeredRules,
-        suggestions: assessment.suggestions
-      }
-    };
-  }
-
-  /**
-   * 将 AST 风险级别映射到规则严重性
-   */
-  private mapRiskLevelToSeverity(level: string, score: number): RuleSeverity {
-    switch (level) {
-      case 'CRITICAL':
-        return 'block';  // 自动拒绝
-      case 'HIGH':
-        return score >= 85 ? 'block' : 'error';  // 高分数直接拒绝
-      case 'MEDIUM':
-        return 'error';  // 需要用户确认
-      case 'LOW':
-        return 'warn';   // 仅通知
-      case 'SAFE':
-      default:
-        return 'off';    // 不匹配
-    }
-  }
-
-  /**
-   * 获取详细的风险报告（用于Monitor显示）
-   */
-  async getDetailedRiskReport(command: string, cwd: string = process.cwd()) {
+  async getDetailedSemanticReport(command: string, cwd: string = process.cwd()) {
     try {
       const ast = this.parser.parse(command);
       const context = await this.contextAnalyzer.analyzeContext(cwd);
-      const assessment = await this.ruleEngine.assessCommand(ast, context);
+      const semanticResult = await this.semanticEngine.assessCommand(ast, context);
 
       return {
         command,
@@ -143,7 +98,7 @@ export class ASTCommandEngine {
           project: context.project,
           system: context.system
         },
-        assessment,
+        semanticFeatures: semanticResult.metadata?.semanticFeatures || {},
         timestamp: new Date().toISOString()
       };
     } catch (error) {

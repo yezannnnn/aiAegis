@@ -39,6 +39,10 @@ let sessions = new Map(); // 用户会话信息
 let pendingApprovals = new Map();
 let wsClients = new Set(); // WebSocket客户端
 
+// 🔄 双向同步状态管理
+let dualApprovalSync = new Map(); // sessionId -> approval state
+const SYNC_FILE = path.join(require('os').homedir(), '.aegis', 'approval-sync.json');
+
 // Agent CLI 配置
 const agentConfigs = {
   'hermes': { name: 'Hermes', color: '#FF6B6B', icon: '🔥' },
@@ -243,6 +247,13 @@ server = http.createServer((req, res) => {
 
               case 'session_update':
                 updateSessionList(data.sessions);
+                break;
+
+              case 'approval_request':
+                // 🚨 紧急审批请求通知
+                handleApprovalNotification(data);
+                addEventToUI(data);
+                updateStats();
                 break;
             }
           } catch (e) {
@@ -526,16 +537,16 @@ server = http.createServer((req, res) => {
             const contextTags = eventElement.querySelectorAll('.context-tag');
             const userContext = eventElement.querySelector('.event-user-context').textContent;
 
-            let details = \`🛡️ AEGIS SECURITY DETAILS\\n\`;
-            details += \`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\\n\\n\`;
-            details += \`📋 Command: \${command}\\n\\n\`;
+            let details = '🛡️ AEGIS SECURITY DETAILS\n';
+            details += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+            details += '📋 Command: ' + command + '\n\n';
 
             contextTags.forEach(tag => {
-              details += \`📊 \${tag.textContent}\\n\`;
+              details += '📊 ' + tag.textContent + '\n';
             });
 
-            details += \`\\n👤 \${userContext}\\n\\n\`;
-            details += \`⚠️  This command requires manual approval due to security policies.\\n\`;
+            details += '\n👤 ' + userContext + '\n\n';
+            details += '⚠️  This command requires manual approval due to security policies.\n';
             details += \`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\`;
 
             // 创建自定义弹窗而不是使用alert
@@ -544,6 +555,75 @@ server = http.createServer((req, res) => {
             // 临时使用alert，稍后可以改为自定义模态框
             alert(details);
           }
+        }
+
+        // 🚨 处理紧急审批通知
+        function handleApprovalNotification(data) {
+          // 1. 浏览器通知
+          if (Notification.permission === 'granted') {
+            new Notification('🛡️ Aegis 安全审批', {
+              body: '命令需要审批: ' + data.command + '\nAI: ' + data.agent + '\n风险: ' + data.risk,
+              icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🛡️</text></svg>',
+              requireInteraction: true,
+              tag: 'aegis-approval'
+            });
+          } else if (Notification.permission !== 'denied') {
+            // 请求通知权限
+            Notification.requestPermission().then(permission => {
+              if (permission === 'granted') {
+                handleApprovalNotification(data); // 递归调用
+              }
+            });
+          }
+
+          // 2. 页面标题闪烁
+          let originalTitle = document.title;
+          let isFlashing = true;
+          let flashCount = 0;
+          const flashInterval = setInterval(() => {
+            document.title = isFlashing ? '🚨 需要审批 - Aegis Monitor' : originalTitle;
+            isFlashing = !isFlashing;
+            flashCount++;
+            if (flashCount > 20) { // 闪烁10次后停止
+              clearInterval(flashInterval);
+              document.title = originalTitle;
+            }
+          }, 500);
+
+          // 3. 音频提醒
+          try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.2);
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.4);
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.6);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.6);
+          } catch (error) {
+            console.log('音频通知失败:', error);
+          }
+
+          // 4. 页面焦点
+          if (document.hidden) {
+            window.focus();
+          }
+
+          // 5. 滚动到审批区域
+          setTimeout(() => {
+            const approvalSection = document.querySelector('[data-status="pending"]');
+            if (approvalSection) {
+              approvalSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 1000);
         }
 
         // 更新事件状态UI
@@ -828,7 +908,7 @@ async function handleHookEvent(req, res) {
               pendingApprovals.delete(realSessionId);
               pending.reject(new Error('Approval timeout'));
             }
-          }, 60000);
+          }, 100000); // 100秒超时，与Claude Code的120秒匹配
         });
 
         // 等待Web审批结果
@@ -1000,10 +1080,121 @@ async function handleApprovalRequest(req, res) {
   });
 }
 
+// 🔄 双向同步功能
+function initDualApprovalSync() {
+  // 监控同步文件变化
+  if (fs.existsSync(SYNC_FILE)) {
+    fs.watchFile(SYNC_FILE, { interval: 500 }, (curr, prev) => {
+      if (curr.mtime > prev.mtime) {
+        handleSyncFileChange();
+      }
+    });
+  }
+}
+
+function handleSyncFileChange() {
+  try {
+    const syncData = JSON.parse(fs.readFileSync(SYNC_FILE, 'utf8'));
+
+    // 检查是否有来自Claude原生的决定
+    if (syncData.source === 'claude-native' && syncData.status !== 'pending') {
+      // 更新3001界面显示Claude原生的决定
+      updateEventStatus(syncData.sessionId, syncData.status, `来自Claude原生界面: ${syncData.status}`);
+
+      // 广播给Web界面
+      broadcast({
+        type: 'claude_native_decision',
+        sessionId: syncData.sessionId,
+        status: syncData.status,
+        source: 'claude-native',
+        timestamp: syncData.timestamp
+      });
+    }
+  } catch (error) {
+    console.error('[Dual Sync] 同步文件解析错误:', error);
+  }
+}
+
+function handleDualApprovalRequest(sessionId, command, description) {
+  // 处理双向审批请求
+  const approvalState = {
+    sessionId,
+    command,
+    description,
+    status: 'pending',
+    source: 'web',
+    timestamp: new Date().toISOString(),
+    claudeNative: 'pending',
+    webInterface: 'pending'
+  };
+
+  // 保存到同步文件
+  try {
+    fs.writeFileSync(SYNC_FILE, JSON.stringify(approvalState, null, 2));
+  } catch (error) {
+    console.error('[Dual Sync] 同步文件写入错误:', error);
+  }
+
+  // 通知3001界面
+  broadcast({
+    type: 'dual_approval_request',
+    sessionId,
+    command,
+    description,
+    timestamp: approvalState.timestamp
+  });
+
+  return approvalState;
+}
+
+function updateDualApprovalStatus(sessionId, status, source, reason) {
+  try {
+    const syncData = JSON.parse(fs.readFileSync(SYNC_FILE, 'utf8'));
+
+    // 更新状态
+    syncData.status = status;
+    syncData.source = source;
+    syncData[`${source}Interface`] = status;
+    syncData.reason = reason;
+    syncData.timestamp = new Date().toISOString();
+
+    // 写回同步文件
+    fs.writeFileSync(SYNC_FILE, JSON.stringify(syncData, null, 2));
+
+    // 广播状态变化
+    broadcast({
+      type: 'dual_approval_update',
+      sessionId,
+      status,
+      source,
+      reason,
+      timestamp: syncData.timestamp
+    });
+
+    return true;
+  } catch (error) {
+    console.error('[Dual Sync] 状态更新错误:', error);
+    return false;
+  }
+}
+
+// 启动时初始化双向同步
+if (require.main === module) {
+  // 在启动服务后初始化同步
+  process.nextTick(() => {
+    initDualApprovalSync();
+    console.log('🔄 双向审批同步已启用');
+  });
+}
+
 module.exports = {
   addInterceptionEvent,
   updateSession,
   updateActiveAgent,
   startAegisServices,
-  updateEventStatus
+  updateEventStatus,
+  // 双向同步导出
+  handleDualApprovalRequest,
+  updateDualApprovalStatus,
+  initDualApprovalSync
 };
