@@ -708,24 +708,20 @@ const connectWebSocket = () => {
   });
 
   // 监听事件更新
-  socket.value.on("event_update", (data: any) => {
-    console.log("📝 收到事件更新:", data);
-    console.log("🔍 事件approvalId:", data.approvalId);
-
-    if (!data.approvalId) {
-      console.error("❌ 警告：事件更新缺少approvalId字段！", data);
-    }
+  socket.value.on("new_event", (response: any) => {
+    const data = response.data || response;
+    console.log("📝 收到新事件:", data);
 
     events.value.unshift({
-      id: Date.now(),
-      approvalId: data.approvalId,  // 添加审批ID
+      id: data.id || Date.now(),
+      approvalId: data.approvalId,
       command: data.command,
       agent: data.agent,
       sessionId: data.sessionId,
       risk: data.risk,
       cwd: data.cwd,
-      reason: data.reason,
-      time: formatEventTime(new Date()),
+      reason: data.description || data.reason,
+      time: formatEventTime(new Date(data.timestamp || Date.now())),
       action: data.action || data.status,
       status: data.status,
       isNew: true,
