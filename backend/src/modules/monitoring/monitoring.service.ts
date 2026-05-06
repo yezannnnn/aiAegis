@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EventManagerService } from './event-manager.service';
-import { CreateEventDto, EventStatsDto } from './dto';
+import { CreateEventDto, EventStatsDto, EventStatus } from './dto';
 
 @Injectable()
 export class MonitoringService {
@@ -32,6 +32,15 @@ export class MonitoringService {
     return {
       success: true,
       data: { id: eventId },
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  updateEventStatus(eventId: string, status: EventStatus) {
+    const updated = this.eventManager.updateEventStatus(eventId, status);
+    return {
+      success: updated,
+      data: { updated },
       timestamp: new Date().toISOString(),
     };
   }

@@ -104,6 +104,16 @@ program
     try {
       const processes = [];
 
+      // 更新 config.json 中的端口（供 hook 读取）
+      const configFile = path.join(AEGIS_HOME, 'config.json');
+      if (await fs.pathExists(configFile)) {
+        const config = await fs.readJson(configFile);
+        config.ports = config.ports || {};
+        config.ports.webInterface = parseInt(options.port);
+        config.ports.frontend = parseInt(options.frontendPort);
+        await fs.writeJson(configFile, config, { spaces: 2 });
+      }
+
       // 启动后端
       if (!options.frontendOnly) {
         console.log(chalk.blue('🔧 启动后端服务...'));
