@@ -44,6 +44,11 @@
       <div class="stat-number">{{ stats.pending }}</div>
       <div class="stat-label">{{ currentTexts.pendingReview }}</div>
     </div>
+
+    <div class="stat-card stat-timed-out">
+      <div class="stat-number">{{ stats.timed_out }}</div>
+      <div class="stat-label">{{ currentTexts.timedOut }}</div>
+    </div>
   </div>
 
   <!-- Agent状态面板 -->
@@ -212,6 +217,9 @@
             <span class="context-tag status-tag" :class="event.status">{{
               currentTexts[event.status] || event.status
             }}</span>
+            <span v-if="event.decidedBy" class="context-tag source-tag" :class="event.decidedBy">
+              {{ event.decidedBy === 'claude_code' ? '🤖 Claude' : '🛡️ Aegis' }}
+            </span>
           </div>
           <div class="event-session-info">
             <span class="session-id">
@@ -221,7 +229,7 @@
           <div class="event-user-context">{{ event.reason }}</div>
 
           <!-- 审批操作区域 -->
-          <div v-if="event.status === 'pending'" class="event-approval-actions">
+          <div v-if="event.status === 'pending' && event.approvalId" class="event-approval-actions">
             <button class="approval-btn approve-btn" @click="approveEventInList(event)">
               ✓ APPROVE
             </button>
@@ -322,6 +330,7 @@ const languages = {
     commandsAllowed: "命令已允许",
     warnings: "警告",
     pendingReview: "待审查",
+    timedOut: "审批超时",
     activeAgents: "[ 活跃代理 ]",
     activeSessions: "[ 活跃会话 ]",
     securityEvents: "[ 实时安全事件与代理上下文 ]",
@@ -346,6 +355,7 @@ const languages = {
     allowed: "允许",
     blocked: "阻止",
     pending: "待审批",
+    timed_out: "已超时",
   },
   en: {
     title: "AEGIS",
@@ -355,6 +365,7 @@ const languages = {
     commandsAllowed: "Commands Allowed",
     warnings: "Warnings",
     pendingReview: "Pending Review",
+    timedOut: "Timed Out",
     activeAgents: "[ Active Agents ]",
     activeSessions: "[ Active Sessions ]",
     securityEvents: "[ Real-time Security Events & Agent Context ]",
@@ -379,6 +390,7 @@ const languages = {
     allowed: "Allowed",
     blocked: "Blocked",
     pending: "Pending",
+    timed_out: "Timed Out",
   },
 };
 
@@ -393,6 +405,7 @@ const stats = reactive({
   allowed: 0,
   warnings: 0,
   pending: 0,
+  timed_out: 0,
 });
 
 const activeAgents = ref([]);
@@ -454,15 +467,34 @@ const handleApprovalNotification = (data: any) => {
   }
 
   currentApproval.value = {
-    approvalId: data.approvalId,  // 添加审批ID
+    approvalId: data.approvalId,
     sessionId: data.sessionId || "unknown",
     command: data.command || data.payload?.command || "unknown",
     agent: data.agent || data.agentType || "Claude Code",
     risk: data.risk || "UNKNOWN",
     cwd: data.cwd || data.context?.cwd || "/unknown",
-    reason:
-      data.reason || data.description || `${data.risk || "UNKNOWN"} 风险命令`,
+    reason: data.reason || data.description || `${data.risk || "UNKNOWN"} 风险命令`,
   };
+
+  // 同时加入事件列表
+  events.value.unshift({
+    id: Date.now(),
+    approvalId: data.approvalId,
+    command: data.command || data.payload?.command || "unknown",
+    agent: data.agent || data.agentType || "Claude Code",
+    sessionId: data.sessionId || "unknown",
+    risk: data.risk || "UNKNOWN",
+    cwd: data.cwd || data.context?.cwd || "/unknown",
+    reason: data.reason || data.description || `${data.risk || "UNKNOWN"} 风险命令`,
+    time: new Date().toLocaleTimeString(),
+    action: "review",
+    status: "pending",
+    isNew: true,
+  });
+
+  if (events.value.length > 100) {
+    events.value = events.value.slice(0, 100);
+  }
 
   console.log("💾 当前审批对象:", currentApproval.value);
 
@@ -656,7 +688,8 @@ const connectWebSocket = () => {
     if (initialData.events) {
       events.value = initialData.events.map((event) => ({
         ...event,
-        action: event.action || 'allow',
+        approvalId: event.approvalId, // 只使用真正的approvalId，不fallback到event.id
+        action: event.action || event.status,
         time: new Date(event.timestamp).toLocaleTimeString(),
         isNew: false,
       }));
@@ -687,7 +720,8 @@ const connectWebSocket = () => {
     if (eventIndex !== -1) {
       events.value[eventIndex].status = data.status === 'approved' ? 'allowed' : 'blocked';
       events.value[eventIndex].action = data.status === 'approved' ? 'allow' : 'deny';
-      console.log(`📝 更新事件列表状态: ${data.approvalId} -> ${events.value[eventIndex].status}`);
+      events.value[eventIndex].decidedBy = data.source || 'aegis_ui';
+      console.log(`📝 更新事件列表状态: ${data.approvalId} -> ${events.value[eventIndex].status} (来源: ${events.value[eventIndex].decidedBy})`);
     }
 
     // 更新统计
@@ -699,6 +733,38 @@ const connectWebSocket = () => {
     stats.pending = Math.max(0, stats.pending - 1);
 
     console.log("📊 统计更新完成:", stats);
+  });
+
+  // 🔄 监听Claude Code决策同步（双向同步新增）
+  socket.value.on("claude_decision_sync", (data: any) => {
+    console.log("🔄 收到Claude Code决策同步:", data);
+
+    // 如果当前弹窗显示的是这个审批，关闭弹窗并显示同步消息
+    if (currentApproval.value?.approvalId === data.approvalId) {
+      currentApproval.value = null;
+      console.log("📴 Claude Code已决策，关闭3001审批弹窗");
+    }
+
+    // 更新事件列表中的对应事件
+    const eventIndex = events.value.findIndex(e => e.approvalId === data.approvalId);
+    if (eventIndex !== -1) {
+      events.value[eventIndex].status = data.decision === 'approved' ? 'allowed' : 'blocked';
+      events.value[eventIndex].action = data.decision === 'approved' ? 'allow' : 'deny';
+      events.value[eventIndex].reason = `${data.reason} (来自Claude Code)`;
+      events.value[eventIndex].decidedBy = 'claude_code';
+      console.log(`🔄 Claude Code同步更新: ${data.approvalId} -> ${events.value[eventIndex].status}`);
+    }
+
+    // 更新统计
+    if (data.decision === 'approved') {
+      stats.allowed += 1;
+    } else {
+      stats.blocked += 1;
+    }
+    stats.pending = Math.max(0, stats.pending - 1);
+
+    // 显示同步通知
+    console.log("🔄 Claude Code决策已同步到3001界面");
   });
 
   // 监听统计更新
@@ -751,7 +817,7 @@ const connectWebSocket = () => {
       cwd: data.cwd,
       reason: data.reason,
       time: new Date().toLocaleTimeString(),
-      action: data.action,
+      action: data.action || data.status,
       status: data.status,
       isNew: true,
     });
@@ -972,6 +1038,23 @@ body {
   position: absolute;
   left: 0;
   color: var(--accent-green);
+}
+
+/* 超时状态卡片特殊样式 */
+.stat-timed-out .stat-number {
+  color: #6b7280;
+}
+
+.stat-timed-out .stat-label::before {
+  color: #6b7280;
+}
+
+.stat-timed-out:hover {
+  background: rgba(107, 114, 128, 0.02);
+}
+
+.stat-timed-out::before {
+  background: #6b7280;
 }
 
 /* Agent面板网格 */
@@ -1328,6 +1411,33 @@ body {
 .status-tag.pending {
   color: #f59e0b;
   background: rgba(245, 158, 11, 0.1);
+}
+
+.status-tag.timed_out {
+  color: #6b7280;
+  background: rgba(107, 114, 128, 0.1);
+}
+
+/* 决策来源标签 */
+.source-tag {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.source-tag.aegis_ui {
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.source-tag.claude_code {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.25);
 }
 
 .event-session-info {

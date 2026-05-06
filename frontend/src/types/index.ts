@@ -4,6 +4,7 @@ export interface EventStats {
   allowed: number
   warning: number
   pending: number
+  timed_out: number
 }
 
 export interface SecurityEvent {
@@ -11,7 +12,7 @@ export interface SecurityEvent {
   command: string
   agent: string
   risk: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
-  status: 'pending' | 'approved' | 'denied' | 'blocked'
+  status: 'pending' | 'approved' | 'denied' | 'blocked' | 'timed_out'
   sessionId: string
   timestamp: string
   userContext?: any

@@ -9,7 +9,8 @@ export enum EventStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
   DENIED = 'denied',
-  BLOCKED = 'blocked'
+  BLOCKED = 'blocked',
+  TIMED_OUT = 'timed_out'
 }
 
 export class CreateEventDto {
@@ -29,4 +30,5 @@ export class EventStatsDto {
   allowed: number;
   warning: number;
   pending: number;
+  timed_out: number;
 }
