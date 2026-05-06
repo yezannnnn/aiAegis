@@ -22,8 +22,13 @@ export class MonitoringController {
 
   @Get('events')
   @ApiOperation({ summary: '获取所有安全事件' })
-  getEvents() {
-    return this.monitoringService.getEvents();
+  getEvents(
+    @Query('offset') offset?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const o = offset !== undefined ? parseInt(offset, 10) : 0;
+    const l = limit !== undefined ? parseInt(limit, 10) : undefined;
+    return this.monitoringService.getEvents(o, l);
   }
 
   @Get('events/:id')

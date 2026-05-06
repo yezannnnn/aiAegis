@@ -184,7 +184,7 @@
         </button>
       </div>
     </div>
-    <div class="events-detailed">
+    <div class="events-detailed" @scroll="onEventsScroll">
       <div
         class="empty-state"
         v-if="events.length === 0"
@@ -261,6 +261,9 @@
         </div>
       </div>
     </div>
+
+    <div v-if="isLoadingMore" class="load-more-indicator">⏳ loading...</div>
+    <div v-else-if="!hasMoreEvents && events.length > 0" class="load-more-indicator no-more">— no more records —</div>
   </div>
 
   <!-- 状态指示器 -->
@@ -503,6 +506,42 @@ const notifPermission = ref<NotificationPermission>(
 );
 const showNotifGuide = ref(false);
 const showNotifModal = ref(false);
+
+// 分页加载
+const eventsOffset = ref(50);
+const hasMoreEvents = ref(true);
+const isLoadingMore = ref(false);
+
+const loadMoreEvents = async () => {
+  if (isLoadingMore.value || !hasMoreEvents.value) return;
+  isLoadingMore.value = true;
+  try {
+    const res = await fetch(`/api/monitoring/events?offset=${eventsOffset.value}&limit=50`);
+    const json = await res.json();
+    const newEvents = (json.data || []).map((event: any) => ({
+      ...event,
+      approvalId: event.approvalId,
+      action: event.action || event.status,
+      time: formatEventTime(new Date(event.timestamp)),
+      isNew: false,
+    }));
+    // 去重追加到末尾
+    const existingIds = new Set(events.value.map((e: any) => e.id));
+    const deduped = newEvents.filter((e: any) => !existingIds.has(e.id));
+    events.value = [...events.value, ...deduped];
+    eventsOffset.value += 50;
+    if (deduped.length < 50) hasMoreEvents.value = false;
+  } finally {
+    isLoadingMore.value = false;
+  }
+};
+
+const onEventsScroll = (e: Event) => {
+  const el = e.target as HTMLElement;
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) {
+    loadMoreEvents();
+  }
+};
 
 const grantNotifPermission = async () => {
   if (!("Notification" in window)) {
@@ -1504,6 +1543,20 @@ body {
 .events-detailed::-webkit-scrollbar-thumb {
   background: var(--accent-green);
   border-radius: 0;
+}
+
+.load-more-indicator {
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.65rem;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--accent-green);
+  letter-spacing: 0.1em;
+}
+
+.load-more-indicator.no-more {
+  color: var(--text-secondary);
+  opacity: 0.4;
 }
 
 /* 详细事件项 */

@@ -109,6 +109,11 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
+  getEventsPaged(offset: number, limit: number): { events: SecurityEvent[]; total: number } {
+    const sorted = this.getEvents();
+    return { events: sorted.slice(offset, offset + limit), total: sorted.length };
+  }
+
   getStats(): EventStatsDto {
     const events = Array.from(this.events.values());
 

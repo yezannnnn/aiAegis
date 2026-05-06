@@ -10,7 +10,11 @@ export class MonitoringService {
     return this.eventManager.getStats();
   }
 
-  getEvents() {
+  getEvents(offset = 0, limit?: number) {
+    if (limit !== undefined) {
+      const { events, total } = this.eventManager.getEventsPaged(offset, limit);
+      return { success: true, data: events, total, offset, limit, timestamp: new Date().toISOString() };
+    }
     return {
       success: true,
       data: this.eventManager.getEvents(),
