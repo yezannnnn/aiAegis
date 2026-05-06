@@ -718,8 +718,16 @@ const connectWebSocket = () => {
     // 更新事件列表中的对应事件
     const eventIndex = events.value.findIndex(e => e.approvalId === data.approvalId);
     if (eventIndex !== -1) {
-      events.value[eventIndex].status = data.status === 'approved' ? 'allowed' : 'blocked';
-      events.value[eventIndex].action = data.status === 'approved' ? 'allow' : 'deny';
+      if (data.status === 'approved') {
+        events.value[eventIndex].status = 'allowed';
+        events.value[eventIndex].action = 'allow';
+      } else if (data.status === 'timed_out') {
+        events.value[eventIndex].status = 'timed_out';
+        events.value[eventIndex].action = 'timed_out';
+      } else {
+        events.value[eventIndex].status = 'blocked';
+        events.value[eventIndex].action = 'deny';
+      }
       events.value[eventIndex].decidedBy = data.source || 'aegis_ui';
       console.log(`📝 更新事件列表状态: ${data.approvalId} -> ${events.value[eventIndex].status} (来源: ${events.value[eventIndex].decidedBy})`);
     }
@@ -727,6 +735,8 @@ const connectWebSocket = () => {
     // 更新统计
     if (data.status === 'approved') {
       stats.allowed += 1;
+    } else if (data.status === 'timed_out') {
+      stats.timed_out += 1;
     } else {
       stats.blocked += 1;
     }
