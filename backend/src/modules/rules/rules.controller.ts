@@ -14,6 +14,7 @@ interface EvaluateRequest {
   requestId?: string;
   sessionId?: string;
   agentType?: string;
+  model?: string;
 }
 
 interface EvaluateResponse {
@@ -79,6 +80,7 @@ export class RulesController {
         status: eventStatus,
         description: evaluation.reason,
         cwd: body.cwd,
+        model: body.model,
       });
 
       if (requiresApproval) {

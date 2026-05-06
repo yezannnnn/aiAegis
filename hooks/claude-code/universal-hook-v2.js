@@ -55,12 +55,15 @@ process.stdin.on('end', async () => {
     const command = input.tool_input.command;
     const sessionId = input.session_id;
     const cwd = input.cwd || process.cwd();
+    const transcriptPath = input.transcript_path;
+    const model = extractModelFromTranscript(transcriptPath, sessionId);
 
     console.error(`🚨 [AEGIS HOOK] 处理Bash命令: ${command}`);
     console.error(`🚨 [AEGIS HOOK] 会话ID: ${sessionId}`);
+    console.error(`🚨 [AEGIS HOOK] 模型: ${model || 'unknown'}`);
 
     // 调用后端 AST 规则引擎
-    const result = await evaluateWithBackend(command, sessionId, cwd);
+    const result = await evaluateWithBackend(command, sessionId, cwd, model);
 
     if (!result) {
       // 后端不可用，默认允许（避免阻塞正常工作流）
@@ -148,8 +151,41 @@ process.stdin.on('end', async () => {
   }
 });
 
+/** 从 transcript JSONL 提取最近使用的模型名 */
+function extractModelFromTranscript(transcriptPath, sessionId) {
+  // 优先用 transcript_path，否则按 session_id 查找
+  const candidates = [];
+  if (transcriptPath) candidates.push(transcriptPath);
+  if (sessionId) {
+    const projectsDir = path.join(require('os').homedir(), '.claude', 'projects');
+    try {
+      for (const proj of fs.readdirSync(projectsDir)) {
+        const candidate = path.join(projectsDir, proj, `${sessionId}.jsonl`);
+        if (fs.existsSync(candidate)) candidates.push(candidate);
+      }
+    } catch {}
+  }
+  for (const filePath of candidates) {
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const lines = content.trimEnd().split('\n');
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        try {
+          const obj = JSON.parse(line);
+          // model 可能在顶层或 message.model 里（assistant 类型）
+          if (obj.model) return obj.model;
+          if (obj.message?.model) return obj.message.model;
+        } catch {}
+      }
+    } catch {}
+  }
+  return null;
+}
+
 /** 调用后端 AST 规则引擎评估命令 */
-function evaluateWithBackend(command, sessionId, cwd) {
+function evaluateWithBackend(command, sessionId, cwd, model) {
   return new Promise((resolve) => {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const data = JSON.stringify({
@@ -157,6 +193,7 @@ function evaluateWithBackend(command, sessionId, cwd) {
       sessionId: sessionId || 'unknown',
       agentType: 'claude-code',
       cwd: cwd || process.cwd(),
+      model: model || null,
       requestId,
     });
 

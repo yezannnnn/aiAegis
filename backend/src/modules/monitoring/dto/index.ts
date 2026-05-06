@@ -22,6 +22,7 @@ export class CreateEventDto {
   status: EventStatus;
   sessionId: string;
   cwd?: string;
+  model?: string;
   userContext?: any;
   intent?: string;
   description?: string;

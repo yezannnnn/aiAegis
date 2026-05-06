@@ -173,6 +173,7 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
       blockedCount: 0,
       cwd: null,
       lastCommand: null,
+      model: null,
     };
 
     agent.commandCount = (agent.commandCount || 0) + 1;
@@ -181,6 +182,7 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
     }
     if (event?.cwd) agent.cwd = event.cwd;
     if (event?.command) agent.lastCommand = event.command;
+    if (event?.model) agent.model = event.model;
 
     this.agents.set(key, agent);
     this.emit('agent_update', agent);

@@ -32,6 +32,9 @@
                 <span class="stat-value">{{ agent.blockedCount ?? 0 }}</span>
               </span>
             </div>
+            <div class="agent-model" v-if="agent.model">
+              🧠 {{ agent.model.replace('claude-', '').replace(/-\d{8}$/, '') }}
+            </div>
             <div class="agent-cwd" v-if="agent.cwd" :title="agent.cwd">
               📁 {{ agent.cwd.split('/').slice(-2).join('/') }}
             </div>
@@ -230,6 +233,14 @@ defineProps({
 .stat-divider {
   color: var(--border);
   font-size: 0.65rem;
+}
+
+.agent-model {
+  font-size: 0.65rem;
+  color: #a78bfa;
+  font-family: "JetBrains Mono", monospace;
+  margin-bottom: 0.2rem;
+  opacity: 0.9;
 }
 
 .agent-cwd {
