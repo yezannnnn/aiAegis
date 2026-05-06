@@ -11,16 +11,6 @@ rules:
       binary: "sh"
       argumentPatterns: ["curl.*\\|.*sh", "wget.*\\|.*sh", "curl.*\\|.*bash"]
 
-  - id: network/wget-execute
-    description: "wget 下载后立即执行"
-    category: "network"
-    severity: "error"
-    action: "review"
-    reason: "下载后立即执行未知来源的脚本风险高"
-    conditions:
-      binary: ["wget", "curl"]
-      argumentPatterns: ["http", "https"]
-
   - id: network/ssh-dangerous
     description: "SSH 危险选项"
     category: "network"
@@ -40,17 +30,6 @@ rules:
     conditions:
       binary: "nc"
       hasFlags: ["listen", "l"]
-
-  - id: network/kill-9-ssh
-    description: "强制终止 SSH 进程"
-    category: "network"
-    severity: "warn"
-    action: "review"
-    reason: "强制终止 SSH 可能导致会话异常"
-    conditions:
-      binary: "kill"
-      hasFlags: ["9"]
-      argumentPatterns: ["ssh"]
 
   - id: system/sudo
     description: "sudo 提权操作"

@@ -58,15 +58,3 @@ rules:
       subcommand: "rebase"
       contextChecks:
         gitBranch: ["main", "master"]
-
-  - id: git/push-uncommitted
-    description: "推送前检查是否有未提交更改"
-    category: "git"
-    severity: "warn"
-    action: "review"
-    reason: "有未提交更改时推送可能遗漏代码"
-    conditions:
-      binary: "git"
-      subcommand: "push"
-      contextChecks:
-        hasUncommittedChanges: true

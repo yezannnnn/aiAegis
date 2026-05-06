@@ -1,9 +1,6 @@
 name: "prisma"
 version: "1.0"
 rules:
-  # argumentPatterns 使用 AND 逻辑：每条 pattern 都必须匹配至少一个参数
-  # npx prisma ... → binary=npx，prisma/migrate/reset 等都是位置参数
-
   - id: prisma/migrate-reset
     description: "prisma migrate reset 重置数据库"
     category: "prisma"
@@ -108,40 +105,3 @@ rules:
         - '^prisma$'
         - '^db$'
         - '^execute$'
-
-  - id: prisma/generate
-    description: "prisma generate 重新生成 Client"
-    category: "prisma"
-    severity: "warn"
-    action: "review"
-    reason: "regenerate Prisma Client，确认 schema 正确"
-    conditions:
-      binary: "npx"
-      argumentPatterns:
-        - '^prisma$'
-        - '^generate$'
-
-  - id: prisma/studio
-    description: "prisma studio 数据库可视化工具"
-    category: "prisma"
-    severity: "warn"
-    action: "review"
-    reason: "Prisma Studio 提供完整数据库读写访问"
-    conditions:
-      binary: "npx"
-      argumentPatterns:
-        - '^prisma$'
-        - '^studio$'
-
-  - id: prisma/migrate-status
-    description: "prisma migrate status"
-    category: "prisma"
-    severity: "warn"
-    action: "review"
-    reason: "查询当前迁移状态"
-    conditions:
-      binary: "npx"
-      argumentPatterns:
-        - '^prisma$'
-        - '^migrate$'
-        - '^status$'

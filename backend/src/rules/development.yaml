@@ -24,47 +24,6 @@ rules:
       subcommand: "audit"
       hasFlags: ["force", "f"]
 
-  - id: npm/publish
-    description: "npm publish 发布包"
-    category: "package"
-    severity: "warn"
-    action: "review"
-    reason: "publish 会将代码公开到 npm registry"
-    conditions:
-      binary: "npm"
-      subcommand: "publish"
-
-  - id: npm/link-global
-    description: "npm link 全局链接"
-    category: "package"
-    severity: "warn"
-    action: "review"
-    reason: "npm link 修改全局模块，可能影响其他项目"
-    conditions:
-      binary: "npm"
-      subcommand: "link"
-
-  - id: node/eval
-    description: "node -e 执行任意代码"
-    category: "runtime"
-    severity: "warn"
-    action: "review"
-    reason: "node -e 执行任意字符串代码，需审查内容"
-    conditions:
-      binary: "node"
-      hasFlags: ["eval", "e"]
-
-  - id: node/inspect-remote
-    description: "node --inspect 远程调试"
-    category: "runtime"
-    severity: "error"
-    action: "review"
-    reason: "远程调试端口开放可能被攻击者利用"
-    conditions:
-      binary: "node"
-      hasFlags: ["inspect"]
-      argumentPatterns: ["0.0.0.0"]
-
   - id: python/pip-install-url
     description: "pip 从 URL 安装"
     category: "package"
@@ -75,13 +34,3 @@ rules:
       binary: "pip"
       subcommand: "install"
       argumentPatterns: ["http", "https"]
-
-  - id: python/eval-exec
-    description: "python 执行 eval/exec"
-    category: "runtime"
-    severity: "warn"
-    action: "review"
-    reason: "eval/exec 执行动态代码，需审查内容"
-    conditions:
-      binary: "python"
-      argumentPatterns: ["eval\\s*\\(", "exec\\s*\\("]

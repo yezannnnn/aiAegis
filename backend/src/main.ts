@@ -13,9 +13,9 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
   }));
 
-  // 启用CORS
+  // CORS: 开发时允许 Vite dev server；生产时前端由 NestJS 同源托管，Hook 用 curl 不需要 CORS
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: process.env.FRONTEND_URL || ['http://localhost:5173', 'http://localhost:3001'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });

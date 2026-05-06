@@ -23,11 +23,30 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
     },
   },
+  // 生产构建：输出到 frontend/dist，由 NestJS ServeStaticModule 托管
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor': ['vue', 'pinia', 'vue-router'],
+          'element-plus': ['element-plus'],
+          'socket': ['socket.io-client'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/socket.io': {
+        target: 'http://localhost:3001',
+        ws: true,
         changeOrigin: true,
       },
     },

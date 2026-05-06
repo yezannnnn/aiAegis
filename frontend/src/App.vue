@@ -1,270 +1,36 @@
 <template>
-  <!-- 主标题区域 -->
-  <div class="header">
-    <div class="header-main">
-      <h1 class="title">AEGIS</h1>
-      <p class="subtitle">{{ currentTexts.subtitle }}</p>
-    </div>
-    <div class="header-controls">
-      <button class="lang-switch" @click="toggleLanguage">
-        {{ currentTexts.langSwitch }}
-      </button>
-      <button
-        class="notif-status"
-        :class="notifPermission"
-        @click="handleNotifClick"
-      >
-        {{ notifPermission === 'granted' ? currentTexts.notifGranted : notifPermission === 'denied' ? currentTexts.notifDenied : currentTexts.notifDefault }}
-      </button>
-      <div
-        class="connection-status"
-        :class="{ connected: wsConnected, disconnected: !wsConnected }"
-      >
-        {{ wsConnected ? currentTexts.connected : currentTexts.disconnected }}
-      </div>
-    </div>
-  </div>
+  <AppHeader
+    :ws-connected="wsConnected"
+    :notif-permission="notifPermission"
+    :current-texts="currentTexts"
+    @toggle-language="toggleLanguage"
+    @notif-click="handleNotifClick"
+  />
 
-  <!-- 状态统计卡片 -->
-  <div class="stats-grid">
-    <div class="stat-card stat-total">
-      <div class="stat-number">{{ stats.total }}</div>
-      <div class="stat-label">{{ currentTexts.totalEvents }}</div>
-    </div>
+  <StatsGrid
+    :stats="stats"
+    :current-texts="currentTexts"
+  />
 
-    <div class="stat-card stat-blocked">
-      <div class="stat-number">{{ stats.blocked }}</div>
-      <div class="stat-label">{{ currentTexts.commandsBlocked }}</div>
-    </div>
+  <AgentGrid
+    :active-agents="activeAgents"
+    :active-sessions="activeSessions"
+    :current-texts="currentTexts"
+  />
 
-    <div class="stat-card stat-allowed">
-      <div class="stat-number">{{ stats.allowed }}</div>
-      <div class="stat-label">{{ currentTexts.commandsAllowed }}</div>
-    </div>
-
-    <div class="stat-card stat-warning">
-      <div class="stat-number">{{ stats.warnings }}</div>
-      <div class="stat-label">{{ currentTexts.warnings }}</div>
-    </div>
-
-    <div class="stat-card stat-pending">
-      <div class="stat-number">{{ stats.pending }}</div>
-      <div class="stat-label">{{ currentTexts.pendingReview }}</div>
-    </div>
-
-    <div class="stat-card stat-timed-out">
-      <div class="stat-number">{{ stats.timed_out }}</div>
-      <div class="stat-label">{{ currentTexts.timedOut }}</div>
-    </div>
-  </div>
-
-  <!-- Agent状态面板 -->
-  <div class="agent-grid">
-    <!-- 活跃Agent列表 -->
-    <div class="agents-panel">
-      <div class="panel-header">{{ currentTexts.activeAgents }}</div>
-      <div class="agent-list">
-        <div class="empty-state" v-if="activeAgents.length === 0">
-          {{ currentTexts.noActiveAgents }}
-        </div>
-        <div
-          v-for="agent in activeAgents
-            .slice()
-            .sort(
-              (a, b) =>
-                new Date(b.lastActivity).getTime() -
-                new Date(a.lastActivity).getTime()
-            )"
-          :key="agent.type"
-          class="agent-item"
-        >
-          <div class="agent-icon">🤖</div>
-          <div class="agent-info">
-            <div class="agent-name">{{ agent.type }}</div>
-            <div class="agent-session">
-              {{ currentTexts.sessionCount }}: {{ agent.sessionCount }}
-            </div>
-            <div class="agent-intent">
-              {{ currentTexts.firstSeen }}:
-              {{ new Date(agent.firstSeen).toLocaleTimeString() }}
-            </div>
-            <div class="agent-last-command">
-              {{ currentTexts.lastActivity }}:
-              {{ new Date(agent.lastActivity).toLocaleTimeString() }}
-            </div>
-            <div class="agent-time">
-              {{ new Date(agent.lastActivity).toLocaleDateString() }}
-            </div>
-          </div>
-          <div
-            class="agent-status"
-            :class="{
-              offline:
-                Date.now() - new Date(agent.lastActivity).getTime() >
-                5 * 60 * 1000,
-            }"
-          ></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 活跃会话 -->
-    <div class="sessions-panel">
-      <div class="panel-header">{{ currentTexts.activeSessions }}</div>
-      <div class="session-list">
-        <div class="empty-state" v-if="activeSessions.length === 0">
-          {{ currentTexts.noActiveSessions }}
-        </div>
-        <div
-          v-for="session in activeSessions
-            .slice()
-            .sort(
-              (a, b) =>
-                new Date(b.lastActivity).getTime() -
-                new Date(a.lastActivity).getTime()
-            )"
-          :key="session.id"
-          class="session-item"
-        >
-          <div class="session-id">{{ session.id }}</div>
-          <div class="session-user">{{ session.agent || "Claude Code" }}</div>
-          <div class="session-project">
-            {{ currentTexts.eventCount }}: {{ session.eventCount }}
-          </div>
-          <div class="session-time">
-            {{ new Date(session.lastActivity).toLocaleTimeString() }}
-          </div>
-          <div class="session-command" v-if="session.lastCommand">
-            {{ session.lastCommand }}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 详细事件列表 -->
-  <div class="events-section">
-    <div class="events-header">
-      <div class="events-title">{{ currentTexts.securityEvents }}</div>
-      <div class="events-filters">
-        <button
-          class="filter-btn"
-          :class="{ active: eventFilter === 'all' }"
-          @click="setEventFilter('all')"
-        >
-          ALL
-        </button>
-        <button
-          class="filter-btn"
-          :class="{ active: eventFilter === 'allowed' }"
-          @click="setEventFilter('allowed')"
-        >
-          ALLOWED
-        </button>
-        <button
-          class="filter-btn filter-btn-blocked"
-          :class="{ active: eventFilter === 'blocked' }"
-          @click="setEventFilter('blocked')"
-        >
-          BLOCKED
-        </button>
-        <button
-          class="filter-btn filter-btn-pending"
-          :class="{ active: eventFilter === 'pending' }"
-          @click="setEventFilter('pending')"
-        >
-          PENDING
-        </button>
-        <button
-          class="filter-btn filter-btn-timeout"
-          :class="{ active: eventFilter === 'timed_out' }"
-          @click="setEventFilter('timed_out')"
-        >
-          TIMEOUT
-        </button>
-      </div>
-    </div>
-    <div class="events-detailed" @scroll="onEventsScroll">
-      <div
-        class="empty-state"
-        v-if="events.length === 0"
-        id="events-empty-state"
-      >
-        <div style="margin-bottom: 1rem">
-          {{ currentTexts.waitingForEvents }}
-        </div>
-        <div
-          class="connection-status-large"
-          :class="{ connected: wsConnected, disconnected: !wsConnected }"
-        >
-          <div
-            class="status-dot"
-            id="status-dot-large"
-            :style="{
-              background: wsConnected ? 'var(--accent-green)' : 'var(--danger)',
-            }"
-          ></div>
-          <span id="connection-text-large">
-            {{
-              wsConnected
-                ? currentTexts.connectedActive
-                : currentTexts.disconnectedCheck
-            }}
-          </span>
-        </div>
-      </div>
-
-      <div
-        v-for="event in filteredEvents"
-        :key="event.id"
-        class="event-item-detailed"
-        :class="[event.status, { 'new-event': event.isNew }]"
-      >
-        <div class="event-status" :class="event.risk.toLowerCase()"></div>
-        <div class="event-main">
-          <div class="event-command">{{ event.command }}</div>
-          <div class="event-context">
-            <span class="context-tag agent-tag">{{ event.agent }}</span>
-            <span class="context-tag"
-              >{{ event.risk }} {{ currentTexts.risk }}</span
-            >
-            <span class="context-tag status-tag" :class="event.status">{{
-              currentTexts[event.status] || event.status
-            }}</span>
-            <span v-if="event.decidedBy" class="context-tag source-tag" :class="event.decidedBy">
-              {{ event.decidedBy === 'claude_code' ? '🤖 Claude' : '🛡️ Aegis' }}
-            </span>
-          </div>
-          <div class="event-session-info">
-            <span class="session-id">
-              {{ currentTexts.session }}: {{ event.sessionId || "未知" }}
-            </span>
-          </div>
-          <div class="event-user-context">{{ event.reason }}</div>
-
-          <!-- 审批操作区域 -->
-          <div v-if="event.status === 'pending' && event.approvalId" class="event-approval-actions">
-            <button class="approval-btn approve-btn" @click="approveEventInList(event)">
-              ✓ APPROVE
-            </button>
-            <button class="approval-btn deny-btn" @click="denyEventInList(event)">
-              ✗ DENY
-            </button>
-          </div>
-        </div>
-        <div class="event-meta">
-          <div class="event-time">{{ event.time }}</div>
-          <div class="event-action">{{ event.action || 'unknown' }}</div>
-          <div v-if="event.status === 'pending'" class="pending-indicator">
-            ⏳ AWAITING APPROVAL
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="isLoadingMore" class="load-more-indicator">⏳ loading...</div>
-    <div v-else-if="!hasMoreEvents && events.length > 0" class="load-more-indicator no-more">— no more records —</div>
-  </div>
+  <EventList
+    :events="events"
+    :filtered-events="filteredEvents"
+    :event-filter="eventFilter"
+    :is-loading-more="isLoadingMore"
+    :has-more-events="hasMoreEvents"
+    :ws-connected="wsConnected"
+    :current-texts="currentTexts"
+    @set-filter="setEventFilter"
+    @scroll="onEventsScroll"
+    @approve-event="approveEventInList"
+    @deny-event="denyEventInList"
+  />
 
   <!-- 状态指示器 -->
   <div class="status-bar">
@@ -272,140 +38,43 @@
     <span>{{ currentTexts.realTimeMonitoring }}</span>
   </div>
 
-  <!-- 测试按钮 -->
-  <div
-    style="
-      position: fixed;
-      bottom: 1rem;
-      left: 1rem;
-      display: flex;
-      gap: 0.5rem;
-    "
-  >
-    <button @click="testSimulate" class="test-btn">
-      {{ currentTexts.testSimulate }}
-    </button>
-  </div>
+  <NotifModal
+    :show-notif-modal="showNotifModal"
+    :show-notif-guide="showNotifGuide"
+    :current-texts="currentTexts"
+    @grant="grantNotifPermission"
+    @skip="showNotifModal = false"
+    @close-guide="showNotifGuide = false"
+    @test-notif="handleTestNotification"
+  />
 
-  <!-- 通知权限模态框 -->
-  <div v-if="showNotifModal" class="approval-modal">
-    <div class="modal-backdrop"></div>
-    <div class="modal-content">
-      <div class="modal-header">
-        <div class="modal-title">🔔 {{ currentTexts.notifModalTitle }}</div>
-        <div class="modal-meta">
-          <span class="session-info">aegis · security monitor</span>
-        </div>
-      </div>
-      <div class="modal-body">
-        <div class="command-section">
-          <div class="command-label">{{ currentTexts.notifModalWhy }}</div>
-          <div class="command-display">{{ currentTexts.notifModalBody }}</div>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="action-btn action-deny" @click="showNotifModal = false">
-          {{ currentTexts.notifSkip }}
-        </button>
-        <button class="action-btn action-approve" @click="grantNotifPermission">
-          {{ currentTexts.notifEnable }}
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 通知权限被拒绝 - 设置指引模态框 -->
-  <div v-if="showNotifGuide" class="approval-modal">
-    <div class="modal-backdrop" @click="showNotifGuide = false"></div>
-    <div class="modal-content">
-      <div class="modal-header">
-        <div class="modal-title">{{ currentTexts.notifDeniedTitle }}</div>
-        <div class="modal-meta">
-          <span class="session-info">aegis · security monitor</span>
-        </div>
-      </div>
-      <div class="modal-body">
-        <div class="command-section">
-          <div class="command-label">HOW TO FIX</div>
-          <div class="command-display">
-            {{ currentTexts.notifDeniedChrome }}<br><br>
-            {{ currentTexts.notifDeniedSafari }}
-          </div>
-        </div>
-        <div class="details-grid" style="margin-top:1rem">
-          <div class="detail-item">
-            <span class="detail-label">NOTE</span>
-            <span class="detail-value">{{ currentTexts.notifDeniedRefresh }}</span>
-          </div>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="action-btn action-approve" @click="showNotifGuide = false">
-          {{ currentTexts.notifDeniedBtn }}
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 审批模态框 -->
-  <div v-if="currentApproval" class="approval-modal">
-    <div class="modal-backdrop" @click="closeApprovalModal"></div>
-    <div class="modal-content">
-      <div class="modal-header">
-        <div class="modal-title">🛡️ COMMAND APPROVAL REQUEST</div>
-        <div class="modal-meta">
-          <span class="session-info">{{ currentApproval.sessionId }}</span>
-          <span class="risk-indicator" :class="`risk-${currentApproval.risk.toLowerCase()}`">
-            {{ currentApproval.risk }}
-          </span>
-        </div>
-      </div>
-      <div class="modal-body">
-        <div class="command-section">
-          <div class="command-label">COMMAND</div>
-          <div class="command-display">{{ currentApproval.command }}</div>
-        </div>
-
-        <div class="details-grid">
-          <div class="detail-item">
-            <span class="detail-label">DIRECTORY</span>
-            <span class="detail-value">{{ currentApproval.cwd || "/unknown" }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">AGENT</span>
-            <span class="detail-value">{{ currentApproval.agent || "Claude Code" }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="detail-label">REASON</span>
-            <span class="detail-value">{{ currentApproval.reason || "Risk detected" }}</span>
-          </div>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button class="action-btn action-deny" @click="handleApprovalDecision(false)">
-          DENY
-        </button>
-        <button class="action-btn action-approve" @click="handleApprovalDecision(true)">
-          APPROVE
-        </button>
-      </div>
-    </div>
-  </div>
+  <ApprovalModal
+    :current-approval="currentApproval"
+    :current-texts="currentTexts"
+    @approve="handleApprovalDecision(true)"
+    @deny="handleApprovalDecision(false)"
+    @close="closeApprovalModal"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from "vue";
 import { io, Socket } from "socket.io-client";
+import AppHeader from "./components/AppHeader.vue";
+import StatsGrid from "./components/StatsGrid.vue";
+import AgentGrid from "./components/AgentGrid.vue";
+import EventList from "./components/EventList.vue";
+import ApprovalModal from "./components/ApprovalModal.vue";
+import NotifModal from "./components/NotifModal.vue";
 
 // 语言配置
 const languages = {
   zh: {
     title: "AEGIS",
-    subtitle: "多代理安全监控 - 暗夜简约版",
+    subtitle: "多代理安全监控",
     totalEvents: "总事件",
     commandsBlocked: "命令已阻止",
     commandsAllowed: "命令已允许",
-    warnings: "警告",
     pendingReview: "待审查",
     timedOut: "审批超时",
     activeAgents: "[ 活跃代理 ]",
@@ -446,14 +115,17 @@ const languages = {
     notifDeniedSafari: "Safari：系统设置 → 通知 → 浏览器 → 开启",
     notifDeniedRefresh: "开启后刷新页面生效",
     notifDeniedBtn: "知道了",
+    notifDeniedBrowserLabel: "浏览器设置",
+    notifDeniedMacLabel: "macOS 系统设置",
+    notifDeniedMac: "系统设置 → 通知 → Google Chrome → 允许通知",
+    notifTestBtn: "发送测试通知",
   },
   en: {
     title: "AEGIS",
-    subtitle: "Multi-Agent Security Monitor - Dark Minimal Edition",
+    subtitle: "Multi-Agent Security Monitor",
     totalEvents: "Total Events",
     commandsBlocked: "Commands Blocked",
     commandsAllowed: "Commands Allowed",
-    warnings: "Warnings",
     pendingReview: "Pending Review",
     timedOut: "Timed Out",
     activeAgents: "[ Active Agents ]",
@@ -494,6 +166,10 @@ const languages = {
     notifDeniedSafari: "Safari: System Settings → Notifications → Browser → Enable",
     notifDeniedRefresh: "Refresh page after enabling",
     notifDeniedBtn: "Got it",
+    notifDeniedBrowserLabel: "BROWSER SETTINGS",
+    notifDeniedMacLabel: "MACOS SYSTEM SETTINGS",
+    notifDeniedMac: "System Settings → Notifications → Google Chrome → Allow Notifications",
+    notifTestBtn: "SEND TEST NOTIFICATION",
   },
 };
 
@@ -569,11 +245,27 @@ const handleNotifClick = async () => {
   showNotifModal.value = true;
 };
 
+const handleTestNotification = () => {
+  if (Notification.permission !== "granted") {
+    showNotifModal.value = true;
+    return;
+  }
+  try {
+    const n = new Notification("🧪 Aegis 测试通知", {
+      body: "如果你能看到这条消息，说明浏览器通知配置正确！",
+      requireInteraction: true,
+    });
+    n.onclick = () => { window.focus(); n.close(); };
+    console.log("✅ 测试通知已发送，检查系统通知中心");
+  } catch (e) {
+    console.error("❌ 测试通知发送失败:", e);
+  }
+};
+
 const stats = reactive({
   total: 0,
   blocked: 0,
   allowed: 0,
-  warnings: 0,
   pending: 0,
   timed_out: 0,
 });
@@ -651,13 +343,24 @@ const handleApprovalNotification = (data: any) => {
     console.error("❌ 警告：审批请求缺少approvalId字段！", data);
   }
 
-  if (notifPermission.value === "granted") {
-    const n = new Notification("🛡️ Aegis 拦截请求，需要审批", {
-      body: `[${data.risk || "UNKNOWN"}] ${data.command || "unknown command"}`,
-      tag: data.approvalId,
-      requireInteraction: true,
-    });
-    n.onclick = () => { window.focus(); n.close(); };
+  // 只在用户没看着页面时才发系统通知（避免被 macOS/Chrome 静默吞掉）
+  const pageFocused = document.hasFocus();
+  if (Notification.permission === "granted" && !pageFocused) {
+    try {
+      const n = new Notification("🛡️ Aegis 拦截请求，需要审批", {
+        body: `[${data.risk || "UNKNOWN"}] ${data.command || "unknown command"}`,
+        tag: data.approvalId,
+        requireInteraction: true,
+      });
+      n.onclick = () => { window.focus(); n.close(); };
+      console.log("✅ 浏览器通知已发送 (页面无焦点)");
+    } catch (e) {
+      console.error("❌ 浏览器通知发送失败:", e);
+    }
+  } else if (Notification.permission === "granted") {
+    console.log("💡 页面有焦点，跳过系统通知（页内弹窗已显示）");
+  } else {
+    console.warn("⚠️ 通知权限未授予，当前状态:", Notification.permission);
   }
 
   currentApproval.value = {
@@ -852,7 +555,9 @@ const denyEventInList = async (event: any) => {
 
 // WebSocket连接
 const connectWebSocket = () => {
-  socket.value = io("http://localhost:3001");
+  const socketUrl = import.meta.env.VITE_API_URL ||
+    (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001')
+  socket.value = io(socketUrl);
 
   socket.value.on("connect", () => {
     console.log("✅ WebSocket已连接");
@@ -1085,687 +790,6 @@ body {
   overflow: auto;
 }
 
-/* 主标题 - 极简线条风格 */
-.header {
-  margin-bottom: 3rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid var(--border);
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.header-main {
-  flex: 1;
-}
-
-.header-controls {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  position: relative;
-}
-
-/* 语言切换按钮 */
-.lang-switch {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.7rem;
-  padding: 0.5rem 0.75rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  position: relative;
-}
-
-.lang-switch:hover {
-  border-color: var(--border-accent);
-  color: var(--accent-green);
-  background: rgba(34, 197, 94, 0.05);
-}
-
-.lang-switch::before {
-  content: ">";
-  margin-right: 0.5rem;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.lang-switch:hover::before {
-  opacity: 1;
-}
-
-.title {
-  font-family: "Orbitron", monospace;
-  font-size: 2.5rem;
-  font-weight: 900;
-  color: var(--text-primary);
-  letter-spacing: 0.1em;
-  margin-bottom: 0.5rem;
-}
-
-.title::before {
-  content: ">";
-  color: var(--accent-green);
-  margin-right: 0.5rem;
-  animation: cursor-pulse 2s ease-in-out infinite;
-}
-
-@keyframes cursor-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.subtitle {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  position: relative;
-  padding-left: 1rem;
-}
-
-.subtitle::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 0.5rem;
-  height: 1px;
-  background: var(--accent-green);
-  transform: translateY(-50%);
-}
-
-/* 状态统计卡片 */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 3rem;
-}
-
-.stat-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  padding: 1.5rem;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-.stat-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 1px;
-  background: var(--accent-green);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.3s ease;
-}
-
-.stat-card:hover::before {
-  transform: scaleX(1);
-}
-
-.stat-card:hover {
-  border-color: var(--border-accent);
-  background: rgba(34, 197, 94, 0.02);
-}
-
-.stat-number {
-  font-family: "Orbitron", monospace;
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--accent-green);
-  margin-bottom: 0.5rem;
-  line-height: 1;
-}
-
-.stat-label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-secondary);
-  position: relative;
-  padding-left: 0.75rem;
-}
-
-.stat-label::before {
-  content: "—";
-  position: absolute;
-  left: 0;
-  color: var(--accent-green);
-}
-
-/* 超时状态卡片特殊样式 */
-.stat-timed-out .stat-number {
-  color: #6b7280;
-}
-
-.stat-timed-out .stat-label::before {
-  color: #6b7280;
-}
-
-.stat-timed-out:hover {
-  background: rgba(107, 114, 128, 0.02);
-}
-
-.stat-timed-out::before {
-  background: #6b7280;
-}
-
-/* Agent面板网格 */
-.agent-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-  margin-bottom: 3rem;
-}
-
-/* 活跃Agent列表 */
-.agents-panel,
-.sessions-panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.panel-header {
-  background: rgba(34, 197, 94, 0.05);
-  border-bottom: 1px solid var(--border);
-  padding: 0.75rem 1rem;
-  font-family: "Orbitron", monospace;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--accent-green);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.agent-list,
-.session-list {
-  padding: 1rem;
-  max-height: 300px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent-green) transparent;
-}
-
-.agent-list::-webkit-scrollbar,
-.session-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.agent-list::-webkit-scrollbar-track,
-.session-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.agent-list::-webkit-scrollbar-thumb,
-.session-list::-webkit-scrollbar-thumb {
-  background: var(--accent-green);
-  border-radius: 0;
-}
-
-.agent-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.agent-item:hover {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.agent-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.agent-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.agent-name {
-  color: var(--text-primary);
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-
-.agent-session,
-.agent-intent {
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.15rem;
-}
-
-.agent-last-command {
-  font-size: 0.7rem;
-  color: var(--accent-green);
-  font-family: "JetBrains Mono", monospace;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.agent-time {
-  font-size: 0.6rem;
-  color: var(--text-secondary);
-  margin-top: 0.25rem;
-}
-
-.agent-status {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent-green);
-  flex-shrink: 0;
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
-  animation: online-pulse 2s ease-in-out infinite;
-}
-
-@keyframes online-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
-}
-
-.agent-status.offline {
-  background: var(--text-secondary);
-  box-shadow: none;
-  animation: none;
-}
-
-/* 会话信息 */
-.session-item {
-  padding: 0.75rem;
-  margin-bottom: 0.75rem;
-  border-left: 3px solid var(--accent-green);
-  background: rgba(255, 255, 255, 0.01);
-}
-
-.session-id {
-  font-size: 0.8rem;
-  color: var(--accent-green);
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-
-.session-user,
-.session-project {
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.15rem;
-}
-
-.session-time {
-  font-size: 0.6rem;
-  color: var(--text-secondary);
-}
-
-.session-command {
-  font-size: 0.65rem;
-  color: var(--accent-green);
-  font-family: "JetBrains Mono", monospace;
-  margin-top: 0.25rem;
-  padding: 0.25rem;
-  background: rgba(34, 197, 94, 0.05);
-  border-left: 2px solid var(--accent-green);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 事件列表 - 超简约风格 */
-.events-section {
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-}
-
-.events-header {
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(34, 197, 94, 0.05);
-}
-
-.events-title {
-  font-family: "Orbitron", monospace;
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--accent-green);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-}
-
-.events-filters {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.filter-btn {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.6rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.3rem 0.6rem;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.filter-btn:hover {
-  border-color: var(--accent-green);
-  color: var(--accent-green);
-}
-
-.filter-btn.active {
-  background: var(--accent-green);
-  border-color: var(--accent-green);
-  color: var(--bg-primary);
-}
-
-.filter-btn-blocked:hover {
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-.filter-btn-blocked.active {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: var(--bg-primary);
-}
-
-.filter-btn-pending:hover {
-  border-color: var(--info);
-  color: var(--info);
-}
-
-.filter-btn-pending.active {
-  background: var(--info);
-  border-color: var(--info);
-  color: var(--bg-primary);
-}
-
-.filter-btn-timeout:hover {
-  background: rgba(245, 158, 11, 0.1);
-  border-color: #f59e0b;
-  color: #f59e0b;
-}
-
-.filter-btn-timeout.active {
-  background: #f59e0b;
-  border-color: #f59e0b;
-  color: var(--bg-primary);
-}
-
-.events-detailed {
-  max-height: 500px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--accent-green) transparent;
-}
-
-.events-detailed::-webkit-scrollbar {
-  width: 4px;
-}
-
-.events-detailed::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.events-detailed::-webkit-scrollbar-thumb {
-  background: var(--accent-green);
-  border-radius: 0;
-}
-
-.load-more-indicator {
-  text-align: center;
-  padding: 1rem;
-  font-size: 0.65rem;
-  font-family: "JetBrains Mono", monospace;
-  color: var(--accent-green);
-  letter-spacing: 0.1em;
-}
-
-.load-more-indicator.no-more {
-  color: var(--text-secondary);
-  opacity: 0.4;
-}
-
-/* 详细事件项 */
-.event-item-detailed {
-  padding: 1.5rem;
-  border-bottom: 1px solid var(--border);
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 1rem;
-  align-items: start;
-  transition: background 0.2s ease;
-}
-
-.event-item-detailed:hover {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.event-item-detailed:last-child {
-  border-bottom: none;
-}
-
-.event-item-detailed.new-event {
-  animation: slideInEvent 0.5s ease;
-  background: rgba(34, 197, 94, 0.05);
-}
-
-@keyframes slideInEvent {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-    background: rgba(34, 197, 94, 0.1);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-    background: rgba(34, 197, 94, 0.05);
-  }
-}
-
-.event-status {
-  width: 8px;
-  height: 8px;
-  background: var(--accent-green);
-  flex-shrink: 0;
-  margin-top: 0.5rem;
-}
-
-.event-status.critical {
-  background: var(--danger);
-  box-shadow: 0 0 8px rgba(220, 38, 38, 0.5);
-}
-
-.event-status.high {
-  background: var(--warning);
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
-}
-
-.event-main {
-  min-width: 0;
-}
-
-.event-command {
-  font-family: "JetBrains Mono", monospace;
-  color: var(--text-primary);
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.event-context {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.context-tag {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border);
-  padding: 0.2rem 0.5rem;
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.context-tag.agent-tag {
-  border-color: var(--border-accent);
-}
-
-.status-tag {
-  display: inline-block;
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.7rem;
-}
-
-.status-tag.allowed {
-  color: #22c55e;
-  background: rgba(34, 197, 94, 0.1);
-}
-
-.status-tag.blocked {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.status-tag.pending {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.1);
-}
-
-.status-tag.timed_out {
-  color: #6b7280;
-  background: rgba(107, 114, 128, 0.1);
-}
-
-/* 决策来源标签 */
-.source-tag {
-  display: inline-block;
-  font-weight: 600;
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-
-.source-tag.aegis_ui {
-  color: #22c55e;
-  background: rgba(34, 197, 94, 0.15);
-  border: 1px solid rgba(34, 197, 94, 0.25);
-}
-
-.source-tag.claude_code {
-  color: #3b82f6;
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px solid rgba(59, 130, 246, 0.25);
-}
-
-.event-session-info {
-  margin-top: 0.5rem;
-}
-
-.session-id {
-  font-size: 0.7rem;
-  color: #888;
-  font-family: monospace;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 0.2rem 0.5rem;
-  border: 1px solid #333;
-}
-
-.event-user-context {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  margin-top: 0.25rem;
-  font-style: italic;
-}
-
-.event-meta {
-  text-align: right;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-items: flex-end;
-}
-
-.event-time {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  font-family: "JetBrains Mono", monospace;
-}
-
-.event-action {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: 0.25rem 0.5rem;
-  border: 1px solid;
-  background: rgba(34, 197, 94, 0.1);
-  color: var(--accent-green);
-  border-color: var(--accent-green);
-}
-
-.event-item-detailed.blocked .event-action {
-  color: var(--danger);
-  border-color: var(--danger);
-  background: rgba(220, 38, 38, 0.1);
-}
-
-.event-item-detailed.warning .event-action {
-  color: var(--warning);
-  border-color: var(--warning);
-  background: rgba(245, 158, 11, 0.1);
-}
-
-.event-item-detailed.pending .event-action {
-  color: var(--info);
-  border-color: var(--info);
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.event-item-detailed.timed_out .event-action {
-  color: #f59e0b;
-  border-color: #f59e0b;
-  background: rgba(245, 158, 11, 0.1);
-}
-
 /* 状态指示器 */
 .status-bar {
   position: fixed;
@@ -1797,381 +821,4 @@ body {
   }
 }
 
-.notif-status {
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  font-family: "JetBrains Mono", monospace;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.notif-status.granted { color: var(--accent-green); cursor: default; }
-.notif-status.denied { color: var(--danger); }
-.notif-status.default:hover { color: var(--accent-green); }
-
-
-.connection-status {
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-}
-
-.connection-status.connected {
-  color: var(--accent-green);
-}
-
-.connection-status.disconnected {
-  color: var(--danger);
-}
-
-/* 空状态 */
-.empty-state {
-  text-align: center;
-  padding: 2rem;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-}
-
-/* 大型连接状态指示器 */
-.connection-status-large {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--border);
-  margin: 1rem auto;
-  max-width: 300px;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.connection-status-large #status-dot-large {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--danger);
-  flex-shrink: 0;
-}
-
-.connection-status-large.connected #status-dot-large {
-  background: var(--accent-green);
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
-  animation: online-pulse 2s ease-in-out infinite;
-}
-
-.connection-status-large.connected #connection-text-large {
-  color: var(--accent-green);
-}
-
-.connection-status-large.disconnected #connection-text-large {
-  color: var(--danger);
-}
-
-/* 测试按钮 */
-.test-btn {
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid var(--accent-green);
-  color: var(--accent-green);
-  padding: 0.5rem 1rem;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.7rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.test-btn:hover {
-  background: rgba(34, 197, 94, 0.2);
-}
-
-/* 审批模态框 - 极简风格 */
-.approval-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-backdrop {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.95);
-}
-
-.modal-content {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-accent);
-  width: 90%;
-  max-width: 600px;
-  position: relative;
-  z-index: 1001;
-}
-
-.modal-header {
-  background: rgba(34, 197, 94, 0.05);
-  border-bottom: 1px solid var(--border);
-  padding: 1.5rem;
-}
-
-.modal-title {
-  font-family: 'Orbitron', monospace;
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--accent-green);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 0.5rem;
-}
-
-.modal-meta {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.session-info {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.05);
-  padding: 0.25rem 0.5rem;
-  border: 1px solid var(--border);
-}
-
-.risk-indicator {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 0.25rem 0.75rem;
-  border: 1px solid;
-}
-
-.risk-indicator.risk-low {
-  color: var(--accent-green);
-  border-color: var(--accent-green);
-  background: rgba(34, 197, 94, 0.1);
-}
-
-.risk-indicator.risk-medium {
-  color: #f59e0b;
-  border-color: #f59e0b;
-  background: rgba(245, 158, 11, 0.1);
-}
-
-.risk-indicator.risk-high {
-  color: var(--danger);
-  border-color: var(--danger);
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.modal-body {
-  padding: 1.5rem;
-}
-
-.command-section {
-  margin-bottom: 1.5rem;
-}
-
-.command-label {
-  font-family: 'Orbitron', monospace;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--accent-green);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 0.5rem;
-}
-
-.command-display {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.9rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  padding: 1rem;
-  color: var(--accent-green);
-  word-break: break-all;
-}
-
-.details-grid {
-  display: grid;
-  gap: 1rem;
-}
-
-.detail-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.detail-item:last-child {
-  border-bottom: none;
-}
-
-.detail-label {
-  font-family: 'Orbitron', monospace;
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-
-.detail-value {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
-  color: var(--text-primary);
-  text-align: right;
-  max-width: 60%;
-  word-break: break-all;
-}
-
-.modal-actions {
-  border-top: 1px solid var(--border);
-  padding: 1.5rem;
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-}
-
-.action-btn {
-  font-family: 'Orbitron', monospace;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  padding: 1rem 2rem;
-  border: 1px solid;
-  background: transparent;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 120px;
-}
-
-.action-approve {
-  color: var(--accent-green);
-  border-color: var(--accent-green);
-}
-
-.action-approve:hover {
-  background: var(--accent-green);
-  color: var(--bg-primary);
-}
-
-.action-deny {
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
-.action-deny:hover {
-  background: var(--danger);
-  color: white;
-}
-
-/* 事件列表中的审批操作 */
-.event-approval-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
-}
-
-.approval-btn {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.4rem 0.8rem;
-  border: 1px solid;
-  background: transparent;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.approve-btn {
-  color: var(--accent-green);
-  border-color: var(--accent-green);
-}
-
-.approve-btn:hover {
-  background: var(--accent-green);
-  color: var(--bg-primary);
-}
-
-.deny-btn {
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
-.deny-btn:hover {
-  background: var(--danger);
-  color: white;
-}
-
-.pending-indicator {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: #f59e0b;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: rgba(245, 158, 11, 0.1);
-  padding: 0.25rem 0.5rem;
-  border: 1px solid #f59e0b;
-  animation: pending-pulse 2s ease-in-out infinite;
-}
-
-@keyframes pending-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-/* 响应式 */
-@media (max-width: 1024px) {
-  .agent-grid {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-  }
-
-  .title {
-    font-size: 2rem;
-  }
-
-  .event-item-detailed {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-
-  .event-meta {
-    align-items: flex-start;
-    text-align: left;
-  }
-
-  .context-tag {
-    font-size: 0.6rem;
-  }
-}
 </style>

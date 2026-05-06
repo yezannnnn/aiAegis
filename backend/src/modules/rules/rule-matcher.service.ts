@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import * as yaml from 'js-yaml';
 import { YAMLRuleSet, YAMLRule, MatchResult, RuleAction, RuleSeverity, RuleEvaluation } from './types';
 import { CommandNode, CommandContext } from './types';
@@ -26,9 +27,15 @@ export class RuleMatcherService {
   private fullPatternRules: YAMLRule[] = [];                     // 含 fullCommandPattern 的规则
   private severityOverrides: Map<string, RuleSeverity> = new Map(); // config 覆盖
 
+  // user rules: ~/.aegis/rules/
+  private readonly userRulesDir = path.join(os.homedir(), '.aegis', 'rules');
+  // project rules cache: cwd → Map<ruleId, YAMLRule>
+  private projectRulesCache: Map<string, Map<string, YAMLRule>> = new Map();
+
   constructor() {
     this.loadConfig();
     this.loadBuiltInRules();
+    this.loadUserRules();
     this.applyConfigOverrides();
   }
 
@@ -84,13 +91,12 @@ export class RuleMatcherService {
 
     const files = fs.readdirSync(rulesDir).filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
     for (const file of files) {
-      // 跳过 config 文件
       if (file.startsWith('aegis.')) continue;
       try {
         const content = fs.readFileSync(path.join(rulesDir, file), 'utf8');
         const ruleSet = yaml.load(content) as YAMLRuleSet;
         if (ruleSet && ruleSet.name && Array.isArray(ruleSet.rules)) {
-          this.registerRuleSet(file, ruleSet);
+          this.registerRuleSet(file, ruleSet, 'built-in');
         } else {
           this.logger.warn(`Skipping ${file}: missing name or rules array`);
         }
@@ -99,13 +105,82 @@ export class RuleMatcherService {
       }
     }
 
-    this.logger.log(`Loaded ${this.ruleSets.size} rule sets with ${this.countRules()} rules`);
+    this.logger.log(`Loaded ${this.ruleSets.size} rule sets with ${this.countRules()} built-in rules`);
   }
 
-  private registerRuleSet(source: string, ruleSet: YAMLRuleSet): void {
-    const setName = source.replace(/\.ya?ml$/, '');
+  // -------------------------------------------------------------------------
+  // 用户规则 (~/.aegis/rules/)
+  // -------------------------------------------------------------------------
+
+  private loadUserRules(): void {
+    if (!fs.existsSync(this.userRulesDir)) return;
+
+    const files = fs.readdirSync(this.userRulesDir)
+      .filter(f => (f.endsWith('.yaml') || f.endsWith('.yml')) && !f.startsWith('example'));
+
+    for (const file of files) {
+      try {
+        const content = fs.readFileSync(path.join(this.userRulesDir, file), 'utf8');
+        const ruleSet = yaml.load(content) as YAMLRuleSet;
+        if (ruleSet && ruleSet.name && Array.isArray(ruleSet.rules)) {
+          this.registerRuleSet(`user:${file}`, ruleSet, 'user');
+        }
+      } catch (e: any) {
+        this.logger.warn(`Failed to load user rule ${file}: ${e.message}`);
+      }
+    }
+
+    this.logger.log(`User rules dir: ${this.userRulesDir}`);
+  }
+
+  // -------------------------------------------------------------------------
+  // 项目规则 (<cwd>/.aegis/rules/) — 按请求动态加载，结果缓存
+  // -------------------------------------------------------------------------
+
+  private getProjectRules(cwd: string): Map<string, YAMLRule> {
+    if (this.projectRulesCache.has(cwd)) {
+      return this.projectRulesCache.get(cwd)!;
+    }
+
+    const projectRulesDir = path.join(cwd, '.aegis', 'rules');
+    const merged = new Map<string, YAMLRule>();
+
+    if (!fs.existsSync(projectRulesDir)) {
+      this.projectRulesCache.set(cwd, merged);
+      return merged;
+    }
+
+    const files = fs.readdirSync(projectRulesDir)
+      .filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
+
+    for (const file of files) {
+      try {
+        const content = fs.readFileSync(path.join(projectRulesDir, file), 'utf8');
+        const ruleSet = yaml.load(content) as YAMLRuleSet;
+        if (ruleSet?.rules && Array.isArray(ruleSet.rules)) {
+          for (const rule of ruleSet.rules) {
+            if (rule.id) {
+              rule._source = 'project';
+              merged.set(rule.id, rule);
+            }
+          }
+        }
+      } catch (e: any) {
+        this.logger.warn(`Failed to load project rule ${file}: ${e.message}`);
+      }
+    }
+
+    this.logger.log(`Project rules from ${projectRulesDir}: ${merged.size} rules`);
+    this.projectRulesCache.set(cwd, merged);
+    return merged;
+  }
+
+  private registerRuleSet(source: string, ruleSet: YAMLRuleSet, ruleSource: 'built-in' | 'user' | 'project' = 'built-in'): void {
+    const setName = source.replace(/^(user:|project:)?/, '').replace(/\.ya?ml$/, '');
+    const storageKey = `${ruleSource}:${setName}`;
+
     const resolved: ResolvedRuleSet = {
-      name: setName,
+      name: storageKey,
       version: ruleSet.version || '1.0',
       rules: new Map(),
       source,
@@ -114,6 +189,19 @@ export class RuleMatcherService {
     for (const rule of ruleSet.rules) {
       const id = rule.id || `${ruleSet.name}/${rule.category || 'default'}/${rule.description?.substring(0, 30) || 'unknown'}`;
       rule.id = id;
+      rule._source = ruleSource;
+
+      // 用户/项目规则覆盖内置规则：从 ruleIndex 中移除旧条目
+      if (ruleSource !== 'built-in') {
+        for (const [binary, rules] of this.ruleIndex) {
+          const idx = rules.findIndex(r => r.id === id);
+          if (idx !== -1) rules.splice(idx, 1);
+        }
+        // 同时从 fullPatternRules 中移除
+        const fpIdx = this.fullPatternRules.findIndex(r => r.id === id);
+        if (fpIdx !== -1) this.fullPatternRules.splice(fpIdx, 1);
+      }
+
       resolved.rules.set(id, rule);
 
       // 索引：按 binary 分组
@@ -125,13 +213,13 @@ export class RuleMatcherService {
         this.ruleIndex.get(binary)!.push(rule);
       }
 
-      // 索引：fullCommandPattern 规则（可能没有 binary 条件）
+      // 索引：fullCommandPattern 规则
       if (rule.conditions?.fullCommandPattern && !rule.conditions?.binary) {
         this.fullPatternRules.push(rule);
       }
     }
 
-    this.ruleSets.set(ruleSet.name, resolved);
+    this.ruleSets.set(storageKey, resolved);
   }
 
   private applyConfigOverrides(): void {
@@ -169,8 +257,29 @@ export class RuleMatcherService {
   // 规则匹配引擎
   // =========================================================================
 
-  evaluate(ast: CommandNode, context: CommandContext): RuleEvaluation {
-    const candidates = this.getCandidateRules(ast.binary);
+  evaluate(ast: CommandNode, context: CommandContext, cwd?: string): RuleEvaluation {
+    // Base candidates from built-in + user rules (already indexed)
+    let candidates = this.getCandidateRules(ast.binary);
+
+    // Merge project rules: higher priority, override same-id rules
+    if (cwd) {
+      const projectRules = this.getProjectRules(cwd);
+      if (projectRules.size > 0) {
+        // Remove any existing rules that are overridden by project rules
+        candidates = candidates.filter(r => !r.id || !projectRules.has(r.id));
+        // Add project rules that match this binary
+        for (const rule of projectRules.values()) {
+          const binaries = this.extractBinaries(rule);
+          if (binaries.includes(ast.binary) || binaries.includes('*')) {
+            candidates.push(rule);
+          }
+          if (rule.conditions?.fullCommandPattern && !rule.conditions?.binary) {
+            candidates.push(rule);
+          }
+        }
+      }
+    }
+
     this.logger.debug(`Evaluating '${ast.binary}', ${candidates.length} candidate rules`);
     const results: MatchResult[] = [];
 
@@ -413,6 +522,19 @@ export class RuleMatcherService {
     return all;
   }
 
+  getRulesSummary() {
+    const all = this.getAllRules();
+    return {
+      total: all.length,
+      bySource: {
+        'built-in': all.filter(r => r._source === 'built-in').length,
+        'user': all.filter(r => r._source === 'user').length,
+        'project': all.filter(r => r._source === 'project').length,
+      },
+      userRulesDir: this.userRulesDir,
+    };
+  }
+
   getRuleSet(name: string): ResolvedRuleSet | undefined {
     return this.ruleSets.get(name);
   }
@@ -422,8 +544,14 @@ export class RuleMatcherService {
     this.ruleIndex.clear();
     this.fullPatternRules = [];
     this.severityOverrides.clear();
+    this.projectRulesCache.clear();
     this.loadConfig();
     this.loadBuiltInRules();
+    this.loadUserRules();
     this.applyConfigOverrides();
+  }
+
+  getUserRulesDir(): string {
+    return this.userRulesDir;
   }
 }

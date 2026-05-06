@@ -1,0 +1,72 @@
+# ============================================================
+# Aegis 自定义规则示例
+# 将此文件复制到 ~/.aegis/rules/ 并重命名（去掉 example- 前缀）
+# 修改后运行 `aegis rules reload` 或重启服务生效
+# ============================================================
+
+name: "my-custom-rules"
+version: "1.0"
+
+rules:
+  # ----------------------------------------------------------
+  # 示例1: 禁止删除指定目录（block = 直接拒绝，无法审批）
+  # ----------------------------------------------------------
+  - id: custom/rm-data-dir
+    description: "禁止删除 data/ 目录"
+    category: "filesystem"
+    severity: "block"
+    action: "block"
+    reason: "data/ 目录包含重要数据，不可删除"
+    conditions:
+      binary: "rm"
+      argumentPatterns:
+        - "data/"
+
+  # ----------------------------------------------------------
+  # 示例2: 生产部署需要审批（review = 弹出审批弹窗）
+  # ----------------------------------------------------------
+  - id: custom/deploy-prod
+    description: "生产环境部署需人工确认"
+    category: "deploy"
+    severity: "error"
+    action: "review"
+    reason: "部署到生产环境前需要人工确认"
+    conditions:
+      binary: "sh"
+      argumentPatterns:
+        - "deploy.*prod"
+
+  # ----------------------------------------------------------
+  # 示例3: 覆盖内置规则的严重级别
+  # 将内置 fs/rm-rf 从 review 升级为 block
+  # ----------------------------------------------------------
+  # - id: fs/rm-rf
+  #   severity: "block"
+  #   action: "block"
+  #   reason: "本项目绝对禁止 rm -rf（覆盖内置规则）"
+
+  # ----------------------------------------------------------
+  # 示例4: 监控特定 API 密钥操作
+  # ----------------------------------------------------------
+  - id: custom/env-secret-exposure
+    description: "防止 .env 文件被输出到终端"
+    category: "security"
+    severity: "block"
+    action: "block"
+    reason: "防止 API 密钥等机密信息泄露到终端输出"
+    conditions:
+      binary: "cat"
+      argumentPatterns:
+        - "\\.env$"
+
+  # ----------------------------------------------------------
+  # 示例5: 使用 fullCommandPattern 拦截管道命令
+  # ----------------------------------------------------------
+  - id: custom/pipe-to-prod-db
+    description: "防止将数据直接导入生产数据库"
+    category: "database"
+    severity: "error"
+    action: "review"
+    reason: "直接导入 SQL 到生产数据库需要人工确认"
+    conditions:
+      fullCommandPattern: "mysql.*prod.*<.*\\.sql"

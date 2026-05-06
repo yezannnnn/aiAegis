@@ -32,7 +32,9 @@ export const useWebSocketStore = defineStore('websocket', {
     connect() {
       if (this.socket) return
 
-      const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+      // 生产环境：前端由 NestJS 同域托管，用当前页面 origin；开发时走 localhost:3001
+      const socketUrl = import.meta.env.VITE_API_URL ||
+        (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001')
 
       this.socket = io(`${socketUrl}/monitor`, {
         transports: ['websocket'],

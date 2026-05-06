@@ -9,363 +9,257 @@ class AegisSetupUtils {
   constructor() {
     this.homeDir = os.homedir();
     this.aegisDir = path.join(this.homeDir, '.aegis');
-    this.claudeConfigDir = path.join(this.homeDir, '.config', 'claude-code');
-    this.packageDir = path.dirname(__dirname); // aegis-v2根目录
+    this.userRulesDir = path.join(this.homeDir, '.aegis', 'rules');
+    // Claude Code 的 settings.json 位于 ~/.claude/settings.json
+    this.claudeSettingsFile = path.join(this.homeDir, '.claude', 'settings.json');
+    this.packageDir = path.dirname(__dirname); // npm 包根目录
+    this.backendDir = path.join(this.packageDir, 'backend');
   }
 
-  /**
-   * 创建Aegis配置目录
-   */
+  // ============================================================
+  // 创建目录结构
+  // ============================================================
   async createDirectories() {
     const spinner = ora('创建配置目录...').start();
-
     try {
       await fs.ensureDir(this.aegisDir);
-      await fs.ensureDir(path.join(this.aegisDir, 'rules'));
+      await fs.ensureDir(this.userRulesDir);
       await fs.ensureDir(path.join(this.aegisDir, 'logs'));
       await fs.ensureDir(path.join(this.aegisDir, 'backup'));
-
-      spinner.succeed('配置目录已创建');
+      spinner.succeed(`配置目录已创建: ${this.aegisDir}`);
     } catch (error) {
       spinner.fail('创建配置目录失败');
       throw error;
     }
   }
 
-  /**
-   * 复制Hook和规则文件
-   */
+  // ============================================================
+  // 复制 Hook 文件 + 示例规则
+  // ============================================================
   async copySystemFiles() {
     const spinner = ora('复制系统文件...').start();
-
     try {
-      const filesToCopy = [
-        {
-          src: path.join(this.packageDir, 'universal-hook.js'),
-          dest: path.join(this.aegisDir, 'universal-hook.js'),
-          name: 'Universal Hook'
-        },
-        {
-          src: path.join(this.packageDir, 'rule-engine.js'),
-          dest: path.join(this.aegisDir, 'rule-engine.js'),
-          name: 'Rule Engine'
-        },
-        {
-          src: path.join(this.packageDir, 'aegis-rules.yaml'),
-          dest: path.join(this.aegisDir, 'aegis-rules.yaml'),
-          name: 'Default Rules'
-        }
-      ];
+      // 复制 Hook（hooks/claude-code/universal-hook-v2.js → ~/.aegis/universal-hook.js）
+      const hookSrc = path.join(this.packageDir, 'hooks', 'claude-code', 'universal-hook-v2.js');
+      const hookDest = path.join(this.aegisDir, 'universal-hook.js');
 
-      for (const file of filesToCopy) {
-        if (await fs.pathExists(file.src)) {
-          await fs.copy(file.src, file.dest);
-        } else {
-          throw new Error(`源文件不存在: ${file.src}`);
-        }
+      if (await fs.pathExists(hookSrc)) {
+        await fs.copy(hookSrc, hookDest);
+      } else {
+        throw new Error(`Hook 文件不存在: ${hookSrc}`);
+      }
+
+      // 复制 config.json 路径信息到 Hook 读取位置
+      const hookConfigDest = path.join(this.aegisDir, 'config.json');
+      if (!await fs.pathExists(hookConfigDest)) {
+        await fs.writeJson(hookConfigDest, { ports: { webInterface: 3001 } }, { spaces: 2 });
+      }
+
+      // 复制示例规则（仅首次，不覆盖用户已有文件）
+      const exampleSrc = path.join(this.backendDir, 'dist', 'rules', 'example-custom.yaml');
+      const exampleDest = path.join(this.userRulesDir, 'example-custom.yaml');
+      if (await fs.pathExists(exampleSrc) && !await fs.pathExists(exampleDest)) {
+        await fs.copy(exampleSrc, exampleDest);
       }
 
       spinner.succeed('系统文件复制完成');
     } catch (error) {
-      spinner.fail('复制系统文件失败');
+      spinner.fail('复制系统文件失败: ' + error.message);
       throw error;
     }
   }
 
-  /**
-   * 配置Claude Code Hook集成
-   */
+  // ============================================================
+  // 配置 Claude Code Hook
+  // ============================================================
   async setupClaudeCodeHook() {
-    const spinner = ora('配置Claude Code Hook集成...').start();
-
+    const spinner = ora('配置 Claude Code Hook...').start();
     try {
-      // 确保Claude Code配置目录存在
-      await fs.ensureDir(this.claudeConfigDir);
+      await fs.ensureDir(path.dirname(this.claudeSettingsFile));
 
-      const settingsFile = path.join(this.claudeConfigDir, 'settings.json');
       let settings = {};
-
-      // 读取现有设置
-      if (await fs.pathExists(settingsFile)) {
+      if (await fs.pathExists(this.claudeSettingsFile)) {
         try {
-          settings = await fs.readJson(settingsFile);
-
-          // 备份原设置
-          const backupFile = path.join(this.aegisDir, 'backup', `claude-settings-backup-${Date.now()}.json`);
+          settings = await fs.readJson(this.claudeSettingsFile);
+          // 备份
+          const backupFile = path.join(this.aegisDir, 'backup', `claude-settings-${Date.now()}.json`);
           await fs.writeJson(backupFile, settings, { spaces: 2 });
-
-        } catch (parseError) {
-          spinner.warn('无法解析现有Claude配置，将创建新配置');
+        } catch {
           settings = {};
         }
       }
 
-      // 设置Hook路径
       const hookPath = path.join(this.aegisDir, 'universal-hook.js');
-      settings.preToolUseHook = `node "${hookPath}"`;
 
-      // 写入新设置
-      await fs.writeJson(settingsFile, settings, { spaces: 2 });
+      // 写入 Claude Code hooks 格式（PreToolUse）
+      settings.hooks = settings.hooks || {};
+      settings.hooks.PreToolUse = settings.hooks.PreToolUse || [];
 
-      spinner.succeed('Claude Code Hook集成完成');
+      // 移除旧的 aegis hook（避免重复）
+      settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter(
+        h => !JSON.stringify(h).includes('.aegis')
+      );
+
+      settings.hooks.PreToolUse.push({
+        matcher: 'Bash',
+        hooks: [{
+          type: 'command',
+          command: `node "${hookPath}"`,
+          timeout: 120
+        }]
+      });
+
+      await fs.writeJson(this.claudeSettingsFile, settings, { spaces: 2 });
+      spinner.succeed('Claude Code Hook 已配置');
 
       return {
-        settingsFile,
+        settingsFile: this.claudeSettingsFile,
         hookPath,
-        backupCreated: await fs.pathExists(path.join(this.aegisDir, 'backup'))
+        backupCreated: true,
       };
-
     } catch (error) {
-      spinner.fail('Claude Code Hook配置失败');
+      spinner.fail('Hook 配置失败: ' + error.message);
       throw error;
     }
   }
 
-  /**
-   * 安装项目依赖
-   */
+  // ============================================================
+  // 安装后端运行时依赖（frontend 已预构建，无需安装前端 deps）
+  // ============================================================
   async installDependencies() {
-    const backendDir = path.join(this.packageDir, 'backend');
-    const frontendDir = path.join(this.packageDir, 'frontend');
-
-    // 检查npm是否可用
+    const spinner = ora('安装后端运行时依赖（sqlite3 等原生模块）...').start();
     try {
-      await this.runCommand('npm', ['--version'], { captureOutput: true });
-    } catch (error) {
-      throw new Error('npm 不可用，请确保已安装 Node.js');
-    }
-
-    // 安装后端依赖
-    console.log('🔧 开始安装后端依赖...');
-    try {
-      // 清理可能的缓存问题
-      await this.runCommand('npm', ['cache', 'clean', '--force'], { cwd: backendDir }).catch(() => {
-        console.log('⚠️ 清理npm缓存失败，继续安装...');
+      await this.runCommand('npm', ['install', '--production', '--no-audit', '--no-fund', '--legacy-peer-deps'], {
+        cwd: this.backendDir,
+        captureOutput: false,
       });
-
-      // 尝试安装，使用更宽松的参数
-      await this.runCommand('npm', ['install', '--no-audit', '--no-fund', '--legacy-peer-deps'], { cwd: backendDir });
-      console.log('✅ 后端依赖安装完成');
+      spinner.succeed('后端依赖安装完成');
     } catch (error) {
-      console.error('❌ 后端依赖安装失败，尝试备用方案...');
-
-      // 备用方案：只安装核心依赖
-      try {
-        await this.runCommand('npm', ['install', '@nestjs/common@9.4.3', '@nestjs/core@9.4.3', 'express@4.18.2', '--save'], { cwd: backendDir });
-        console.log('✅ 后端核心依赖安装完成');
-      } catch (backupError) {
-        throw new Error(`后端依赖安装失败: ${error.message}`);
-      }
-    }
-
-    // 安装前端依赖
-    console.log('🔧 开始安装前端依赖...');
-    try {
-      await this.runCommand('npm', ['cache', 'clean', '--force'], { cwd: frontendDir }).catch(() => {
-        console.log('⚠️ 清理npm缓存失败，继续安装...');
-      });
-
-      await this.runCommand('npm', ['install', '--no-audit', '--no-fund', '--legacy-peer-deps'], { cwd: frontendDir });
-      console.log('✅ 前端依赖安装完成');
-    } catch (error) {
-      console.error('❌ 前端依赖安装失败，尝试备用方案...');
-
-      // 备用方案：只安装Vue核心
-      try {
-        await this.runCommand('npm', ['install', 'vue@3.2.47', 'vite@4.3.9', '--save'], { cwd: frontendDir });
-        console.log('✅ 前端核心依赖安装完成');
-      } catch (backupError) {
-        throw new Error(`前端依赖安装失败: ${error.message}`);
-      }
-    }
-  }
-
-  /**
-   * 构建项目
-   */
-  async buildProject() {
-    const spinner = ora('构建项目...').start();
-
-    try {
-      const backendDir = path.join(this.packageDir, 'backend');
-      await this.runCommand('npm', ['run', 'build'], { cwd: backendDir });
-
-      spinner.succeed('项目构建完成');
-    } catch (error) {
-      spinner.fail('项目构建失败');
+      spinner.fail('后端依赖安装失败: ' + error.message);
       throw error;
     }
   }
 
-  /**
-   * 创建系统配置文件
-   */
+  // ============================================================
+  // 创建系统配置
+  // ============================================================
   async createSystemConfig(options = {}) {
-    const configFile = path.join(this.aegisDir, 'config.json');
-
+    const port = parseInt(options.port || '3001');
     const config = {
       version: '2.0.0',
       setupDate: new Date().toISOString(),
-      backend: {
-        port: options.port || 3001,
-        host: 'localhost'
+      ports: {
+        webInterface: port,
       },
-      frontend: {
-        port: options.frontendPort || 5173,
-        host: 'localhost'
-      },
+      backend: { port, host: 'localhost' },
       features: {
         claudeHookEnabled: true,
         realTimeMonitoring: true,
-        approvalSystem: true
+        approvalSystem: true,
       },
       directories: {
         home: this.aegisDir,
-        rules: path.join(this.aegisDir, 'rules'),
+        rules: this.userRulesDir,
         logs: path.join(this.aegisDir, 'logs'),
-        backup: path.join(this.aegisDir, 'backup')
-      }
+      },
     };
-
-    await fs.writeJson(configFile, config, { spaces: 2 });
+    await fs.writeJson(path.join(this.aegisDir, 'config.json'), config, { spaces: 2 });
     return config;
   }
 
-  /**
-   * 验证安装
-   */
+  // ============================================================
+  // 验证安装
+  // ============================================================
   async validateInstallation() {
     const spinner = ora('验证安装...').start();
-
     try {
-      const requiredFiles = [
-        path.join(this.aegisDir, 'universal-hook.js'),
-        path.join(this.aegisDir, 'rule-engine.js'),
-        path.join(this.aegisDir, 'aegis-rules.yaml'),
-        path.join(this.aegisDir, 'config.json'),
-        path.join(this.claudeConfigDir, 'settings.json')
-      ];
+      const hookFile = path.join(this.aegisDir, 'universal-hook.js');
+      const distMain = path.join(this.backendDir, 'dist', 'main.js');
 
-      for (const file of requiredFiles) {
-        if (!await fs.pathExists(file)) {
-          throw new Error(`必需文件不存在: ${file}`);
-        }
+      if (!await fs.pathExists(hookFile)) {
+        throw new Error(`Hook 文件不存在: ${hookFile}`);
       }
-
-      // 验证Claude设置
-      const settings = await fs.readJson(path.join(this.claudeConfigDir, 'settings.json'));
-      if (!settings.preToolUseHook || !settings.preToolUseHook.includes('.aegis')) {
-        throw new Error('Claude Code Hook配置不正确');
+      if (!await fs.pathExists(distMain)) {
+        throw new Error(`后端编译产物不存在: ${distMain}（请先运行 aegis build）`);
       }
 
       spinner.succeed('安装验证通过');
-      return true;
-
     } catch (error) {
-      spinner.fail('安装验证失败');
+      spinner.fail('验证失败: ' + error.message);
       throw error;
     }
   }
 
-  /**
-   * 显示安装摘要
-   */
+  // ============================================================
+  // 显示安装摘要
+  // ============================================================
   showInstallationSummary(config, hookInfo) {
+    const port = config.ports?.webInterface || config.backend?.port || 3001;
     console.log('');
     console.log(chalk.green('🎉 Aegis Security Monitor 安装完成!'));
     console.log('');
     console.log(chalk.cyan('📍 配置信息:'));
-    console.log(`   配置目录: ${chalk.yellow(this.aegisDir)}`);
-    console.log(`   Hook文件: ${chalk.yellow(hookInfo.hookPath)}`);
-    console.log(`   Claude配置: ${chalk.yellow(hookInfo.settingsFile)}`);
-    console.log('');
-    console.log(chalk.cyan('🚀 服务配置:'));
-    console.log(`   后端端口: ${chalk.yellow(config.backend.port)}`);
-    console.log(`   前端端口: ${chalk.yellow(config.frontend.port)}`);
+    console.log(`   配置目录:  ${chalk.yellow(this.aegisDir)}`);
+    console.log(`   用户规则:  ${chalk.yellow(this.userRulesDir)}`);
+    console.log(`   Hook 文件: ${chalk.yellow(hookInfo.hookPath)}`);
     console.log('');
     console.log(chalk.cyan('📋 下一步:'));
-    console.log(`   运行 ${chalk.green('aegis start')} 启动服务`);
-    console.log(`   访问 ${chalk.green(`http://localhost:${config.frontend.port}`)} 查看界面`);
+    console.log(`   1. 运行 ${chalk.green('aegis start')} 启动服务`);
+    console.log(`   2. 访问 ${chalk.green(`http://localhost:${port}`)} 查看监控界面`);
+    console.log(`   3. 运行 ${chalk.green('aegis rules new my-rules')} 创建自定义规则`);
     console.log('');
-
     if (hookInfo.backupCreated) {
-      console.log(chalk.gray('💾 原Claude配置已备份到 ~/.aegis/backup/'));
+      console.log(chalk.gray('💾 原 Claude 配置已备份到 ~/.aegis/backup/'));
     }
   }
 
-  /**
-   * 运行命令的辅助函数
-   */
-  runCommand(command, args, options = {}) {
-    return new Promise((resolve, reject) => {
-      console.log(`🔧 执行命令: ${command} ${args.join(' ')}`);
-
-      const child = spawn(command, args, {
-        stdio: 'inherit', // 改为inherit，直接显示输出
-        ...options
-      });
-
-      let stdout = '';
-      let stderr = '';
-
-      // 如果需要捕获输出，使用pipe模式
-      if (options.captureOutput) {
-        child.stdout?.on('data', (data) => {
-          stdout += data.toString();
-        });
-
-        child.stderr?.on('data', (data) => {
-          stderr += data.toString();
-          console.error(`❌ ${data.toString()}`);
-        });
-      }
-
-      child.on('close', (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          const errorMsg = stderr || `命令失败，退出码: ${code}`;
-          console.error(`❌ 命令执行失败: ${command} ${args.join(' ')}`);
-          console.error(`❌ 错误信息: ${errorMsg}`);
-          reject(new Error(errorMsg));
-        }
-      });
-
-      child.on('error', (error) => {
-        console.error(`❌ 进程错误: ${error.message}`);
-        reject(error);
-      });
-    });
-  }
-
-  /**
-   * 重置安装（用于config --reset）
-   */
+  // ============================================================
+  // 重置
+  // ============================================================
   async resetInstallation() {
-    const spinner = ora('重置Aegis配置...').start();
-
+    const spinner = ora('重置配置...').start();
     try {
-      // 移除Aegis目录
       if (await fs.pathExists(this.aegisDir)) {
         await fs.remove(this.aegisDir);
       }
-
-      // 恢复Claude设置（如果有备份）
-      const claudeSettings = path.join(this.claudeConfigDir, 'settings.json');
-      if (await fs.pathExists(claudeSettings)) {
-        const settings = await fs.readJson(claudeSettings);
-        if (settings.preToolUseHook && settings.preToolUseHook.includes('.aegis')) {
-          delete settings.preToolUseHook;
-          await fs.writeJson(claudeSettings, settings, { spaces: 2 });
+      // 移除 Claude Code hook 配置
+      if (await fs.pathExists(this.claudeSettingsFile)) {
+        const settings = await fs.readJson(this.claudeSettingsFile);
+        if (settings.hooks?.PreToolUse) {
+          settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter(
+            h => !JSON.stringify(h).includes('.aegis')
+          );
         }
+        await fs.writeJson(this.claudeSettingsFile, settings, { spaces: 2 });
       }
-
-      spinner.succeed('配置重置完成');
-
+      spinner.succeed('配置已重置');
     } catch (error) {
-      spinner.fail('配置重置失败');
+      spinner.fail('重置失败');
       throw error;
     }
+  }
+
+  // ============================================================
+  // 辅助：运行命令
+  // ============================================================
+  runCommand(command, args, options = {}) {
+    return new Promise((resolve, reject) => {
+      const child = spawn(command, args, {
+        stdio: options.captureOutput === false ? 'inherit' : 'pipe',
+        cwd: options.cwd,
+      });
+
+      let stderr = '';
+      if (child.stderr) {
+        child.stderr.on('data', d => { stderr += d.toString(); });
+      }
+
+      child.on('close', code => {
+        if (code === 0) resolve();
+        else reject(new Error(stderr || `exit code ${code}`));
+      });
+      child.on('error', reject);
+    });
   }
 }
 

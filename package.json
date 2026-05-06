@@ -1,87 +1,55 @@
 {
-<<<<<<< HEAD
-  "name": "aegis",
-  "version": "1.0.0",
-  "description": "AI Agent Security Monitor",
-  "main": "dist/monitor/index.js",
-  "bin": {
-    "aegis": "dist/monitor/index.js",
-    "aegis-hook": "dist/hook.js"
-  },
-  "scripts": {
-    "build": "tsc",
-    "start": "node dist/monitor/index.js",
-    "monitor": "node dist/monitor/index.js",
-    "setup": "node scripts/setup.js",
-    "install-hook": "node scripts/install-hook.js",
-    "test-hook": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo test\"}}' | node src/hook.js"
-  },
-  "dependencies": {
-    "chalk": "^4.1.2",
-    "commander": "^9.0.0",
-    "shell-quote": "^1.7.4",
-    "ws": "^8.13.0",
-    "yaml": "^2.3.0"
-  },
-  "devDependencies": {
-    "@types/node": "^18.0.0",
-    "@types/shell-quote": "^1.7.5",
-    "@types/ws": "^8.5.0",
-    "typescript": "^5.0.0"
-  }
-}
-=======
-  "name": "aegis-security-monitor",
-  "version": "2.0.0",
-  "description": "AI Agent Security Monitor - Complete Solution",
-  "main": "index.js",
+  "name": "ai-aegis",
+  "version": "0.2.1",
+  "description": "AI Agent Security Monitor — intercept and approve dangerous commands in real-time",
+  "main": "bin/aegis.js",
   "bin": {
     "aegis": "./bin/aegis.js"
   },
   "scripts": {
-    "postinstall": "node bin/post-install.js",
-    "dev": "./start.sh",
-    "build": "npm run build --prefix backend && npm run build --prefix frontend"
+    "build": "node bin/aegis.js build",
+    "start": "node bin/aegis.js start",
+    "postinstall": "node bin/postinstall.js",
+    "prepublishOnly": "npm run build"
   },
+  "files": [
+    "bin/",
+    "backend/dist/",
+    "backend/package.json",
+    "frontend/dist/",
+    "hooks/claude-code/universal-hook-v2.js",
+    "README.md"
+  ],
   "keywords": [
     "ai",
     "security",
     "monitor",
     "agent",
     "cli",
+    "claude",
     "nestjs",
-    "vue"
+    "hook",
+    "approval"
   ],
-  "author": "Aegis Team",
+  "author": "yezannnnn",
   "license": "MIT",
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   },
   "dependencies": {
-    "commander": "^11.0.0",
     "chalk": "^4.1.2",
-    "ora": "^5.4.1",
-    "inquirer": "^8.2.4",
+    "commander": "^11.0.0",
+    "cross-spawn": "^7.0.3",
     "fs-extra": "^11.0.0",
-    "child_process": "^1.0.2",
-    "path": "^0.12.7",
-    "cross-spawn": "^7.0.3"
+    "inquirer": "^8.2.4",
+    "ora": "^5.4.1"
   },
-  "files": [
-    "bin/",
-    "backend/",
-    "frontend/",
-    "README.md",
-    "start.sh",
-    "install.sh"
-  ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/yezannnnn/aegis-v2.git"
+    "url": "https://github.com/yezannnnn/aiAegis.git"
   },
   "bugs": {
-    "url": "https://github.com/yezannnnn/aegis-v2/issues"
+    "url": "https://github.com/yezannnnn/aiAegis/issues"
   },
-  "homepage": "https://github.com/yezannnnn/aegis-v2#readme"
+  "homepage": "https://github.com/yezannnnn/aiAegis#readme"
 }
->>>>>>> origin/master

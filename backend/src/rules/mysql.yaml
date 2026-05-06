@@ -1,6 +1,8 @@
 name: "mysql"
 version: "1.0"
 rules:
+  # ── BLOCK：极危险操作 ──────────────────────────────────────────
+
   - id: mysql/drop-schema
     description: "MySQL DROP DATABASE/TABLE 或 TRUNCATE"
     category: "mysql"
@@ -33,6 +35,8 @@ rules:
       binary: "mysqldump"
       argumentPatterns:
         - '^(--all-databases|information_schema|performance_schema|mysql)$'
+
+  # ── ERROR：需要审批 ────────────────────────────────────────────
 
   - id: mysql/unqualified-write
     description: "MySQL 无条件 DELETE/UPDATE"
@@ -77,6 +81,8 @@ rules:
       binary: "mysql"
       argumentPatterns:
         - '(?i)set\s+global'
+
+  # ── WARN：记录 ────────────────────────────────────────────────
 
   - id: mysql/outfile
     description: "MySQL SELECT INTO OUTFILE"

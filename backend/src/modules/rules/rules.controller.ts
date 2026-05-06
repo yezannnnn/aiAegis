@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param } from '@nestjs/common';
 import { AstParserService } from './ast-parser.service';
 import { AstContextService } from './ast-context.service';
 import { RuleMatcherService } from './rule-matcher.service';
@@ -50,8 +50,8 @@ export class RulesController {
     // 2. 收集上下文（git分支、项目类型等）
     const context = await this.astContext.collectContext(body.cwd);
 
-    // 3. 规则匹配
-    const evaluation = this.ruleMatcher.evaluate(ast, context);
+    // 3. 规则匹配（传入 cwd 以支持项目级自定义规则）
+    const evaluation = this.ruleMatcher.evaluate(ast, context, body.cwd);
 
     const requiresApproval = evaluation.action === 'review' || evaluation.action === 'block';
 
@@ -139,12 +139,22 @@ export class RulesController {
   }
 
   /**
+   * GET /api/v1/rules/info
+   * 规则来源统计（内置/用户/项目）
+   */
+  @Get('info')
+  getRulesInfo() {
+    return this.ruleMatcher.getRulesSummary();
+  }
+
+  /**
    * POST /api/v1/rules/reload
-   * 热更新规则
+   * 热更新规则（含用户规则）
    */
   @Post('reload')
   reloadRules() {
     this.ruleMatcher.reloadRules();
-    return { success: true, message: 'Rules reloaded' };
+    const summary = this.ruleMatcher.getRulesSummary();
+    return { success: true, message: 'Rules reloaded', summary };
   }
 }

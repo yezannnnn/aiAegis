@@ -41,26 +41,6 @@ rules:
       binary: "dd"
       argumentPatterns: ["of=/dev/[sh]d[a-z]", "of=/dev/disk"]
 
-  - id: fs/chmod-777
-    description: "chmod 777 授予完全权限"
-    category: "filesystem"
-    severity: "warn"
-    action: "review"
-    reason: "777 权限过于宽松，有安全隐患"
-    conditions:
-      binary: "chmod"
-      argumentPatterns: ["^(777|a\\+rwx)$"]
-
-  - id: fs/chown-root
-    description: "chown root 更改文件所有者为 root"
-    category: "filesystem"
-    severity: "warn"
-    action: "review"
-    reason: "更改文件所有者为 root 可能影响正常访问"
-    conditions:
-      binary: "chown"
-      argumentPatterns: ["root:root", "root\\."]
-
   - id: fs/mv-overwrite
     description: "mv 覆盖重要目录"
     category: "filesystem"
