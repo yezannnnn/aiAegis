@@ -1,4 +1,36 @@
 {
+<<<<<<< HEAD
+  "name": "aegis",
+  "version": "1.0.0",
+  "description": "AI Agent Security Monitor",
+  "main": "dist/monitor/index.js",
+  "bin": {
+    "aegis": "dist/monitor/index.js",
+    "aegis-hook": "dist/hook.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/monitor/index.js",
+    "monitor": "node dist/monitor/index.js",
+    "setup": "node scripts/setup.js",
+    "install-hook": "node scripts/install-hook.js",
+    "test-hook": "echo '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"echo test\"}}' | node src/hook.js"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^9.0.0",
+    "shell-quote": "^1.7.4",
+    "ws": "^8.13.0",
+    "yaml": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/shell-quote": "^1.7.5",
+    "@types/ws": "^8.5.0",
+    "typescript": "^5.0.0"
+  }
+}
+=======
   "name": "aegis-security-monitor",
   "version": "2.0.0",
   "description": "AI Agent Security Monitor - Complete Solution",
@@ -52,3 +84,4 @@
   },
   "homepage": "https://github.com/yezannnnn/aegis-v2#readme"
 }
+>>>>>>> origin/master

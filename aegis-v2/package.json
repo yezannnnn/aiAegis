@@ -1,0 +1,57 @@
+{
+  "name": "aegis-security-monitor",
+  "version": "2.0.0",
+  "description": "AI Agent Security Monitor - Complete Solution",
+  "main": "dist/main.js",
+  "bin": {
+    "aegis": "./bin/aegis.js"
+  },
+  "scripts": {
+    "postinstall": "node bin/post-install.js",
+    "dev": "./start.sh",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ai",
+    "security",
+    "monitor",
+    "agent",
+    "cli",
+    "nestjs",
+    "vue"
+  ],
+  "author": "Aegis Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "commander": "^11.0.0",
+    "chalk": "^4.1.2",
+    "ora": "^5.4.1",
+    "inquirer": "^8.2.4",
+    "fs-extra": "^11.0.0",
+    "cross-spawn": "^7.0.3",
+    "serve": "^14.2.0"
+  },
+  "files": [
+    "bin/",
+    "backend/dist/",
+    "frontend/dist/",
+    "default-rules/",
+    "README.md",
+    "start.sh",
+    "install.sh"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aegis-team/security-monitor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aegis-team/security-monitor/issues"
+  },
+  "homepage": "https://github.com/aegis-team/security-monitor#readme"
+}
