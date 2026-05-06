@@ -685,7 +685,7 @@ const connectWebSocket = () => {
   socket.value.on("agent_update", (response: any) => {
     const data = response.data || response;
     const agentIndex = activeAgents.value.findIndex(
-      (a) => a.type === data.type
+      (a) => a.type === data.type && a.sessionId === data.sessionId
     );
     if (agentIndex >= 0) {
       activeAgents.value[agentIndex] = data;
