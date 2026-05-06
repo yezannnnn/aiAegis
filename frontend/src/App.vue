@@ -9,6 +9,22 @@
       <button class="lang-switch" @click="toggleLanguage">
         {{ currentTexts.langSwitch }}
       </button>
+      <button
+        class="notif-status"
+        :class="notifPermission"
+        @click="handleNotifClick"
+      >
+        {{ notifPermission === 'granted' ? '🔔 通知已开启' : notifPermission === 'denied' ? '🔕 通知已关闭' : '🔔 开启通知' }}
+      </button>
+      <div v-if="showNotifGuide" class="notif-guide">
+        <div class="notif-guide-title">⚠️ 需要在浏览器设置中手动开启</div>
+        <div class="notif-guide-text">
+          Chrome：地址栏左侧 🔒 → 通知 → 允许<br>
+          Safari：系统设置 → 通知 → 浏览器 → 开启
+        </div>
+        <div class="notif-guide-text" style="margin-top:0.4rem;opacity:0.6">开启后刷新页面生效</div>
+        <button class="notif-guide-close" @click="showNotifGuide = false">✕</button>
+      </div>
       <div
         class="connection-status"
         :class="{ connected: wsConnected, disconnected: !wsConnected }"
@@ -155,14 +171,14 @@
           ALLOWED
         </button>
         <button
-          class="filter-btn"
+          class="filter-btn filter-btn-blocked"
           :class="{ active: eventFilter === 'blocked' }"
           @click="setEventFilter('blocked')"
         >
           BLOCKED
         </button>
         <button
-          class="filter-btn"
+          class="filter-btn filter-btn-pending"
           :class="{ active: eventFilter === 'pending' }"
           @click="setEventFilter('pending')"
         >
@@ -275,6 +291,33 @@
     <button @click="testSimulate" class="test-btn">
       {{ currentTexts.testSimulate }}
     </button>
+  </div>
+
+  <!-- 通知权限模态框 -->
+  <div v-if="showNotifModal" class="approval-modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">🔔 ENABLE NOTIFICATIONS</div>
+        <div class="modal-meta">
+          <span class="session-info">aegis · security monitor</span>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="command-section">
+          <div class="command-label">WHY</div>
+          <div class="command-display">拦截到危险命令时，即使页面在后台也能第一时间收到系统通知提醒你前来审批</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="action-btn action-deny" @click="showNotifModal = false">
+          跳过
+        </button>
+        <button class="action-btn action-approve" @click="grantNotifPermission">
+          开启通知
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- 审批模态框 -->
@@ -405,6 +448,37 @@ const languages = {
 const currentLang = ref(localStorage.getItem("aegis-lang") || "zh");
 const wsConnected = ref(false);
 const socket = ref<Socket | null>(null);
+const notifPermission = ref<NotificationPermission>(
+  "Notification" in window ? Notification.permission : "denied"
+);
+const showNotifGuide = ref(false);
+const showNotifModal = ref(false);
+
+const grantNotifPermission = async () => {
+  if (!("Notification" in window)) {
+    showNotifModal.value = false;
+    return;
+  }
+  if (Notification.permission === "denied") {
+    showNotifModal.value = false;
+    showNotifGuide.value = true;
+    return;
+  }
+  const result = await Notification.requestPermission();
+  notifPermission.value = result;
+  showNotifModal.value = false;
+  if (result === "denied") showNotifGuide.value = true;
+};
+
+const handleNotifClick = async () => {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "granted") return;
+  if (Notification.permission === "denied") {
+    showNotifGuide.value = true;
+    return;
+  }
+  showNotifModal.value = true;
+};
 
 const stats = reactive({
   total: 0,
@@ -486,6 +560,15 @@ const handleApprovalNotification = (data: any) => {
 
   if (!data.approvalId) {
     console.error("❌ 警告：审批请求缺少approvalId字段！", data);
+  }
+
+  if (notifPermission.value === "granted") {
+    const n = new Notification("🛡️ Aegis 拦截请求，需要审批", {
+      body: `[${data.risk || "UNKNOWN"}] ${data.command || "unknown command"}`,
+      tag: data.approvalId,
+      requireInteraction: true,
+    });
+    n.onclick = () => { window.focus(); n.close(); };
   }
 
   currentApproval.value = {
@@ -870,6 +953,9 @@ const connectWebSocket = () => {
 // 生命周期
 onMounted(() => {
   connectWebSocket();
+  if ("Notification" in window && Notification.permission === "default") {
+    showNotifModal.value = true;
+  }
 });
 
 onUnmounted(() => {
@@ -929,6 +1015,7 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
+  position: relative;
 }
 
 /* 语言切换按钮 */
@@ -1315,9 +1402,26 @@ body {
   color: var(--bg-primary);
 }
 
-.filter-btn-timeout {
-  border-color: #f59e0b;
-  color: #f59e0b;
+.filter-btn-blocked:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.filter-btn-blocked.active {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--bg-primary);
+}
+
+.filter-btn-pending:hover {
+  border-color: var(--info);
+  color: var(--info);
+}
+
+.filter-btn-pending.active {
+  background: var(--info);
+  border-color: var(--info);
+  color: var(--bg-primary);
 }
 
 .filter-btn-timeout:hover {
@@ -1553,6 +1657,12 @@ body {
   background: rgba(59, 130, 246, 0.1);
 }
 
+.event-item-detailed.timed_out .event-action {
+  color: #f59e0b;
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
 /* 状态指示器 */
 .status-bar {
   position: fixed;
@@ -1582,6 +1692,52 @@ body {
   50% {
     opacity: 0.3;
   }
+}
+
+.notif-status {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  font-family: "JetBrains Mono", monospace;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.notif-status.granted { color: var(--accent-green); cursor: default; }
+.notif-status.denied { color: var(--danger); }
+.notif-status.default:hover { color: var(--accent-green); }
+
+.notif-guide {
+  position: absolute;
+  top: 3rem;
+  right: 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--danger);
+  padding: 0.75rem 1rem;
+  font-size: 0.7rem;
+  font-family: "JetBrains Mono", monospace;
+  z-index: 100;
+  max-width: 280px;
+}
+
+.notif-guide-title {
+  color: var(--danger);
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+}
+
+.notif-guide-text { color: var(--text-secondary); line-height: 1.5; }
+
+.notif-guide-close {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.7rem;
 }
 
 .connection-status {
