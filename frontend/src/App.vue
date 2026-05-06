@@ -14,17 +14,8 @@
         :class="notifPermission"
         @click="handleNotifClick"
       >
-        {{ notifPermission === 'granted' ? '🔔 通知已开启' : notifPermission === 'denied' ? '🔕 通知已关闭' : '🔔 开启通知' }}
+        {{ notifPermission === 'granted' ? currentTexts.notifGranted : notifPermission === 'denied' ? currentTexts.notifDenied : currentTexts.notifDefault }}
       </button>
-      <div v-if="showNotifGuide" class="notif-guide">
-        <div class="notif-guide-title">⚠️ 需要在浏览器设置中手动开启</div>
-        <div class="notif-guide-text">
-          Chrome：地址栏左侧 🔒 → 通知 → 允许<br>
-          Safari：系统设置 → 通知 → 浏览器 → 开启
-        </div>
-        <div class="notif-guide-text" style="margin-top:0.4rem;opacity:0.6">开启后刷新页面生效</div>
-        <button class="notif-guide-close" @click="showNotifGuide = false">✕</button>
-      </div>
       <div
         class="connection-status"
         :class="{ connected: wsConnected, disconnected: !wsConnected }"
@@ -298,23 +289,56 @@
     <div class="modal-backdrop"></div>
     <div class="modal-content">
       <div class="modal-header">
-        <div class="modal-title">🔔 ENABLE NOTIFICATIONS</div>
+        <div class="modal-title">🔔 {{ currentTexts.notifModalTitle }}</div>
         <div class="modal-meta">
           <span class="session-info">aegis · security monitor</span>
         </div>
       </div>
       <div class="modal-body">
         <div class="command-section">
-          <div class="command-label">WHY</div>
-          <div class="command-display">拦截到危险命令时，即使页面在后台也能第一时间收到系统通知提醒你前来审批</div>
+          <div class="command-label">{{ currentTexts.notifModalWhy }}</div>
+          <div class="command-display">{{ currentTexts.notifModalBody }}</div>
         </div>
       </div>
       <div class="modal-actions">
         <button class="action-btn action-deny" @click="showNotifModal = false">
-          跳过
+          {{ currentTexts.notifSkip }}
         </button>
         <button class="action-btn action-approve" @click="grantNotifPermission">
-          开启通知
+          {{ currentTexts.notifEnable }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 通知权限被拒绝 - 设置指引模态框 -->
+  <div v-if="showNotifGuide" class="approval-modal">
+    <div class="modal-backdrop" @click="showNotifGuide = false"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">{{ currentTexts.notifDeniedTitle }}</div>
+        <div class="modal-meta">
+          <span class="session-info">aegis · security monitor</span>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="command-section">
+          <div class="command-label">HOW TO FIX</div>
+          <div class="command-display">
+            {{ currentTexts.notifDeniedChrome }}<br><br>
+            {{ currentTexts.notifDeniedSafari }}
+          </div>
+        </div>
+        <div class="details-grid" style="margin-top:1rem">
+          <div class="detail-item">
+            <span class="detail-label">NOTE</span>
+            <span class="detail-value">{{ currentTexts.notifDeniedRefresh }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="action-btn action-approve" @click="showNotifGuide = false">
+          {{ currentTexts.notifDeniedBtn }}
         </button>
       </div>
     </div>
@@ -406,6 +430,19 @@ const languages = {
     blocked: "阻止",
     pending: "待审批",
     timed_out: "已超时",
+    notifGranted: "🔔 通知已开启",
+    notifDenied: "🔕 通知已关闭",
+    notifDefault: "🔔 开启通知",
+    notifModalTitle: "ENABLE NOTIFICATIONS",
+    notifModalWhy: "WHY",
+    notifModalBody: "拦截到危险命令时，即使页面在后台也能第一时间收到系统通知提醒你前来审批",
+    notifSkip: "跳过",
+    notifEnable: "开启通知",
+    notifDeniedTitle: "⚠️ 需在浏览器设置中手动开启",
+    notifDeniedChrome: "Chrome：地址栏左侧 🔒 → 通知 → 允许",
+    notifDeniedSafari: "Safari：系统设置 → 通知 → 浏览器 → 开启",
+    notifDeniedRefresh: "开启后刷新页面生效",
+    notifDeniedBtn: "知道了",
   },
   en: {
     title: "AEGIS",
@@ -441,6 +478,19 @@ const languages = {
     blocked: "Blocked",
     pending: "Pending",
     timed_out: "Timed Out",
+    notifGranted: "🔔 Notifications On",
+    notifDenied: "🔕 Notifications Off",
+    notifDefault: "🔔 Enable Notifications",
+    notifModalTitle: "ENABLE NOTIFICATIONS",
+    notifModalWhy: "WHY",
+    notifModalBody: "Get instantly notified when a risky command is intercepted, even when the page is in the background",
+    notifSkip: "Skip",
+    notifEnable: "Enable",
+    notifDeniedTitle: "⚠️ Manual browser settings required",
+    notifDeniedChrome: "Chrome: Click 🔒 in address bar → Notifications → Allow",
+    notifDeniedSafari: "Safari: System Settings → Notifications → Browser → Enable",
+    notifDeniedRefresh: "Refresh page after enabling",
+    notifDeniedBtn: "Got it",
   },
 };
 
@@ -1708,37 +1758,6 @@ body {
 .notif-status.denied { color: var(--danger); }
 .notif-status.default:hover { color: var(--accent-green); }
 
-.notif-guide {
-  position: absolute;
-  top: 3rem;
-  right: 1rem;
-  background: var(--bg-card);
-  border: 1px solid var(--danger);
-  padding: 0.75rem 1rem;
-  font-size: 0.7rem;
-  font-family: "JetBrains Mono", monospace;
-  z-index: 100;
-  max-width: 280px;
-}
-
-.notif-guide-title {
-  color: var(--danger);
-  font-weight: 600;
-  margin-bottom: 0.4rem;
-}
-
-.notif-guide-text { color: var(--text-secondary); line-height: 1.5; }
-
-.notif-guide-close {
-  position: absolute;
-  top: 0.4rem;
-  right: 0.5rem;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 0.7rem;
-}
 
 .connection-status {
   font-size: 0.7rem;
