@@ -168,6 +168,13 @@
         >
           PENDING
         </button>
+        <button
+          class="filter-btn filter-btn-timeout"
+          :class="{ active: eventFilter === 'timed_out' }"
+          @click="setEventFilter('timed_out')"
+        >
+          TIMEOUT
+        </button>
       </div>
     </div>
     <div class="events-detailed">
@@ -424,6 +431,21 @@ const filteredEvents = computed(() => {
   }
   return events.value.filter(event => event.status === eventFilter.value);
 });
+
+// 格式化事件时间：当天只显示时间，非当天显示日期+时间
+const formatEventTime = (date: Date): string => {
+  const now = new Date();
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  if (isToday) {
+    return date.toLocaleTimeString();
+  }
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${month}/${day} ${date.toLocaleTimeString()}`;
+};
 
 // 方法
 const toggleLanguage = () => {
@@ -690,7 +712,7 @@ const connectWebSocket = () => {
         ...event,
         approvalId: event.approvalId, // 只使用真正的approvalId，不fallback到event.id
         action: event.action || event.status,
-        time: new Date(event.timestamp).toLocaleTimeString(),
+        time: formatEventTime(new Date(event.timestamp)),
         isNew: false,
       }));
     }
@@ -826,7 +848,7 @@ const connectWebSocket = () => {
       risk: data.risk,
       cwd: data.cwd,
       reason: data.reason,
-      time: new Date().toLocaleTimeString(),
+      time: formatEventTime(new Date()),
       action: data.action || data.status,
       status: data.status,
       isNew: true,
@@ -1290,6 +1312,23 @@ body {
 .filter-btn.active {
   background: var(--accent-green);
   border-color: var(--accent-green);
+  color: var(--bg-primary);
+}
+
+.filter-btn-timeout {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.filter-btn-timeout:hover {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.filter-btn-timeout.active {
+  background: #f59e0b;
+  border-color: #f59e0b;
   color: var(--bg-primary);
 }
 
