@@ -94,7 +94,7 @@ process.stdin.on('end', async () => {
 
       case 'review':
         console.error(`[Aegis] 📋 当前命令被 Aegis 拦截: ${evaluation.reason}`);
-        console.error(`[Aegis] 👉 请在 http://localhost:5173 进行审批`);
+        console.error(`[Aegis] 👉 请在 http://localhost:${AEGIS_PORT} 进行审批`);
         console.error(`[Aegis] ⏳ 等待审批中 (最多30秒)...`);
 
         if (!approvalRequestId) {
@@ -124,11 +124,11 @@ process.stdin.on('end', async () => {
           const reason = decision?.reason || '审批超时';
           console.error(`[Aegis] ❌ 审批未通过: ${reason}`);
           process.stdout.write(JSON.stringify({
-            systemMessage: `🛡️ Aegis: ${evaluation.reason}\n⏱️ 审批超时 — 请先到 http://localhost:5173 审批后再重试`,
+            systemMessage: `🛡️ Aegis: ${evaluation.reason}\n⏱️ 审批超时 — 请先到 http://localhost:${AEGIS_PORT} 审批后再重试`,
             hookSpecificOutput: {
               hookEventName: 'PreToolUse',
               permissionDecision: 'deny',
-              permissionDecisionReason: `[Aegis] ${reason} — 请在 http://localhost:5173 审批后重试`,
+              permissionDecisionReason: `[Aegis] ${reason} — 请在 http://localhost:${AEGIS_PORT} 审批后重试`,
             }
           }));
           process.exit(0);

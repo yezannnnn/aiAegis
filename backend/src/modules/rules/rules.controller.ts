@@ -53,46 +53,52 @@ export class RulesController {
     // 3. 规则匹配（传入 cwd 以支持项目级自定义规则）
     const evaluation = this.ruleMatcher.evaluate(ast, context, body.cwd);
 
-    const requiresApproval = evaluation.action === 'review' || evaluation.action === 'block';
+    // block = 直接拒绝，只记录事件，不创建审批弹窗
+    // review = 需要人工审批，创建审批记录并广播弹窗
+    const requiresApproval = evaluation.action === 'review';
+    const shouldRecord = evaluation.action === 'review' || evaluation.action === 'block';
 
     let approvalRequestId: string | undefined;
-    if (requiresApproval) {
+    if (shouldRecord) {
       // 创建监控事件（供3001事件列表显示）
+      const eventStatus = evaluation.action === 'block' ? EventStatus.BLOCKED : EventStatus.PENDING;
       const eventResult = await this.monitoringService.createEvent({
         command: body.command,
         agent: body.agentType || 'Claude Code',
         sessionId: body.sessionId || 'unknown',
         risk: this.severityToRisk(evaluation.severity),
-        status: EventStatus.PENDING,
+        status: eventStatus,
         description: evaluation.reason,
       });
 
-      const eventId = eventResult.data.id;
+      if (requiresApproval) {
+        const eventId = eventResult.data.id;
 
-      // 创建审批记录（SQLite，供轮询查询）- 使用真正的 eventId
-      await this.approvalService.createRequest({
-        requestId,
-        eventId, // 传递真正的 event ID
-        command: body.command,
-        ast,
-        context,
-        evaluation,
-        source: 'rule-engine',
-        agent: body.agentType || 'Claude Code',
-      });
+        // 创建审批记录（SQLite，供轮询查询）
+        await this.approvalService.createRequest({
+          requestId,
+          eventId,
+          command: body.command,
+          ast,
+          context,
+          evaluation,
+          source: 'rule-engine',
+          agent: body.agentType || 'Claude Code',
+        });
 
-      approvalRequestId = requestId;
+        approvalRequestId = requestId;
 
-      // WebSocket 广播给3001前端（触发审批弹窗）
-      this.webSocketGateway.broadcastApprovalRequest({
-        approvalId: requestId,
-        sessionId: body.sessionId || 'unknown',
-        command: body.command,
-        agent: body.agentType || 'Claude Code',
-        risk: this.severityToRisk(evaluation.severity),
-        reason: evaluation.reason,
-        timestamp: new Date().toISOString(),
-      });
+        // WebSocket 广播给前端（触发审批弹窗）
+        this.webSocketGateway.broadcastApprovalRequest({
+          approvalId: requestId,
+          sessionId: body.sessionId || 'unknown',
+          command: body.command,
+          agent: body.agentType || 'Claude Code',
+          risk: this.severityToRisk(evaluation.severity),
+          reason: evaluation.reason,
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
 
     return {
