@@ -3,42 +3,56 @@
   <div class="events-section">
     <div class="events-header">
       <div class="events-title">{{ currentTexts.securityEvents }}</div>
-      <div class="events-filters">
-        <button
-          class="filter-btn"
-          :class="{ active: eventFilter === 'all' }"
-          @click="$emit('set-filter', 'all')"
-        >
-          ALL
-        </button>
-        <button
-          class="filter-btn"
-          :class="{ active: eventFilter === 'allowed' }"
-          @click="$emit('set-filter', 'allowed')"
-        >
-          ALLOWED
-        </button>
-        <button
-          class="filter-btn filter-btn-blocked"
-          :class="{ active: eventFilter === 'blocked' }"
-          @click="$emit('set-filter', 'blocked')"
-        >
-          BLOCKED
-        </button>
-        <button
-          class="filter-btn filter-btn-pending"
-          :class="{ active: eventFilter === 'pending' }"
-          @click="$emit('set-filter', 'pending')"
-        >
-          PENDING
-        </button>
-        <button
-          class="filter-btn filter-btn-timeout"
-          :class="{ active: eventFilter === 'timed_out' }"
-          @click="$emit('set-filter', 'timed_out')"
-        >
-          TIMEOUT
-        </button>
+      <div class="events-filters-wrap">
+        <div class="events-filters">
+          <button
+            class="filter-btn"
+            :class="{ active: eventFilter === 'all' }"
+            @click="$emit('set-filter', 'all')"
+          >ALL</button>
+          <button
+            class="filter-btn"
+            :class="{ active: eventFilter === 'allowed' }"
+            @click="$emit('set-filter', 'allowed')"
+          >ALLOWED</button>
+          <button
+            class="filter-btn filter-btn-blocked"
+            :class="{ active: eventFilter === 'blocked' }"
+            @click="$emit('set-filter', 'blocked')"
+          >BLOCKED</button>
+          <button
+            class="filter-btn filter-btn-pending"
+            :class="{ active: eventFilter === 'pending' }"
+            @click="$emit('set-filter', 'pending')"
+          >PENDING</button>
+          <button
+            class="filter-btn filter-btn-timeout"
+            :class="{ active: eventFilter === 'timed_out' }"
+            @click="$emit('set-filter', 'timed_out')"
+          >TIMEOUT</button>
+        </div>
+        <div class="time-filters">
+          <button
+            class="filter-btn filter-btn-time"
+            :class="{ active: timeFilter === '1h' }"
+            @click="$emit('set-time-filter', '1h')"
+          >1H</button>
+          <button
+            class="filter-btn filter-btn-time"
+            :class="{ active: timeFilter === '24h' }"
+            @click="$emit('set-time-filter', '24h')"
+          >24H</button>
+          <button
+            class="filter-btn filter-btn-time"
+            :class="{ active: timeFilter === 'today' }"
+            @click="$emit('set-time-filter', 'today')"
+          >TODAY</button>
+          <button
+            class="filter-btn filter-btn-time"
+            :class="{ active: timeFilter === 'all' }"
+            @click="$emit('set-time-filter', 'all')"
+          >ALL TIME</button>
+        </div>
       </div>
     </div>
     <div class="events-detailed" @scroll="$emit('scroll', $event)">
@@ -138,6 +152,10 @@ defineProps({
     type: String,
     required: true,
   },
+  timeFilter: {
+    type: String,
+    default: 'all',
+  },
   isLoadingMore: {
     type: Boolean,
     required: true,
@@ -156,7 +174,7 @@ defineProps({
   },
 });
 
-defineEmits(['set-filter', 'scroll', 'approve-event', 'deny-event']);
+defineEmits(['set-filter', 'set-time-filter', 'scroll', 'approve-event', 'deny-event']);
 </script>
 
 <style scoped>
@@ -184,9 +202,32 @@ defineEmits(['set-filter', 'scroll', 'approve-event', 'deny-event']);
   letter-spacing: 0.15em;
 }
 
+.events-filters-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+
 .events-filters {
   display: flex;
   gap: 0.5rem;
+}
+
+.time-filters {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filter-btn-time:hover {
+  border-color: #a78bfa;
+  color: #a78bfa;
+}
+
+.filter-btn-time.active {
+  background: #a78bfa;
+  border-color: #a78bfa;
+  color: var(--bg-primary);
 }
 
 .filter-btn {

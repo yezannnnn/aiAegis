@@ -22,11 +22,13 @@
     :events="events"
     :filtered-events="filteredEvents"
     :event-filter="eventFilter"
+    :time-filter="timeFilter"
     :is-loading-more="isLoadingMore"
     :has-more-events="hasMoreEvents"
     :ws-connected="wsConnected"
     :current-texts="currentTexts"
     @set-filter="setEventFilter"
+    @set-time-filter="setTimeFilter"
     @scroll="onEventsScroll"
     @approve-event="approveEventInList"
     @deny-event="denyEventInList"
@@ -275,16 +277,32 @@ const activeSessions = ref([]);
 const events = ref([]);
 const currentApproval = ref(null);
 const eventFilter = ref('all');
+const timeFilter = ref('all');
 
 // 计算属性
 const currentTexts = computed(() => languages[currentLang.value]);
 
-// 筛选后的事件列表
+// 筛选后的事件列表（状态 + 时间双重过滤）
 const filteredEvents = computed(() => {
-  if (eventFilter.value === 'all') {
-    return events.value;
+  let result = events.value;
+
+  // 时间过滤
+  if (timeFilter.value !== 'all') {
+    const now = Date.now();
+    const cutoff = {
+      '1h':   now - 60 * 60 * 1000,
+      '24h':  now - 24 * 60 * 60 * 1000,
+      'today': new Date().setHours(0, 0, 0, 0),
+    }[timeFilter.value] ?? 0;
+    result = result.filter(e => new Date(e.timestamp || e.time).getTime() >= cutoff);
   }
-  return events.value.filter(event => event.status === eventFilter.value);
+
+  // 状态过滤
+  if (eventFilter.value !== 'all') {
+    result = result.filter(e => e.status === eventFilter.value);
+  }
+
+  return result;
 });
 
 // 格式化事件时间：当天只显示时间，非当天显示日期+时间
@@ -306,6 +324,11 @@ const formatEventTime = (date: Date): string => {
 const toggleLanguage = () => {
   currentLang.value = currentLang.value === "zh" ? "en" : "zh";
   localStorage.setItem("aegis-lang", currentLang.value);
+};
+
+// 设置时间筛选
+const setTimeFilter = (filter: string) => {
+  timeFilter.value = filter;
 };
 
 // 设置事件筛选
