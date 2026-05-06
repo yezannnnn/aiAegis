@@ -54,12 +54,13 @@ process.stdin.on('end', async () => {
 
     const command = input.tool_input.command;
     const sessionId = input.session_id;
+    const cwd = input.cwd || process.cwd();
 
     console.error(`🚨 [AEGIS HOOK] 处理Bash命令: ${command}`);
     console.error(`🚨 [AEGIS HOOK] 会话ID: ${sessionId}`);
 
     // 调用后端 AST 规则引擎
-    const result = await evaluateWithBackend(command, sessionId);
+    const result = await evaluateWithBackend(command, sessionId, cwd);
 
     if (!result) {
       // 后端不可用，默认允许（避免阻塞正常工作流）
@@ -148,14 +149,14 @@ process.stdin.on('end', async () => {
 });
 
 /** 调用后端 AST 规则引擎评估命令 */
-function evaluateWithBackend(command, sessionId) {
+function evaluateWithBackend(command, sessionId, cwd) {
   return new Promise((resolve) => {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const data = JSON.stringify({
       command,
       sessionId: sessionId || 'unknown',
       agentType: 'claude-code',
-      cwd: process.cwd(),
+      cwd: cwd || process.cwd(),
       requestId,
     });
 

@@ -11,30 +11,32 @@
         <div
           v-for="agent in activeAgents
             .slice()
-            .sort(
-              (a, b) =>
-                new Date(b.lastActivity).getTime() -
-                new Date(a.lastActivity).getTime()
-            )"
+            .sort((a, b) => (b.commandCount ?? 0) - (a.commandCount ?? 0))"
           :key="agent.type"
           class="agent-item"
         >
           <div class="agent-icon">🤖</div>
           <div class="agent-info">
-            <div class="agent-name">{{ agent.type }}</div>
-            <div class="agent-session">
-              {{ currentTexts.sessionCount }}: {{ agent.sessionCount }}
+            <div class="agent-name">
+              {{ agent.type }}
+              <span class="agent-session-id" v-if="agent.sessionId">#{{ agent.sessionId.slice(0, 8) }}</span>
             </div>
-            <div class="agent-intent">
-              {{ currentTexts.firstSeen }}:
-              {{ new Date(agent.firstSeen).toLocaleTimeString() }}
+            <div class="agent-stats">
+              <span class="stat-item">
+                <span class="stat-label">执行</span>
+                <span class="stat-value">{{ agent.commandCount ?? 0 }}</span>
+              </span>
+              <span class="stat-divider">|</span>
+              <span class="stat-item stat-blocked">
+                <span class="stat-label">拦截</span>
+                <span class="stat-value">{{ agent.blockedCount ?? 0 }}</span>
+              </span>
             </div>
-            <div class="agent-last-command">
-              {{ currentTexts.lastActivity }}:
-              {{ new Date(agent.lastActivity).toLocaleTimeString() }}
+            <div class="agent-cwd" v-if="agent.cwd" :title="agent.cwd">
+              📁 {{ agent.cwd.split('/').slice(-2).join('/') }}
             </div>
-            <div class="agent-time">
-              {{ new Date(agent.lastActivity).toLocaleDateString() }}
+            <div class="agent-last-cmd" v-if="agent.lastCommand" :title="agent.lastCommand">
+              $ {{ agent.lastCommand.length > 40 ? agent.lastCommand.slice(0, 40) + '…' : agent.lastCommand }}
             </div>
           </div>
           <div
@@ -49,7 +51,7 @@
       </div>
     </div>
 
-    <!-- 活跃会话 -->
+    <!-- 活跃会话（暂时注释，考虑与活跃代理合并）
     <div class="sessions-panel">
       <div class="panel-header">{{ currentTexts.activeSessions }}</div>
       <div class="session-list">
@@ -81,6 +83,7 @@
         </div>
       </div>
     </div>
+    -->
   </div>
 </template>
 
@@ -105,7 +108,7 @@ defineProps({
 /* Agent面板网格 */
 .agent-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 2rem;
   margin-bottom: 3rem;
 }
@@ -184,28 +187,70 @@ defineProps({
   color: var(--text-primary);
   font-weight: 600;
   margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.agent-session,
-.agent-intent {
-  font-size: 0.7rem;
+.agent-session-id {
+  font-size: 0.65rem;
   color: var(--text-secondary);
-  margin-bottom: 0.15rem;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 400;
 }
 
-.agent-last-command {
+.agent-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
   font-size: 0.7rem;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+}
+
+.stat-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.stat-blocked .stat-value {
+  color: #f87171;
+}
+
+.stat-divider {
+  color: var(--border);
+  font-size: 0.65rem;
+}
+
+.agent-cwd {
+  font-size: 0.65rem;
   color: var(--accent-green);
   font-family: "JetBrains Mono", monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  opacity: 0.8;
 }
 
-.agent-time {
-  font-size: 0.6rem;
+.agent-last-cmd {
+  font-size: 0.62rem;
   color: var(--text-secondary);
-  margin-top: 0.25rem;
+  font-family: "JetBrains Mono", monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 0.2rem;
+  opacity: 0.7;
 }
 
 .agent-status {

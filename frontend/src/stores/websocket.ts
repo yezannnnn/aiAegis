@@ -93,7 +93,9 @@ export const useWebSocketStore = defineStore('websocket', {
 
       this.socket.on('agent_update', (data) => {
         console.log('🤖 代理更新:', data.data)
-        const index = this.agents.findIndex(a => a.type === data.data.type)
+        const index = this.agents.findIndex(
+          a => a.type === data.data.type && a.sessionId === data.data.sessionId
+        )
         if (index >= 0) {
           this.agents[index] = data.data
         } else {

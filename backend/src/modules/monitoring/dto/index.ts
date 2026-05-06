@@ -10,6 +10,8 @@ export enum EventStatus {
   APPROVED = 'approved',
   DENIED = 'denied',
   BLOCKED = 'blocked',
+  ALLOWED = 'allowed',
+  WARNED = 'warned',
   TIMED_OUT = 'timed_out'
 }
 
@@ -19,6 +21,7 @@ export class CreateEventDto {
   risk: RiskLevel;
   status: EventStatus;
   sessionId: string;
+  cwd?: string;
   userContext?: any;
   intent?: string;
   description?: string;

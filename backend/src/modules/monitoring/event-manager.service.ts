@@ -68,7 +68,7 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
 
     this.events.set(id, event);
     this.updateSession(event.sessionId, event);
-    this.updateAgent(event.agent);
+    this.updateAgent(event.agent, event);
 
     // 持久化到 SQLite
     try {
@@ -161,19 +161,28 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
       });
   }
 
-  updateAgent(agentType: string): void {
-    const agent = this.agents.get(agentType) || {
+  updateAgent(agentType: string, event?: any): void {
+    const sessionId = event?.sessionId || 'unknown';
+    const key = `${agentType}::${sessionId}`;
+
+    const agent = this.agents.get(key) || {
       type: agentType,
+      sessionId,
       firstSeen: new Date().toISOString(),
-      lastActivity: new Date().toISOString(),
-      sessionCount: 0,
+      commandCount: 0,
+      blockedCount: 0,
+      cwd: null,
+      lastCommand: null,
     };
 
-    agent.lastActivity = new Date().toISOString();
-    const activeSessions = this.getSessions().filter(s => s.agent === agentType);
-    agent.sessionCount = activeSessions.length;
+    agent.commandCount = (agent.commandCount || 0) + 1;
+    if (event?.status === 'blocked' || event?.status === 'denied') {
+      agent.blockedCount = (agent.blockedCount || 0) + 1;
+    }
+    if (event?.cwd) agent.cwd = event.cwd;
+    if (event?.command) agent.lastCommand = event.command;
 
-    this.agents.set(agentType, agent);
+    this.agents.set(key, agent);
     this.emit('agent_update', agent);
   }
 

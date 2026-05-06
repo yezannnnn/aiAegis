@@ -53,15 +53,24 @@ export class RulesController {
     // 3. 规则匹配（传入 cwd 以支持项目级自定义规则）
     const evaluation = this.ruleMatcher.evaluate(ast, context, body.cwd);
 
-    // block = 直接拒绝，只记录事件，不创建审批弹窗
-    // review = 需要人工审批，创建审批记录并广播弹窗
+    // 所有命令都记录到事件列表
+    // block   = 直接拒绝，不创建审批弹窗
+    // review  = 需要人工审批，创建审批记录并广播弹窗
+    // allow   = 放行，记录 ALLOWED
+    // warn    = 放行，记录 WARNED
     const requiresApproval = evaluation.action === 'review';
-    const shouldRecord = evaluation.action === 'review' || evaluation.action === 'block';
+
+    const actionToStatus: Record<string, EventStatus> = {
+      allow:  EventStatus.ALLOWED,
+      warn:   EventStatus.WARNED,
+      block:  EventStatus.BLOCKED,
+      review: EventStatus.PENDING,
+    };
 
     let approvalRequestId: string | undefined;
-    if (shouldRecord) {
+    {
       // 创建监控事件（供3001事件列表显示）
-      const eventStatus = evaluation.action === 'block' ? EventStatus.BLOCKED : EventStatus.PENDING;
+      const eventStatus = actionToStatus[evaluation.action] ?? EventStatus.ALLOWED;
       const eventResult = await this.monitoringService.createEvent({
         command: body.command,
         agent: body.agentType || 'Claude Code',
@@ -69,6 +78,7 @@ export class RulesController {
         risk: this.severityToRisk(evaluation.severity),
         status: eventStatus,
         description: evaluation.reason,
+        cwd: body.cwd,
       });
 
       if (requiresApproval) {

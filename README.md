@@ -14,6 +14,8 @@ AI Agent（Claude Code、Cursor、Copilot……）是个黑盒子。你给它一
 AI Agent 发出命令 → Aegis 拦截 → 你在监控界面审批 → 命令执行或终止
 ```
 
+![Aegis 拦截演示](./demo.gif)
+
 ---
 
 ## 快速开始
