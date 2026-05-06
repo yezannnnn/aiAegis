@@ -1,0 +1,147 @@
+name: "prisma"
+version: "1.0"
+rules:
+  # argumentPatterns 使用 AND 逻辑：每条 pattern 都必须匹配至少一个参数
+  # npx prisma ... → binary=npx，prisma/migrate/reset 等都是位置参数
+
+  - id: prisma/migrate-reset
+    description: "prisma migrate reset 重置数据库"
+    category: "prisma"
+    severity: "block"
+    action: "block"
+    reason: "migrate reset 删除所有数据并重新应用迁移，不可恢复"
+    conditions:
+      binary: "npx"
+      argumentPatterns:
+        - '^prisma$'
+        - '^migrate$'
+        - '^reset$'
+
+  - id: prisma/migrate-force
+    description: "prisma migrate dev/deploy --force"
+    category: "prisma"
+    severity: "block"
+    action: "block"
+    reason: "--force 跳过安全检查，可能导致数据丢失"
+    conditions:
+      binary: "npx"
+      hasFlags: ["force"]
+      argumentPatterns:
+        - '^prisma$'
+        - '^migrate$'
+
+  - id: prisma/db-push-force-reset
+    description: "prisma db push --force-reset"
+    category: "prisma"
+    severity: "block"
+    action: "block"
+    reason: "--force-reset 删除所有数据并重建 schema"
+    conditions:
+      binary: "npx"
+      hasFlags: ["force-reset"]
+      argumentPatterns:
+        - '^prisma$'
+        - '^db$'
+
+  - id: prisma/db-seed-force
+    description: "prisma db seed --force"
+    category: "prisma"
+    severity: "block"
+    action: "block"
+    reason: "强制 seed 可能覆盖生产数据"
+    conditions:
+      binary: "npx"
+      hasFlags: ["force"]
+      argumentPatterns:
+        - '^prisma$'
+        - '^db$'
+        - '^seed$'
+
+  - id: prisma/migrate-apply
+    description: "prisma migrate dev / deploy"
+    category: "prisma"
+    severity: "error"
+    action: "review"
+    reason: "数据库迁移会修改生产 schema，需人工确认"
+    conditions:
+      binary: "npx"
+      argumentPatterns:
+        - '^prisma$'
+        - '^migrate$'
+        - '^(dev|deploy)$'
+
+  - id: prisma/db-push
+    description: "prisma db push 同步 schema"
+    category: "prisma"
+    severity: "error"
+    action: "review"
+    reason: "db push 直接修改数据库结构，不产生迁移历史"
+    conditions:
+      binary: "npx"
+      argumentPatterns:
+        - '^prisma$'
+        - '^db$'
+        - '^push$'
+
+  - id: prisma/migrate-resolve
+    description: "prisma migrate resolve"
+    category: "prisma"
+    severity: "error"
+    action: "review"
+    reason: "手动解决迁移冲突需要谨慎操作"
+    conditions:
+      binary: "npx"
+      argumentPatterns:
+        - '^prisma$'
+        - '^migrate$'
+        - '^resolve$'
+
+  - id: prisma/db-execute
+    description: "prisma db execute 直接执行 SQL"
+    category: "prisma"
+    severity: "error"
+    action: "review"
+    reason: "直接执行任意 SQL 风险较高"
+    conditions:
+      binary: "npx"
+      argumentPatterns:
+        - '^prisma$'
+        - '^db$'
+        - '^execute$'
+
+  - id: prisma/generate
+    description: "prisma generate 重新生成 Client"
+    category: "prisma"
+    severity: "warn"
+    action: "review"
+    reason: "regenerate Prisma Client，确认 schema 正确"
+    conditions:
+      binary: "npx"
+      argumentPatterns:
+        - '^prisma$'
+        - '^generate$'
+
+  - id: prisma/studio
+    description: "prisma studio 数据库可视化工具"
+    category: "prisma"
+    severity: "warn"
+    action: "review"
+    reason: "Prisma Studio 提供完整数据库读写访问"
+    conditions:
+      binary: "npx"
+      argumentPatterns:
+        - '^prisma$'
+        - '^studio$'
+
+  - id: prisma/migrate-status
+    description: "prisma migrate status"
+    category: "prisma"
+    severity: "warn"
+    action: "review"
+    reason: "查询当前迁移状态"
+    conditions:
+      binary: "npx"
+      argumentPatterns:
+        - '^prisma$'
+        - '^migrate$'
+        - '^status$'

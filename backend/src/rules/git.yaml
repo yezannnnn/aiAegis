@@ -1,0 +1,72 @@
+name: "git"
+version: "1.0"
+rules:
+  - id: git/force-push/main
+    description: "禁止在 main/master 分支强制推送"
+    category: "git"
+    severity: "block"
+    action: "block"
+    reason: "在 main/master 分支强制推送会覆盖他人提交，极危险"
+    conditions:
+      binary: "git"
+      subcommand: "push"
+      hasFlags: ["force", "f"]
+      contextChecks:
+        gitBranch: ["main", "master"]
+
+  - id: git/force-push/other
+    description: "非 main 分支强制推送需审查"
+    category: "git"
+    severity: "error"
+    action: "review"
+    reason: "强制推送会改写历史，需人工确认"
+    conditions:
+      binary: "git"
+      subcommand: "push"
+      hasFlags: ["force", "f"]
+
+  - id: git/reset-hard
+    description: "git reset --hard 会丢失未提交更改"
+    category: "git"
+    severity: "error"
+    action: "review"
+    reason: "hard reset 会永久删除未提交的更改"
+    conditions:
+      binary: "git"
+      subcommand: "reset"
+      hasFlags: ["hard"]
+
+  - id: git/clean-force
+    description: "git clean -f 会永久删除未跟踪文件"
+    category: "git"
+    severity: "error"
+    action: "review"
+    reason: "clean -f 会删除文件，无法恢复"
+    conditions:
+      binary: "git"
+      subcommand: "clean"
+      hasFlags: ["force", "f"]
+
+  - id: git/rebase-main
+    description: "在 main 分支执行 rebase 危险"
+    category: "git"
+    severity: "error"
+    action: "review"
+    reason: "在 main 分支 rebase 会改写公共历史"
+    conditions:
+      binary: "git"
+      subcommand: "rebase"
+      contextChecks:
+        gitBranch: ["main", "master"]
+
+  - id: git/push-uncommitted
+    description: "推送前检查是否有未提交更改"
+    category: "git"
+    severity: "warn"
+    action: "review"
+    reason: "有未提交更改时推送可能遗漏代码"
+    conditions:
+      binary: "git"
+      subcommand: "push"
+      contextChecks:
+        hasUncommittedChanges: true

@@ -1,0 +1,68 @@
+name: "react"
+version: "1.0"
+rules:
+  - id: react/uninstall-core
+    description: "npm uninstall react/vite 核心包"
+    category: "react"
+    severity: "error"
+    action: "review"
+    reason: "卸载 React 核心包会导致项目无法运行"
+    conditions:
+      binary: "npm"
+      subcommand: "uninstall"
+      argumentPatterns:
+        - '^(react|react-dom|vite|@vitejs/).*'
+
+  - id: react/build-production
+    description: "React 生产构建"
+    category: "react"
+    severity: "warn"
+    action: "review"
+    reason: "确认生产构建的配置和环境正确"
+    conditions:
+      binary: "npm"
+      subcommand: "build"
+      argumentPatterns:
+        - '^(build|dist|production)$'
+
+  - id: react/eject
+    description: "CRA eject 不可逆"
+    category: "react"
+    severity: "error"
+    action: "review"
+    reason: "eject 操作不可逆，会将所有配置暴露到项目中"
+    conditions:
+      binary: "npm"
+      subcommand: "run"
+      argumentPatterns:
+        - '^eject$'
+
+# ── 测试用例（可选，test-rule.sh 会逐条验证）────────────────────────
+tests:
+  - command: "npm uninstall react"
+    expect: review
+    description: "卸载 React 核心 → 应触发审批"
+
+  - command: "npm uninstall vite"
+    expect: review
+    description: "卸载 Vite → 应触发审批"
+
+  - command: "npm uninstall lodash"
+    expect: allow
+    description: "卸载第三方库 → 应放行"
+
+  - command: "npm run build"
+    expect: review
+    description: "npm run build → 应触发审批"
+
+  - command: "npm run eject"
+    expect: review
+    description: "CRA eject → 应触发审批"
+
+  - command: "npm run dev"
+    expect: allow
+    description: "dev server 不在 react 规则中 → vue3/dev-server 已改为 allow"
+
+  - command: "npm install react"
+    expect: allow
+    description: "安装依赖 → 应放行"

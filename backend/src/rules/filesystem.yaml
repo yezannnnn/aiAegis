@@ -1,0 +1,72 @@
+name: "filesystem"
+version: "1.0"
+rules:
+  - id: fs/rm-rf
+    description: "rm -rf 递归强制删除"
+    category: "filesystem"
+    severity: "error"
+    action: "review"
+    reason: "rm -rf 会永久删除目录及所有内容"
+    conditions:
+      binary: "rm"
+      hasFlags: ["recursive", "r", "force", "f"]
+
+  - id: fs/rm-root
+    description: "禁止删除根目录"
+    category: "filesystem"
+    severity: "block"
+    action: "block"
+    reason: "删除根目录会摧毁整个系统"
+    conditions:
+      binary: "rm"
+      argumentPatterns: ["^/$"]
+
+  - id: fs/rm-home
+    description: "删除用户主目录"
+    category: "filesystem"
+    severity: "block"
+    action: "block"
+    reason: "删除主目录会丢失所有用户数据"
+    conditions:
+      binary: "rm"
+      argumentPatterns: ["~/", "~\\/.*", "/home/\\w+"]
+
+  - id: fs/dd-dangerous
+    description: "dd 命令写入设备危险"
+    category: "filesystem"
+    severity: "block"
+    action: "block"
+    reason: "dd 可以直接覆盖磁盘，极危险"
+    conditions:
+      binary: "dd"
+      argumentPatterns: ["of=/dev/[sh]d[a-z]", "of=/dev/disk"]
+
+  - id: fs/chmod-777
+    description: "chmod 777 授予完全权限"
+    category: "filesystem"
+    severity: "warn"
+    action: "review"
+    reason: "777 权限过于宽松，有安全隐患"
+    conditions:
+      binary: "chmod"
+      argumentPatterns: ["^(777|a\\+rwx)$"]
+
+  - id: fs/chown-root
+    description: "chown root 更改文件所有者为 root"
+    category: "filesystem"
+    severity: "warn"
+    action: "review"
+    reason: "更改文件所有者为 root 可能影响正常访问"
+    conditions:
+      binary: "chown"
+      argumentPatterns: ["root:root", "root\\."]
+
+  - id: fs/mv-overwrite
+    description: "mv 覆盖重要目录"
+    category: "filesystem"
+    severity: "error"
+    action: "review"
+    reason: "mv 覆盖系统目录可能导致系统损坏"
+    conditions:
+      binary: "mv"
+      argumentPatterns: ["/etc/.*", "/usr/.*", "/var/.*", "/bin/.*", "/sbin/.*"]

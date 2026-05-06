@@ -1,0 +1,90 @@
+name: "mysql"
+version: "1.0"
+rules:
+  - id: mysql/drop-schema
+    description: "MySQL DROP DATABASE/TABLE 或 TRUNCATE"
+    category: "mysql"
+    severity: "block"
+    action: "block"
+    reason: "DROP/TRUNCATE 会永久删除数据，不可恢复"
+    conditions:
+      binary: "mysql"
+      argumentPatterns:
+        - '(?i)drop\s+(database|table)|truncate\s+table'
+
+  - id: mysql/privilege-reset
+    description: "MySQL FLUSH PRIVILEGES / RESET MASTER/SLAVE"
+    category: "mysql"
+    severity: "block"
+    action: "block"
+    reason: "影响整个 MySQL 实例的权限或复制状态"
+    conditions:
+      binary: "mysql"
+      argumentPatterns:
+        - '(?i)flush\s+privileges|reset\s+master|reset\s+slave'
+
+  - id: mysqldump/system-dump
+    description: "mysqldump 导出系统库或所有数据库"
+    category: "mysql"
+    severity: "block"
+    action: "block"
+    reason: "系统库包含敏感权限配置"
+    conditions:
+      binary: "mysqldump"
+      argumentPatterns:
+        - '^(--all-databases|information_schema|performance_schema|mysql)$'
+
+  - id: mysql/unqualified-write
+    description: "MySQL 无条件 DELETE/UPDATE"
+    category: "mysql"
+    severity: "error"
+    action: "review"
+    reason: "无 WHERE 条件的 DELETE/UPDATE 影响所有行"
+    conditions:
+      binary: "mysql"
+      argumentPatterns:
+        - '(?i)delete\s+from|update\s+\S+\s+set'
+
+  - id: mysql/drop-column
+    description: "MySQL ALTER TABLE DROP COLUMN"
+    category: "mysql"
+    severity: "error"
+    action: "review"
+    reason: "删除列操作不可逆，数据无法恢复"
+    conditions:
+      binary: "mysql"
+      argumentPatterns:
+        - '(?i)alter\s+table.*drop\s+column'
+
+  - id: mysql/grant-all
+    description: "MySQL GRANT ALL PRIVILEGES"
+    category: "mysql"
+    severity: "error"
+    action: "review"
+    reason: "授予全部权限存在安全风险"
+    conditions:
+      binary: "mysql"
+      argumentPatterns:
+        - '(?i)grant\s+all\s+privileges'
+
+  - id: mysql/set-global
+    description: "MySQL SET GLOBAL"
+    category: "mysql"
+    severity: "error"
+    action: "review"
+    reason: "SET GLOBAL 修改服务器全局配置，影响所有连接"
+    conditions:
+      binary: "mysql"
+      argumentPatterns:
+        - '(?i)set\s+global'
+
+  - id: mysql/outfile
+    description: "MySQL SELECT INTO OUTFILE"
+    category: "mysql"
+    severity: "warn"
+    action: "review"
+    reason: "将查询结果写入服务器本地文件"
+    conditions:
+      binary: "mysql"
+      argumentPatterns:
+        - '(?i)select.*into\s+outfile'

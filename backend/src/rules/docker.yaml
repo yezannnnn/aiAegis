@@ -1,0 +1,58 @@
+name: "docker"
+version: "1.0"
+rules:
+  - id: docker/rm-force
+    description: "docker rm -f 强制删除运行中的容器"
+    category: "docker"
+    severity: "error"
+    action: "review"
+    reason: "强制删除运行中的容器可能导致数据丢失"
+    conditions:
+      binary: "docker"
+      subcommand: "rm"
+      hasFlags: ["force", "f"]
+
+  - id: docker/system-prune
+    description: "docker system prune 会删除大量资源"
+    category: "docker"
+    severity: "error"
+    action: "review"
+    reason: "system prune 会删除未使用的容器、网络、镜像和卷"
+    conditions:
+      binary: "docker"
+      subcommand: "system"
+      hasFlags: ["prune"]
+
+  - id: docker/volume-rm
+    description: "删除 Docker 卷可能丢失持久化数据"
+    category: "docker"
+    severity: "error"
+    action: "review"
+    reason: "Docker 卷通常包含数据库等持久化数据"
+    conditions:
+      binary: "docker"
+      subcommand: "volume"
+      hasFlags: ["rm"]
+
+  - id: docker/run-privileged
+    description: "docker run --privileged 授予完全主机权限"
+    category: "docker"
+    severity: "block"
+    action: "block"
+    reason: "--privileged 容器可以访问所有主机设备，极危险"
+    conditions:
+      binary: "docker"
+      subcommand: "run"
+      hasFlags: ["privileged"]
+
+  - id: docker/exec-root
+    description: "以 root 身份进入容器"
+    category: "docker"
+    severity: "warn"
+    action: "review"
+    reason: "以 root 进入容器可能破坏容器内权限设置"
+    conditions:
+      binary: "docker"
+      subcommand: "exec"
+      hasFlags: ["user", "u"]
+      argumentPatterns: ["root"]

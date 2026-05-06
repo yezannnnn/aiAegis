@@ -1,0 +1,92 @@
+name: "vue3"
+version: "1.0"
+rules:
+  - id: vue3/npm-publish-public
+    description: "npm publish --access public 公开发布"
+    category: "vue3"
+    severity: "block"
+    action: "block"
+    reason: "公开发布会将代码推送到 npm registry"
+    conditions:
+      binary: "npm"
+      subcommand: "publish"
+      hasFlags: ["access"]
+
+  - id: vue3/production-build
+    description: "Vue 生产模式构建"
+    category: "vue3"
+    severity: "error"
+    action: "review"
+    reason: "确认生产构建的目标环境和配置"
+    conditions:
+      binary: "npm"
+      subcommand: "build"
+      hasFlags: ["mode"]
+      argumentPatterns:
+        - '^(production|prod)$'
+
+  - id: vue3/vite-host-all
+    description: "Vite 绑定所有网络接口（0.0.0.0）"
+    category: "vue3"
+    severity: "error"
+    action: "review"
+    reason: "绑定 0.0.0.0 会将开发服务器暴露到整个网络"
+    conditions:
+      binary: "npx"
+      argumentPatterns:
+        - '^vite$'
+      hasFlags: ["host"]
+
+  - id: vue3/uninstall-core
+    description: "npm uninstall Vue / Vite 核心包"
+    category: "vue3"
+    severity: "error"
+    action: "review"
+    reason: "卸载核心框架包会导致项目无法运行"
+    conditions:
+      binary: "npm"
+      subcommand: "uninstall"
+      argumentPatterns:
+        - '^(vue|@vue/|vite|@vitejs/).*'
+
+  - id: vue3/global-install
+    description: "npm 全局安装"
+    category: "vue3"
+    severity: "error"
+    action: "review"
+    reason: "全局安装修改系统环境，影响所有项目"
+    conditions:
+      binary: "npm"
+      hasFlags: ["g", "global"]
+
+  - id: vue3/dev-server
+    description: "Vue 开发服务器启动"
+    category: "vue3"
+    severity: "warn"
+    action: "allow"
+    reason: "正常开发操作，记录放行"
+    conditions:
+      binary: "npm"
+      argumentPatterns:
+        - '^(dev|serve)$'
+
+  - id: vue3/build
+    description: "Vue 构建"
+    category: "vue3"
+    severity: "warn"
+    action: "review"
+    reason: "确认构建输出目录配置正确"
+    conditions:
+      binary: "npm"
+      subcommand: "build"
+
+  - id: vue3/vite-command
+    description: "直接运行 vite 命令"
+    category: "vue3"
+    severity: "warn"
+    action: "review"
+    reason: "确认 vite 命令参数和环境正确"
+    conditions:
+      binary: ["vite", "npx"]
+      argumentPatterns:
+        - '^vite$'

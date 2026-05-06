@@ -1,0 +1,75 @@
+name: "database"
+version: "1.0"
+rules:
+  - id: db/drop-database
+    description: "DROP DATABASE 会永久删除整个数据库"
+    category: "database"
+    severity: "block"
+    action: "block"
+    reason: "DROP DATABASE 不可恢复，极危险"
+    conditions:
+      binary: ["mysql", "psql", "mongo"]
+      argumentPatterns: ["DROP\\s+DATABASE"]
+
+  - id: db/drop-table
+    description: "DROP TABLE 会永久删除表及所有数据"
+    category: "database"
+    severity: "block"
+    action: "block"
+    reason: "DROP TABLE 不可恢复"
+    conditions:
+      binary: ["mysql", "psql", "mongo"]
+      argumentPatterns: ["DROP\\s+TABLE"]
+
+  - id: db/delete-no-where
+    description: "DELETE 不带 WHERE 会删除全表"
+    category: "database"
+    severity: "block"
+    action: "block"
+    reason: "DELETE 不带 WHERE 条件会删除所有记录"
+    conditions:
+      binary: ["mysql", "psql"]
+      argumentPatterns: ["DELETE\\s+FROM\\s+\\w+\\s*;?$"]
+
+  - id: db/update-no-where
+    description: "UPDATE 不带 WHERE 会更新全表"
+    category: "database"
+    severity: "block"
+    action: "block"
+    reason: "UPDATE 不带 WHERE 条件会更新所有记录"
+    conditions:
+      binary: ["mysql", "psql"]
+      argumentPatterns: ["UPDATE\\s+\\w+\\s+SET\\s+.*;?$"]
+
+  - id: db/truncate
+    description: "TRUNCATE 会清空表且不可回滚"
+    category: "database"
+    severity: "error"
+    action: "review"
+    reason: "TRUNCATE 操作通常不可回滚"
+    conditions:
+      binary: ["mysql", "psql"]
+      argumentPatterns: ["TRUNCATE"]
+
+  - id: db/migrate-reset
+    description: "prisma migrate reset 会删除并重建数据库"
+    category: "database"
+    severity: "block"
+    action: "block"
+    reason: "migrate reset 会删除所有数据，极其危险"
+    conditions:
+      binary: "npx"
+      subcommand: "prisma"
+      argumentPatterns: ["migrate\\s+reset"]
+
+  - id: db/production-write
+    description: "生产环境写操作需审查"
+    category: "database"
+    severity: "error"
+    action: "review"
+    reason: "生产环境数据库写操作风险极高"
+    conditions:
+      binary: ["mysql", "psql"]
+      argumentPatterns: ["INSERT|UPDATE|DELETE"]
+      contextChecks:
+        isProduction: true

@@ -1,0 +1,96 @@
+name: "nestjs"
+version: "1.0"
+rules:
+  - id: nestjs/npm-publish-public
+    description: "npm publish --access public 公开发布"
+    category: "nestjs"
+    severity: "block"
+    action: "block"
+    reason: "公开发布会将代码推送到 npm registry，不可撤销"
+    conditions:
+      binary: "npm"
+      subcommand: "publish"
+      hasFlags: ["access"]
+
+  - id: nestjs/node-eval-childprocess
+    description: "node -e 执行含 child_process 的代码"
+    category: "nestjs"
+    severity: "block"
+    action: "block"
+    reason: "通过 eval 加载 child_process 可绕过沙箱限制"
+    conditions:
+      binary: "node"
+      hasFlags: ["e", "eval"]
+      argumentPatterns:
+        - 'child_process'
+
+  - id: nestjs/uninstall-core
+    description: "npm uninstall @nestjs 核心包"
+    category: "nestjs"
+    severity: "error"
+    action: "review"
+    reason: "卸载 @nestjs 核心包会导致项目无法运行"
+    conditions:
+      binary: "npm"
+      subcommand: "uninstall"
+      argumentPatterns:
+        - '^@nestjs/(core|common|platform|cli)$|^nestjs$'
+
+  - id: nestjs/generate-core-module
+    description: "nest g 生成核心模块（app.module / main）"
+    category: "nestjs"
+    severity: "error"
+    action: "review"
+    reason: "重新生成核心模块会覆盖现有配置"
+    conditions:
+      binary: "npx"
+      argumentPatterns:
+        - '^(nest|@nestjs/cli)$'
+        - '^(g|generate)$'
+        - '^(module|app\.module|main)$'
+
+  - id: nestjs/generate-security-component
+    description: "nest g 生成安全组件（guard / interceptor / filter / middleware）"
+    category: "nestjs"
+    severity: "error"
+    action: "review"
+    reason: "安全组件影响认证和授权策略，需人工确认"
+    conditions:
+      binary: "npx"
+      argumentPatterns:
+        - '^(nest|@nestjs/cli)$'
+        - '^(g|generate)$'
+        - '^(guard|interceptor|filter|middleware)$'
+
+  - id: nestjs/global-install
+    description: "npm / npx 全局安装"
+    category: "nestjs"
+    severity: "error"
+    action: "review"
+    reason: "全局安装修改系统环境，影响所有项目"
+    conditions:
+      binary: ["npm", "npx"]
+      hasFlags: ["g", "global"]
+
+  - id: nestjs/generate-component
+    description: "nest g 生成标准组件（controller / service / resolver 等）"
+    category: "nestjs"
+    severity: "warn"
+    action: "review"
+    reason: "确认生成组件的目标模块和命名"
+    conditions:
+      binary: "npx"
+      argumentPatterns:
+        - '^(nest|@nestjs/cli)$'
+        - '^(g|generate)$'
+        - '^(controller|service|resolver|dto|entity|module)$'
+
+  - id: nestjs/dev-watch
+    description: "NestJS 以 --watch 模式启动"
+    category: "nestjs"
+    severity: "warn"
+    action: "review"
+    reason: "确认在正确环境启动开发服务器"
+    conditions:
+      binary: ["nest", "npm"]
+      hasFlags: ["watch"]

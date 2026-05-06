@@ -1,0 +1,83 @@
+name: "network"
+version: "1.0"
+rules:
+  - id: network/curl-to-shell
+    description: "curl | sh 管道执行远程脚本"
+    category: "network"
+    severity: "block"
+    action: "block"
+    reason: "curl | sh 会立即执行远程下载的脚本，极危险"
+    conditions:
+      binary: "sh"
+      argumentPatterns: ["curl.*\\|.*sh", "wget.*\\|.*sh", "curl.*\\|.*bash"]
+
+  - id: network/wget-execute
+    description: "wget 下载后立即执行"
+    category: "network"
+    severity: "error"
+    action: "review"
+    reason: "下载后立即执行未知来源的脚本风险高"
+    conditions:
+      binary: ["wget", "curl"]
+      argumentPatterns: ["http", "https"]
+
+  - id: network/ssh-dangerous
+    description: "SSH 危险选项"
+    category: "network"
+    severity: "error"
+    action: "review"
+    reason: "SSH 禁用主机检查或转发代理有安全隐患"
+    conditions:
+      binary: "ssh"
+      hasFlags: ["oStrictHostKeyChecking=no", "oUserKnownHostsFile=/dev/null", "A"]
+
+  - id: network/nc-listen
+    description: "nc 监听端口可能是后门"
+    category: "network"
+    severity: "error"
+    action: "review"
+    reason: "nc -l 开启监听可能被利用为后门"
+    conditions:
+      binary: "nc"
+      hasFlags: ["listen", "l"]
+
+  - id: network/kill-9-ssh
+    description: "强制终止 SSH 进程"
+    category: "network"
+    severity: "warn"
+    action: "review"
+    reason: "强制终止 SSH 可能导致会话异常"
+    conditions:
+      binary: "kill"
+      hasFlags: ["9"]
+      argumentPatterns: ["ssh"]
+
+  - id: system/sudo
+    description: "sudo 提权操作"
+    category: "system"
+    severity: "warn"
+    action: "review"
+    reason: "sudo 以 root 权限执行，风险较高"
+    conditions:
+      binary: "sudo"
+
+  - id: system/systemctl-dangerous
+    description: "systemctl 危险操作"
+    category: "system"
+    severity: "error"
+    action: "review"
+    reason: "停止关键系统服务可能导致系统不可用"
+    conditions:
+      binary: "systemctl"
+      subcommand: ["stop", "disable", "mask"]
+      argumentPatterns: ["ssh", "network", "cron", "systemd"]
+
+  - id: system/chmod-suid
+    description: "设置 SUID 权限"
+    category: "system"
+    severity: "block"
+    action: "block"
+    reason: "SUID 程序以所有者权限运行，极危险"
+    conditions:
+      binary: "chmod"
+      argumentPatterns: ["u\\+s", "4755", "4750"]

@@ -70,3 +70,22 @@ Thumbs.db
 
 # Package-lock files (optional, uncomment if you want to ignore)
 # package-lock.json
+# Aegis 项目专用忽略规则  
+backend/data/
+*.db
+*.db-shm
+*.db-wal
+backend/dist/
+frontend/dist/
+**/package-minimal.json
+*.backup
+*.bak
+*~
+*.swp
+*.swo
+*.tmp
+.claude/
+
+# PRD 产品需求文档（内部文档）
+PRD/
+*.prd

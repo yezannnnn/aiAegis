@@ -1,0 +1,188 @@
+name: "defaults"
+version: "1.0"
+# 通用兜底规则：覆盖其他专项规则文件未涵盖的危险操作
+# fullCommandPattern 用于管道、重定向、fork bomb 等无法拆解为 binary+flags 的模式
+
+rules:
+
+  # ── 极危险操作（block）──────────────────────────────────────────────
+
+  - id: shell/fork-bomb
+    description: "Fork Bomb :(){ :|: & };:"
+    category: "process"
+    severity: "block"
+    action: "block"
+    reason: "Fork Bomb 会耗尽所有系统资源，导致系统崩溃"
+    conditions:
+      binary: ":"
+      fullCommandPattern: ':\(\)\s*\{'
+
+  - id: shell/pipe-to-shell
+    description: "curl / wget 管道直接执行远程脚本"
+    category: "shell"
+    severity: "block"
+    action: "block"
+    reason: "下载后立即执行未审查的远程脚本，极危险"
+    conditions:
+      binary: ["curl", "wget"]
+      argumentPatterns:
+        - '^(bash|sh|zsh|ksh)$'
+
+  - id: system/shutdown
+    description: "系统关机 / 重启命令"
+    category: "system"
+    severity: "block"
+    action: "block"
+    reason: "关机/重启会立即中断所有服务"
+    conditions:
+      binary: ["shutdown", "reboot", "halt", "poweroff"]
+
+  - id: system/systemctl-poweroff
+    description: "systemctl poweroff / reboot / halt"
+    category: "system"
+    severity: "block"
+    action: "block"
+    reason: "通过 systemctl 触发系统关机"
+    conditions:
+      binary: "systemctl"
+      argumentPatterns:
+        - '^(poweroff|reboot|halt|kexec)$'
+
+  - id: process/kill-all
+    description: "kill -1 终止所有进程"
+    category: "process"
+    severity: "block"
+    action: "block"
+    reason: "kill -1 向所有进程发送 SIGHUP，可能摧毁整个系统环境"
+    conditions:
+      binary: "kill"
+      hasFlags: ["1"]
+
+  # ── 需要审批（review）──────────────────────────────────────────────
+
+  - id: shell/interpreter-c-flag
+    description: "shell 解释器 -c 执行任意代码"
+    category: "shell"
+    severity: "error"
+    action: "review"
+    reason: "通过 -c 传入的字符串代码无法静态审查"
+    conditions:
+      binary: ["bash", "sh", "zsh", "ksh", "dash"]
+      hasFlags: ["c"]
+
+  - id: shell/script-eval
+    description: "python / perl / ruby / node 通过 -e/-c 执行代码"
+    category: "shell"
+    severity: "error"
+    action: "review"
+    reason: "内联执行动态代码，绕过代码审查"
+    conditions:
+      binary: ["python", "python2", "python3", "perl", "ruby"]
+      hasFlags: ["e", "c"]
+
+  - id: shell/heredoc-script
+    description: "脚本语言通过 heredoc 执行代码"
+    category: "shell"
+    severity: "error"
+    action: "review"
+    reason: "heredoc 注入任意代码到解释器"
+    conditions:
+      binary: ["python", "python2", "python3", "perl", "ruby", "bash", "sh"]
+      fullCommandPattern: '<<\s*[''"]?EOF[''"]?|<<-?\s*\w+'
+
+  - id: shell/chmod-exec-then-run
+    description: "chmod +x 后立即执行"
+    category: "shell"
+    severity: "error"
+    action: "review"
+    reason: "添加执行权限后立即运行，绕过人工检查"
+    conditions:
+      binary: "chmod"
+      hasFlags: ["x"]
+      fullCommandPattern: 'chmod.*\+x.*[;&|].*\.'
+
+  - id: shell/redirect-etc
+    description: "重定向写入 /etc/ 系统配置目录"
+    category: "file-system"
+    severity: "error"
+    action: "review"
+    reason: "直接覆盖系统配置文件"
+    conditions:
+      fullCommandPattern: '>\s*/etc/'
+
+  - id: shell/write-env-file
+    description: "tee 写入 .env 环境变量文件"
+    category: "file-system"
+    severity: "error"
+    action: "review"
+    reason: ".env 通常包含敏感密钥，直接覆盖有安全风险"
+    conditions:
+      binary: "tee"
+      argumentPatterns:
+        - '\.env(\.|$)'
+
+  - id: process/kill-9
+    description: "kill -9 强制终止进程"
+    category: "process"
+    severity: "error"
+    action: "review"
+    reason: "SIGKILL 跳过清理逻辑，可能导致数据损坏"
+    conditions:
+      binary: "kill"
+      hasFlags: ["9"]
+
+  - id: process/pkill-killall
+    description: "pkill / killall 按名称杀死进程"
+    category: "process"
+    severity: "error"
+    action: "review"
+    reason: "可能误杀同名进程组"
+    conditions:
+      binary: ["pkill", "killall"]
+
+  - id: package/npm-unpublish
+    description: "npm unpublish 撤销已发布的包"
+    category: "package"
+    severity: "error"
+    action: "review"
+    reason: "unpublish 会破坏依赖此包的所有用户"
+    conditions:
+      binary: "npm"
+      subcommand: "unpublish"
+
+  # ── 记录放行（warn）──────────────────────────────────────────────
+
+  - id: package/pip-global-install
+    description: "pip install（系统级安装）"
+    category: "package"
+    severity: "warn"
+    action: "review"
+    reason: "系统级 pip install 可能与已有包版本冲突"
+    conditions:
+      binary: ["pip", "pip3"]
+      subcommand: "install"
+      forbiddenFlags: ["user"]
+
+  # ── 测试/演示用规则 ───────────────────────────────────────────────
+
+  - id: demo/touch-approval
+    description: "审批流程演示命令（touch demo-approval）"
+    category: "test-demo"
+    severity: "error"
+    action: "review"
+    reason: "这是审批流程测试专用命令"
+    conditions:
+      binary: "touch"
+      argumentPatterns:
+        - 'demo-approval'
+
+  - id: demo/echo-approval
+    description: "审批流程演示命令（echo test-approval）"
+    category: "test-demo"
+    severity: "error"
+    action: "review"
+    reason: "这是审批流程测试专用命令"
+    conditions:
+      binary: "echo"
+      argumentPatterns:
+        - 'test-approval'

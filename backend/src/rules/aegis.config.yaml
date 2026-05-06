@@ -1,0 +1,12 @@
+# Aegis ESLint-style config
+# 规则 ID → severity 映射，覆盖规则文件的 defaultSeverity
+# severity: off | warn | error | block
+# 不在此列表中的规则使用其 defaultSeverity
+
+extends:
+  - aegis/base
+
+rules:
+  # 可以按需覆盖任意规则
+  # "fs/rm-rf": "error"
+  # "git/force-push/main": "block"
