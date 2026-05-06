@@ -24,6 +24,8 @@ export class CreateEventDto {
   cwd?: string;
   model?: string;
   persona?: string;
+  taskId?: string;
+  userPrompt?: string;
   userContext?: any;
   intent?: string;
   description?: string;

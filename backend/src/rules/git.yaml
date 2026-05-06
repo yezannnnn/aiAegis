@@ -25,6 +25,17 @@ rules:
       subcommand: "push"
       hasFlags: ["force", "f"]
 
+  - id: git/force-with-lease
+    description: "git push --force-with-lease 需审查"
+    category: "git"
+    severity: "error"
+    action: "review"
+    reason: "force-with-lease 会改写远端历史，需人工确认"
+    conditions:
+      binary: "git"
+      subcommand: "push"
+      hasFlags: ["force-with-lease"]
+
   - id: git/reset-hard
     description: "git reset --hard 会丢失未提交更改"
     category: "git"

@@ -110,6 +110,14 @@
             <span class="session-id">
               {{ currentTexts.session }}: {{ event.sessionId || "未知" }}
             </span>
+            <span
+              v-if="event.taskId"
+              class="task-id"
+              :title="event.taskId"
+            >TASK {{ event.taskId.slice(0, 8) }}</span>
+          </div>
+          <div v-if="event.userPrompt" class="event-user-prompt">
+            💬 {{ event.userPrompt }}
           </div>
           <div class="event-user-context">{{ event.reason }}</div>
 
@@ -462,6 +470,10 @@ defineEmits(['set-filter', 'set-time-filter', 'scroll', 'approve-event', 'deny-e
 
 .event-session-info {
   margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .session-id {
@@ -471,6 +483,33 @@ defineEmits(['set-filter', 'set-time-filter', 'scroll', 'approve-event', 'deny-e
   background: rgba(255, 255, 255, 0.05);
   padding: 0.2rem 0.5rem;
   border: 1px solid #333;
+}
+
+.task-id {
+  font-size: 0.65rem;
+  color: #a78bfa;
+  font-family: monospace;
+  background: rgba(167, 139, 250, 0.08);
+  padding: 0.2rem 0.5rem;
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  cursor: default;
+  letter-spacing: 0.05em;
+}
+
+.task-id:hover {
+  background: rgba(167, 139, 250, 0.15);
+  border-color: rgba(167, 139, 250, 0.6);
+}
+
+.event-user-prompt {
+  font-size: 0.72rem;
+  color: #c4b5fd;
+  margin-top: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  border-left: 2px solid rgba(167, 139, 250, 0.4);
+  background: rgba(167, 139, 250, 0.05);
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 .event-user-context {

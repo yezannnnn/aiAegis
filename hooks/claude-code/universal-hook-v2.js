@@ -56,16 +56,18 @@ process.stdin.on('end', async () => {
     const sessionId = input.session_id;
     const cwd = input.cwd || process.cwd();
     const transcriptPath = input.transcript_path;
+    const toolUseId = input.tool_use_id;
     const model = extractModelFromTranscript(transcriptPath, sessionId);
     const persona = extractPersonaFromCwd(cwd);
+    const { taskId, userPrompt } = extractTaskContext(transcriptPath, sessionId, toolUseId);
 
     console.error(`🚨 [AEGIS HOOK] 处理Bash命令: ${command}`);
     console.error(`🚨 [AEGIS HOOK] 会话ID: ${sessionId}`);
     console.error(`🚨 [AEGIS HOOK] 模型: ${model || 'unknown'}`);
-    console.error(`🚨 [AEGIS HOOK] 人设: ${persona || 'unknown'}`);
+    console.error(`🚨 [AEGIS HOOK] 任务ID: ${taskId || 'unknown'}`);
 
     // 调用后端 AST 规则引擎
-    const result = await evaluateWithBackend(command, sessionId, cwd, model, persona);
+    const result = await evaluateWithBackend(command, sessionId, cwd, model, persona, taskId, userPrompt);
 
     if (!result) {
       // 后端不可用，默认允许（避免阻塞正常工作流）
@@ -153,6 +155,73 @@ process.stdin.on('end', async () => {
   }
 });
 
+/** 通过 tool_use_id 从 transcript 反查 parentUuid（任务ID）和用户原始指令 */
+function extractTaskContext(transcriptPath, sessionId, toolUseId) {
+  if (!toolUseId) return { taskId: null, userPrompt: null };
+
+  const candidates = [];
+  if (transcriptPath) candidates.push(transcriptPath);
+  if (sessionId) {
+    const projectsDir = path.join(require('os').homedir(), '.claude', 'projects');
+    try {
+      for (const proj of fs.readdirSync(projectsDir)) {
+        const p = path.join(projectsDir, proj, `${sessionId}.jsonl`);
+        if (fs.existsSync(p)) { candidates.push(p); break; }
+      }
+    } catch {}
+  }
+
+  for (const filePath of candidates) {
+    try {
+      const lines = fs.readFileSync(filePath, 'utf8').split('\n');
+      // 两遍扫：第一遍建完整 uuid→行 索引（所有类型，链上可能有 assistant 节点）
+      const uuidMap = {};
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const d = JSON.parse(line);
+          if (d.uuid) uuidMap[d.uuid] = d;
+        } catch {}
+      }
+      // 第二遍从末尾找包含 toolUseId 的 assistant 行
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+        try {
+          const d = JSON.parse(line);
+          if (d.type !== 'assistant') continue;
+          const content = d.message?.content || [];
+          const found = Array.isArray(content) && content.some(b => b?.id === toolUseId);
+          if (!found) continue;
+          const parentUuid = d.parentUuid;
+          // 从 parentUuid 向上追，找第一条 type=user 且有 text 内容的节点（跳过 tool_result/assistant）
+          let userPrompt = null;
+          let taskId = parentUuid;
+          let currentUuid = parentUuid;
+          for (let depth = 0; depth < 30 && currentUuid; depth++) {
+            const node = uuidMap[currentUuid];
+            if (!node) break;
+            if (node.type === 'user') {
+              const pc = node.message?.content;
+              const texts = Array.isArray(pc)
+                ? pc.filter(b => b?.type === 'text' && b.text?.trim()).map(b => b.text.trim())
+                : (typeof pc === 'string' && pc.trim() ? [pc.trim()] : []);
+              if (texts.length > 0) {
+                userPrompt = texts.join(' ');
+                taskId = currentUuid;
+                break;
+              }
+            }
+            currentUuid = node.parentUuid;
+          }
+          return { taskId: taskId || parentUuid || null, userPrompt: userPrompt || null };
+        } catch {}
+      }
+    } catch {}
+  }
+  return { taskId: null, userPrompt: null };
+}
+
 /** 从 cwd 的 PERSONA.md 提取人设名，fallback 到目录名 */
 function extractPersonaFromCwd(cwd) {
   if (!cwd) return null;
@@ -205,7 +274,7 @@ function extractModelFromTranscript(transcriptPath, sessionId) {
 }
 
 /** 调用后端 AST 规则引擎评估命令 */
-function evaluateWithBackend(command, sessionId, cwd, model, persona) {
+function evaluateWithBackend(command, sessionId, cwd, model, persona, taskId, userPrompt) {
   return new Promise((resolve) => {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const data = JSON.stringify({
@@ -215,6 +284,8 @@ function evaluateWithBackend(command, sessionId, cwd, model, persona) {
       cwd: cwd || process.cwd(),
       model: model || null,
       persona: persona || null,
+      taskId: taskId || null,
+      userPrompt: userPrompt || null,
       requestId,
     });
 

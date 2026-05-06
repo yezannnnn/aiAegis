@@ -16,6 +16,8 @@ interface EvaluateRequest {
   agentType?: string;
   model?: string;
   persona?: string;
+  taskId?: string;
+  userPrompt?: string;
 }
 
 interface EvaluateResponse {
@@ -83,6 +85,8 @@ export class RulesController {
         cwd: body.cwd,
         model: body.model,
         persona: body.persona,
+        taskId: body.taskId,
+        userPrompt: body.userPrompt,
       });
 
       if (requiresApproval) {
