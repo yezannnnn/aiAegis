@@ -23,6 +23,7 @@ export class CreateEventDto {
   sessionId: string;
   cwd?: string;
   model?: string;
+  persona?: string;
   userContext?: any;
   intent?: string;
   description?: string;

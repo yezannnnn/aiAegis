@@ -18,7 +18,7 @@
           <div class="agent-icon">🤖</div>
           <div class="agent-info">
             <div class="agent-name">
-              {{ agent.type }}
+              {{ agent.persona || agent.type }}
               <span class="agent-session-id" v-if="agent.sessionId">#{{ agent.sessionId.slice(0, 8) }}</span>
             </div>
             <div class="agent-stats">

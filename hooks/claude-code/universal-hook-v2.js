@@ -57,13 +57,15 @@ process.stdin.on('end', async () => {
     const cwd = input.cwd || process.cwd();
     const transcriptPath = input.transcript_path;
     const model = extractModelFromTranscript(transcriptPath, sessionId);
+    const persona = extractPersonaFromCwd(cwd);
 
     console.error(`🚨 [AEGIS HOOK] 处理Bash命令: ${command}`);
     console.error(`🚨 [AEGIS HOOK] 会话ID: ${sessionId}`);
     console.error(`🚨 [AEGIS HOOK] 模型: ${model || 'unknown'}`);
+    console.error(`🚨 [AEGIS HOOK] 人设: ${persona || 'unknown'}`);
 
     // 调用后端 AST 规则引擎
-    const result = await evaluateWithBackend(command, sessionId, cwd, model);
+    const result = await evaluateWithBackend(command, sessionId, cwd, model, persona);
 
     if (!result) {
       // 后端不可用，默认允许（避免阻塞正常工作流）
@@ -151,6 +153,24 @@ process.stdin.on('end', async () => {
   }
 });
 
+/** 从 cwd 的 PERSONA.md 提取人设名，fallback 到目录名 */
+function extractPersonaFromCwd(cwd) {
+  if (!cwd) return null;
+  // 尝试读 PERSONA.md，提取第一个 # 标题里的名字
+  const personaFile = path.join(cwd, 'PERSONA.md');
+  try {
+    const content = fs.readFileSync(personaFile, 'utf8');
+    const match = content.match(/^#\s+(.+)/m);
+    if (match) {
+      // 取括号里的英文名，如 "贾维斯 (Jarvis)" → "Jarvis"
+      const parenMatch = match[1].match(/\(([^)]+)\)/);
+      return parenMatch ? parenMatch[1] : match[1].trim();
+    }
+  } catch {}
+  // fallback：用 cwd 最后一级目录名
+  return path.basename(cwd) || null;
+}
+
 /** 从 transcript JSONL 提取最近使用的模型名 */
 function extractModelFromTranscript(transcriptPath, sessionId) {
   // 优先用 transcript_path，否则按 session_id 查找
@@ -185,7 +205,7 @@ function extractModelFromTranscript(transcriptPath, sessionId) {
 }
 
 /** 调用后端 AST 规则引擎评估命令 */
-function evaluateWithBackend(command, sessionId, cwd, model) {
+function evaluateWithBackend(command, sessionId, cwd, model, persona) {
   return new Promise((resolve) => {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const data = JSON.stringify({
@@ -194,6 +214,7 @@ function evaluateWithBackend(command, sessionId, cwd, model) {
       agentType: 'claude-code',
       cwd: cwd || process.cwd(),
       model: model || null,
+      persona: persona || null,
       requestId,
     });
 
