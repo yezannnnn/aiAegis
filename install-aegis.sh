@@ -35,7 +35,7 @@ fi
 
 # 复制 Aegis 文件
 echo "📋 Installing Aegis components..."
-cp "$(dirname "$0")/universal-hook.js" "$AEGIS_HOOK"
+cp "$(dirname "$0")/hooks/claude-code/universal-hook-v2.js" "$AEGIS_HOOK"
 chmod +x "$AEGIS_HOOK"
 
 # 复制 AST 引擎
