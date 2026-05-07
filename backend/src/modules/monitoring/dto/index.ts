@@ -26,6 +26,10 @@ export class CreateEventDto {
   persona?: string;
   taskId?: string;
   userPrompt?: string;
+  userInput?: string;
+  assistPrompt?: string;
+  matchedRules?: string[];
+  approvalId?: string;
   userContext?: any;
   intent?: string;
   description?: string;

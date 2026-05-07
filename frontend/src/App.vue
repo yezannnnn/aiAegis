@@ -396,30 +396,10 @@ const handleApprovalNotification = (data: any) => {
     reason: data.reason || data.description || `${data.risk || "UNKNOWN"} 风险命令`,
   };
 
-  // 同时加入事件列表
-  events.value.unshift({
-    id: Date.now(),
-    approvalId: data.approvalId,
-    command: data.command || data.payload?.command || "unknown",
-    agent: data.agent || data.agentType || "Claude Code",
-    sessionId: data.sessionId || "unknown",
-    risk: data.risk || "UNKNOWN",
-    cwd: data.cwd || data.context?.cwd || "/unknown",
-    reason: data.reason || data.description || `${data.risk || "UNKNOWN"} 风险命令`,
-    time: new Date().toLocaleTimeString(),
-    action: "review",
-    status: "pending",
-    isNew: true,
-  });
-
-  if (events.value.length > 100) {
-    events.value = events.value.slice(0, 100);
-  }
+  // 更新待审批统计（事件本身由 new_event 统一处理）
+  stats.pending += 1;
 
   console.log("💾 当前审批对象:", currentApproval.value);
-
-  // 更新待审批统计
-  stats.pending += 1;
 };
 
 const closeApprovalModal = () => {
@@ -735,31 +715,50 @@ const connectWebSocket = () => {
     const data = response.data || response;
     console.log("📝 收到新事件:", data);
 
-    events.value.unshift({
-      id: data.id || Date.now(),
-      approvalId: data.approvalId,
-      command: data.command,
-      agent: data.agent,
-      sessionId: data.sessionId,
-      risk: data.risk,
-      cwd: data.cwd,
-      reason: data.description || data.reason,
-      time: formatEventTime(new Date(data.timestamp || Date.now())),
-      action: data.action || data.status,
-      status: data.status,
-      isNew: true,
-    });
+    // 按 id 去重：已存在则原地更新，否则新增
+    const existingIdx = events.value.findIndex((e) => e.id === data.id);
+    if (existingIdx >= 0) {
+      const existing = events.value[existingIdx];
+      existing.status = data.status;
+      existing.action = data.action || data.status;
+      existing.reason = data.description || data.reason || existing.reason;
+      existing.risk = data.risk || existing.risk;
+      if (data.userInput) existing.userInput = data.userInput;
+      if (data.assistPrompt) existing.assistPrompt = data.assistPrompt;
+      if (data.matchedRules) existing.matchedRules = data.matchedRules;
+      if (data.taskId) existing.taskId = data.taskId;
+      console.log("🔄 更新已有事件:", data.id, "→", data.status);
+    } else {
+      events.value.unshift({
+        id: data.id || Date.now(),
+        approvalId: data.approvalId,
+        command: data.command,
+        agent: data.agent,
+        sessionId: data.sessionId,
+        risk: data.risk,
+        cwd: data.cwd,
+        taskId: data.taskId,
+        userInput: data.userInput,
+        assistPrompt: data.assistPrompt,
+        matchedRules: data.matchedRules || [],
+        reason: data.description || data.reason,
+        time: formatEventTime(new Date(data.timestamp || Date.now())),
+        action: data.action || data.status,
+        status: data.status,
+        isNew: true,
+      });
+
+      // 移除new标记
+      setTimeout(() => {
+        const event = events.value.find((e) => e.id === data.id);
+        if (event) event.isNew = false;
+      }, 1000);
+    }
 
     // 限制事件数量
     if (events.value.length > 100) {
       events.value = events.value.slice(0, 100);
     }
-
-    // 移除new标记
-    setTimeout(() => {
-      const event = events.value.find((e) => e.id === data.id);
-      if (event) event.isNew = false;
-    }, 1000);
   });
 };
 

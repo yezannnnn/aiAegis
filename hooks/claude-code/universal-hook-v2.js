@@ -12,6 +12,7 @@
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 const MAX_STDIN = 1024 * 1024;
 
@@ -59,15 +60,18 @@ process.stdin.on('end', async () => {
     const toolUseId = input.tool_use_id;
     const model = extractModelFromTranscript(transcriptPath, sessionId);
     const persona = extractPersonaFromCwd(cwd);
-    const { taskId, userPrompt } = extractTaskContext(transcriptPath, sessionId, toolUseId);
+    const taskId = loadTaskId(sessionId);
+    const { userInput, assistPrompt } = loadContext(sessionId, transcriptPath);
 
     console.error(`🚨 [AEGIS HOOK] 处理Bash命令: ${command}`);
     console.error(`🚨 [AEGIS HOOK] 会话ID: ${sessionId}`);
     console.error(`🚨 [AEGIS HOOK] 模型: ${model || 'unknown'}`);
     console.error(`🚨 [AEGIS HOOK] 任务ID: ${taskId || 'unknown'}`);
+    console.error(`🚨 [AEGIS HOOK] 用户输入: ${userInput ? userInput.substring(0, 80) : 'unknown'}`);
+    console.error(`🚨 [AEGIS HOOK] AI想法: ${assistPrompt ? assistPrompt.substring(0, 80) : 'unknown'}`);
 
     // 调用后端 AST 规则引擎
-    const result = await evaluateWithBackend(command, sessionId, cwd, model, persona, taskId, userPrompt);
+    const result = await evaluateWithBackend(command, sessionId, cwd, model, persona, taskId, userInput, assistPrompt);
 
     if (!result) {
       // 后端不可用，默认允许（避免阻塞正常工作流）
@@ -155,71 +159,166 @@ process.stdin.on('end', async () => {
   }
 });
 
-/** 通过 tool_use_id 从 transcript 反查 parentUuid（任务ID）和用户原始指令 */
-function extractTaskContext(transcriptPath, sessionId, toolUseId) {
-  if (!toolUseId) return { taskId: null, userPrompt: null };
+/** 从索引读取 taskId（PostToolUse 写入的 lastTaskId） */
+function loadTaskId(sessionId) {
+  if (!sessionId) return null;
+  try {
+    const indexFile = path.join(os.homedir(), '.aegis', 'sessions', `${sessionId}.json`);
+    const index = JSON.parse(fs.readFileSync(indexFile, 'utf8'));
+    return index.lastTaskId || null;
+  } catch {}
+  return null;
+}
 
-  const candidates = [];
-  if (transcriptPath) candidates.push(transcriptPath);
+/**
+ * 读取上下文（用户输入 + AI 想法）
+ *   1. 快速扫描 transcript 尾部最后一条真实用户消息
+ *   2. 与 PostToolUse 索引对比，不一致说明是新 turn → 用扫描结果
+ *   3. 一致 → 用索引（已在 PostToolUse 验证过）
+ *   4. assistPrompt 始终从索引读取（PostToolUse 已验证）
+ */
+function loadContext(sessionId, transcriptPath) {
+  const result = { userInput: null, assistPrompt: null };
+  if (!sessionId) return result;
+
+  // 始终扫描 transcript 尾部，取最后一条真实 user 消息
+  const scanned = scanLastUserInput(transcriptPath, sessionId);
+
+  // 读 PostToolUse 索引
+  const indexFile = path.join(os.homedir(), '.aegis', 'sessions', `${sessionId}.json`);
+  try {
+    const index = JSON.parse(fs.readFileSync(indexFile, 'utf8'));
+
+    if (index.lastUserInput) {
+      if (scanned && scanned !== index.lastUserInput) {
+        // 新 turn！索引已过时，用扫描结果；扫描 transcript 取当前 thinking
+        console.error(`[Aegis] 🔄 检测到新用户输入，使用扫描结果`);
+        result.userInput = scanned;
+        result.assistPrompt = scanLastAssistPrompt(transcriptPath, sessionId);
+      } else {
+        console.error(`[Aegis] 📝 从索引获取上下文`);
+        result.userInput = index.lastUserInput;
+        result.assistPrompt = index.lastAssistPrompt || null;
+      }
+      return result;
+    }
+  } catch {}
+
+  // 索引不存在，用扫描结果
+  result.userInput = scanned;
+  if (scanned) {
+    console.error('[Aegis] 🔍 回退扫描获取用户输入');
+  }
+  return result;
+}
+
+/**
+ * 回退方案：扫描 transcript 尾部，找最后一条真实用户输入
+ * 不过滤 system 消息（toolUseResult, isCompactSummary）
+ * 不需要匹配 tool_use_id，只需取最后一条 user 消息
+ */
+function scanLastUserInput(transcriptPath, sessionId) {
+  const filePath = findTranscriptFile(transcriptPath, sessionId);
+  if (!filePath) return null;
+
+  try {
+    // 只读尾部 1MB，最后一条 user 消息通常在附近
+    const stat = fs.statSync(filePath);
+    const readSize = Math.min(1024 * 1024, stat.size);
+    const buf = Buffer.alloc(readSize);
+    const fd = fs.openSync(filePath, 'r');
+    fs.readSync(fd, buf, 0, readSize, stat.size - readSize);
+    fs.closeSync(fd);
+    let content = buf.toString('utf8');
+    const firstNewline = content.indexOf('\n');
+    if (firstNewline > 0 && readSize < stat.size) {
+      content = content.substring(firstNewline + 1);
+    }
+
+    const lines = content.split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      try {
+        const d = JSON.parse(line);
+        if (d.type !== 'user') continue;
+        if (d.toolUseResult || d.isCompactSummary) continue;
+        const text = extractText(d.message?.content);
+        if (text) {
+          console.error('[Aegis] 🔍 回退扫描获取用户输入');
+          return text;
+        }
+      } catch {}
+    }
+  } catch {}
+  return null;
+}
+
+/** 扫描 transcript 尾部，找最后一条 assistant 的 thinking/text */
+function scanLastAssistPrompt(transcriptPath, sessionId) {
+  const filePath = findTranscriptFile(transcriptPath, sessionId);
+  if (!filePath) return null;
+
+  try {
+    const stat = fs.statSync(filePath);
+    const readSize = Math.min(512 * 1024, stat.size);
+    const buf = Buffer.alloc(readSize);
+    const fd = fs.openSync(filePath, 'r');
+    fs.readSync(fd, buf, 0, readSize, stat.size - readSize);
+    fs.closeSync(fd);
+    let content = buf.toString('utf8');
+    const firstNewline = content.indexOf('\n');
+    if (firstNewline > 0 && readSize < stat.size) {
+      content = content.substring(firstNewline + 1);
+    }
+
+    const lines = content.split('\n');
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      try {
+        const d = JSON.parse(line);
+        if (d.type !== 'assistant') continue;
+        const texts = [];
+        const c = d.message?.content;
+        if (Array.isArray(c)) {
+          for (const b of c) {
+            if ((b?.type === 'thinking' || b?.type === 'text') && b[b.type]?.trim()) {
+              texts.push(b[b.type].trim());
+            }
+          }
+        }
+        if (texts.length > 0) {
+          console.error('[Aegis] 🤖 扫描获取 AI 想法');
+          return texts.join(' ');
+        }
+      } catch {}
+    }
+  } catch {}
+  return null;
+}
+
+function extractText(content) {
+  if (typeof content === 'string') return content.trim() || null;
+  if (!Array.isArray(content)) return null;
+  const texts = content
+    .filter(b => b?.type === 'text' && b.text?.trim())
+    .map(b => b.text.trim());
+  return texts.length > 0 ? texts.join(' ') : null;
+}
+
+function findTranscriptFile(transcriptPath, sessionId) {
+  if (transcriptPath && fs.existsSync(transcriptPath)) return transcriptPath;
   if (sessionId) {
-    const projectsDir = path.join(require('os').homedir(), '.claude', 'projects');
+    const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     try {
       for (const proj of fs.readdirSync(projectsDir)) {
         const p = path.join(projectsDir, proj, `${sessionId}.jsonl`);
-        if (fs.existsSync(p)) { candidates.push(p); break; }
+        if (fs.existsSync(p)) return p;
       }
     } catch {}
   }
-
-  for (const filePath of candidates) {
-    try {
-      const lines = fs.readFileSync(filePath, 'utf8').split('\n');
-      // 两遍扫：第一遍建完整 uuid→行 索引（所有类型，链上可能有 assistant 节点）
-      const uuidMap = {};
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const d = JSON.parse(line);
-          if (d.uuid) uuidMap[d.uuid] = d;
-        } catch {}
-      }
-      // 第二遍从末尾找包含 toolUseId 的 assistant 行
-      for (let i = lines.length - 1; i >= 0; i--) {
-        const line = lines[i];
-        if (!line.trim()) continue;
-        try {
-          const d = JSON.parse(line);
-          if (d.type !== 'assistant') continue;
-          const content = d.message?.content || [];
-          const found = Array.isArray(content) && content.some(b => b?.id === toolUseId);
-          if (!found) continue;
-          const parentUuid = d.parentUuid;
-          // 从 parentUuid 向上追，找第一条 type=user 且有 text 内容的节点（跳过 tool_result/assistant）
-          let userPrompt = null;
-          let taskId = parentUuid;
-          let currentUuid = parentUuid;
-          for (let depth = 0; depth < 30 && currentUuid; depth++) {
-            const node = uuidMap[currentUuid];
-            if (!node) break;
-            if (node.type === 'user') {
-              const pc = node.message?.content;
-              const texts = Array.isArray(pc)
-                ? pc.filter(b => b?.type === 'text' && b.text?.trim()).map(b => b.text.trim())
-                : (typeof pc === 'string' && pc.trim() ? [pc.trim()] : []);
-              if (texts.length > 0) {
-                userPrompt = texts.join(' ');
-                taskId = currentUuid;
-                break;
-              }
-            }
-            currentUuid = node.parentUuid;
-          }
-          return { taskId: taskId || parentUuid || null, userPrompt: userPrompt || null };
-        } catch {}
-      }
-    } catch {}
-  }
-  return { taskId: null, userPrompt: null };
+  return null;
 }
 
 /** 从 cwd 的 PERSONA.md 提取人设名，fallback 到目录名 */
@@ -246,7 +345,7 @@ function extractModelFromTranscript(transcriptPath, sessionId) {
   const candidates = [];
   if (transcriptPath) candidates.push(transcriptPath);
   if (sessionId) {
-    const projectsDir = path.join(require('os').homedir(), '.claude', 'projects');
+    const projectsDir = path.join(os.homedir(), '.claude', 'projects');
     try {
       for (const proj of fs.readdirSync(projectsDir)) {
         const candidate = path.join(projectsDir, proj, `${sessionId}.jsonl`);
@@ -274,7 +373,7 @@ function extractModelFromTranscript(transcriptPath, sessionId) {
 }
 
 /** 调用后端 AST 规则引擎评估命令 */
-function evaluateWithBackend(command, sessionId, cwd, model, persona, taskId, userPrompt) {
+function evaluateWithBackend(command, sessionId, cwd, model, persona, taskId, userInput, assistPrompt) {
   return new Promise((resolve) => {
     const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const data = JSON.stringify({
@@ -285,7 +384,8 @@ function evaluateWithBackend(command, sessionId, cwd, model, persona, taskId, us
       model: model || null,
       persona: persona || null,
       taskId: taskId || null,
-      userPrompt: userPrompt || null,
+      userInput: userInput || null,
+      assistPrompt: assistPrompt || null,
       requestId,
     });
 

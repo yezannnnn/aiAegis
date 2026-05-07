@@ -120,7 +120,7 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
     return {
       total: events.length,
       blocked: events.filter(e => e.status === EventStatus.BLOCKED).length,
-      allowed: events.filter(e => e.status === EventStatus.APPROVED).length,
+      allowed: events.filter(e => e.status === EventStatus.ALLOWED || e.status === EventStatus.APPROVED).length,
       warning: events.filter(e => e.risk === 'MEDIUM').length,
       pending: events.filter(e => e.status === EventStatus.PENDING).length,
       timed_out: events.filter(e => e.status === EventStatus.TIMED_OUT).length,

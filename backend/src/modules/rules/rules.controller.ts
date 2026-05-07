@@ -18,6 +18,8 @@ interface EvaluateRequest {
   persona?: string;
   taskId?: string;
   userPrompt?: string;
+  userInput?: string;
+  assistPrompt?: string;
 }
 
 interface EvaluateResponse {
@@ -87,6 +89,10 @@ export class RulesController {
         persona: body.persona,
         taskId: body.taskId,
         userPrompt: body.userPrompt,
+        userInput: body.userInput,
+        assistPrompt: body.assistPrompt,
+        matchedRules: evaluation.matchedRules || [],
+        approvalId: approvalRequestId,
       });
 
       if (requiresApproval) {
@@ -114,6 +120,9 @@ export class RulesController {
           agent: body.agentType || 'Claude Code',
           risk: this.severityToRisk(evaluation.severity),
           reason: evaluation.reason,
+          matchedRules: evaluation.matchedRules || [],
+          userInput: body.userInput,
+          assistPrompt: body.assistPrompt,
           timestamp: new Date().toISOString(),
         });
       }

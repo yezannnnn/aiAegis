@@ -59,9 +59,19 @@ export class SqliteStorageService implements OnModuleInit {
         status TEXT NOT NULL,
         description TEXT,
         timestamp TEXT NOT NULL,
+        task_id TEXT,
+        user_input TEXT,
+        assist_prompt TEXT,
+        matched_rules TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // 兼容旧表：添加扩展列
+    try { await run(`ALTER TABLE events ADD COLUMN task_id TEXT`); } catch {}
+    try { await run(`ALTER TABLE events ADD COLUMN user_input TEXT`); } catch {}
+    try { await run(`ALTER TABLE events ADD COLUMN assist_prompt TEXT`); } catch {}
+    try { await run(`ALTER TABLE events ADD COLUMN matched_rules TEXT`); } catch {}
 
     await run(`
       CREATE TABLE IF NOT EXISTS approvals (
@@ -98,9 +108,9 @@ export class SqliteStorageService implements OnModuleInit {
     if (!this.db) return;
     return new Promise((resolve, reject) => {
       this.db.run(
-        `INSERT OR REPLACE INTO events (id, command, agent, session_id, risk, status, description, timestamp)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [event.id, event.command, event.agent, event.sessionId, event.risk, event.status, event.description || '', event.timestamp],
+        `INSERT OR REPLACE INTO events (id, command, agent, session_id, risk, status, description, timestamp, task_id, user_input, assist_prompt, matched_rules)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [event.id, event.command, event.agent, event.sessionId, event.risk, event.status, event.description || '', event.timestamp, event.taskId || null, event.userInput || null, event.assistPrompt || null, JSON.stringify(event.matchedRules || [])],
         (err) => err ? reject(err) : resolve(undefined)
       );
     });
@@ -121,10 +131,21 @@ export class SqliteStorageService implements OnModuleInit {
     if (!this.db) return [];
     return new Promise((resolve, reject) => {
       this.db.all(
-        `SELECT id, command, agent, session_id as sessionId, risk, status, description, timestamp
+        `SELECT id, command, agent, session_id as sessionId, risk, status, description, timestamp, task_id as taskId, user_input as userInput, assist_prompt as assistPrompt, matched_rules as matchedRules
          FROM events ORDER BY timestamp DESC LIMIT ?`,
         [limit],
-        (err, rows) => err ? reject(err) : resolve(rows || [])
+        (err, rows) => {
+          if (err) return reject(err);
+          // 解析 JSON 字段
+          const parsed = (rows || []).map((r: any) => {
+            if (typeof r.matchedRules === 'string') {
+              try { r.matchedRules = JSON.parse(r.matchedRules); } catch { r.matchedRules = []; }
+            }
+            if (!r.matchedRules) r.matchedRules = [];
+            return r;
+          });
+          resolve(parsed);
+        }
       );
     });
   }

@@ -116,8 +116,14 @@
               :title="event.taskId"
             >TASK {{ event.taskId.slice(0, 8) }}</span>
           </div>
-          <div v-if="event.userPrompt" class="event-user-prompt">
-            💬 {{ event.userPrompt }}
+          <div v-if="event.matchedRules && event.matchedRules.length > 0" class="event-matched-rules">
+            🎯 {{ event.matchedRules.join(', ') }}
+          </div>
+          <div v-if="event.userInput" class="event-user-input">
+            👤 {{ event.userInput }}
+          </div>
+          <div v-if="event.assistPrompt" class="event-assist-prompt">
+            🤖 {{ event.assistPrompt }}
           </div>
           <div class="event-user-context">{{ event.reason }}</div>
 
@@ -298,7 +304,7 @@ defineEmits(['set-filter', 'set-time-filter', 'scroll', 'approve-event', 'deny-e
 }
 
 .events-detailed {
-  max-height: 500px;
+  max-height: calc(100vh - 280px);
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--accent-green) transparent;
@@ -501,7 +507,18 @@ defineEmits(['set-filter', 'set-time-filter', 'scroll', 'approve-event', 'deny-e
   border-color: rgba(167, 139, 250, 0.6);
 }
 
-.event-user-prompt {
+.event-user-input {
+  font-size: 0.72rem;
+  color: #4ade80;
+  margin-top: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  border-left: 2px solid rgba(74, 222, 128, 0.4);
+  background: rgba(74, 222, 128, 0.05);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.event-assist-prompt {
   font-size: 0.72rem;
   color: #c4b5fd;
   margin-top: 0.35rem;
