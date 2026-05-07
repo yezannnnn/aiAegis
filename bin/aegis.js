@@ -245,7 +245,9 @@ rulesCmd
         console.log(sourceLabels[src] || `[${src}]`);
         for (const rule of rules) {
           const actionColor = rule.action === 'block' ? chalk.red : rule.action === 'review' ? chalk.yellow : chalk.green;
-          console.log(`  ${chalk.white(rule.id?.padEnd(40))} ${actionColor(rule.action?.padEnd(8))} ${chalk.gray(rule.reason || '')}`);
+          const exampleStr = (rule.example || '—').padEnd(45);
+          const reasonStr = rule.reason || '';
+          console.log(`  ${chalk.white(rule.id?.padEnd(40))} ${actionColor(rule.action?.padEnd(8))} ${chalk.cyan(exampleStr)} ${chalk.gray(reasonStr)}`);
         }
         console.log('');
       }
@@ -256,11 +258,15 @@ rulesCmd
 
 rulesCmd
   .command('new <name>')
-  .description('在用户规则目录创建新的规则文件模板')
-  .action(async (name) => {
-    await fs.ensureDir(USER_RULES_DIR);
+  .description('创建新的规则文件模板（默认写入全局用户目录，--project 写入当前项目）')
+  .option('--project', '写入当前项目的 .aegis/rules/ 目录（可提交到 git）')
+  .action(async (name, options) => {
+    const targetDir = options.project
+      ? path.join(process.cwd(), '.aegis', 'rules')
+      : USER_RULES_DIR;
+    await fs.ensureDir(targetDir);
     const filename = name.endsWith('.yaml') ? name : `${name}.yaml`;
-    const dest = path.join(USER_RULES_DIR, filename);
+    const dest = path.join(targetDir, filename);
 
     if (await fs.pathExists(dest)) {
       console.log(chalk.yellow(`⚠️  文件已存在: ${dest}`));
@@ -274,6 +280,7 @@ rules:
   # 示例：阻止删除特定目录
   - id: ${name}/example-block
     description: "示例：阻止危险操作"
+    example: "rm -rf important-dir/"   # 触发此规则的实际命令示例（不写则自动推断）
     category: "custom"
     severity: "block"
     action: "block"
@@ -286,6 +293,7 @@ rules:
   # 示例：需要审批才能执行
   - id: ${name}/example-review
     description: "示例：需要审批的操作"
+    example: "./deploy.sh prod"        # 触发此规则的实际命令示例（不写则自动推断）
     category: "custom"
     severity: "error"
     action: "review"
@@ -298,6 +306,11 @@ rules:
 
     await fs.writeFile(dest, template, 'utf8');
     console.log(chalk.green(`✅ 已创建规则文件: ${dest}`));
+    if (options.project) {
+      console.log(chalk.yellow('📁 项目级规则，建议提交到 git'));
+    } else {
+      console.log(chalk.gray('🌍 全局规则，对所有项目生效'));
+    }
     console.log(chalk.gray('编辑此文件后运行 `aegis rules reload` 使规则生效'));
   });
 

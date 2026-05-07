@@ -200,6 +200,7 @@ const loadMoreEvents = async () => {
       ...event,
       approvalId: event.approvalId,
       action: event.action || event.status,
+      reason: event.description || event.reason,
       time: formatEventTime(new Date(event.timestamp)),
       isNew: false,
     }));
@@ -590,8 +591,9 @@ const connectWebSocket = () => {
     if (initialData.events) {
       events.value = initialData.events.map((event) => ({
         ...event,
-        approvalId: event.approvalId, // 只使用真正的approvalId，不fallback到event.id
+        approvalId: event.approvalId,
         action: event.action || event.status,
+        reason: event.description || event.reason,
         time: formatEventTime(new Date(event.timestamp)),
         isNew: false,
       }));

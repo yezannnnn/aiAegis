@@ -5,6 +5,7 @@ rules:
 
   - id: mysql/drop-schema
     description: "MySQL DROP DATABASE/TABLE 或 TRUNCATE"
+    example: "mysql -e \"DROP DATABASE mydb\""
     category: "mysql"
     severity: "block"
     action: "block"
@@ -12,10 +13,11 @@ rules:
     conditions:
       binary: "mysql"
       argumentPatterns:
-        - '(?i)drop\s+(database|table)|truncate\s+table'
+        - 'drop\s+(database|table)|truncate\s+table'
 
   - id: mysql/privilege-reset
     description: "MySQL FLUSH PRIVILEGES / RESET MASTER/SLAVE"
+    example: "mysql -e \"FLUSH PRIVILEGES\""
     category: "mysql"
     severity: "block"
     action: "block"
@@ -23,7 +25,7 @@ rules:
     conditions:
       binary: "mysql"
       argumentPatterns:
-        - '(?i)flush\s+privileges|reset\s+master|reset\s+slave'
+        - 'flush\s+privileges|reset\s+master|reset\s+slave'
 
   - id: mysqldump/system-dump
     description: "mysqldump 导出系统库或所有数据库"
@@ -40,6 +42,7 @@ rules:
 
   - id: mysql/unqualified-write
     description: "MySQL 无条件 DELETE/UPDATE"
+    example: "mysql -e \"DELETE FROM users\""
     category: "mysql"
     severity: "error"
     action: "review"
@@ -47,10 +50,11 @@ rules:
     conditions:
       binary: "mysql"
       argumentPatterns:
-        - '(?i)delete\s+from|update\s+\S+\s+set'
+        - 'delete\s+from|update\s+\S+\s+set'
 
   - id: mysql/drop-column
     description: "MySQL ALTER TABLE DROP COLUMN"
+    example: "mysql -e \"ALTER TABLE t DROP COLUMN col\""
     category: "mysql"
     severity: "error"
     action: "review"
@@ -58,10 +62,11 @@ rules:
     conditions:
       binary: "mysql"
       argumentPatterns:
-        - '(?i)alter\s+table.*drop\s+column'
+        - 'alter\s+table.*drop\s+column'
 
   - id: mysql/grant-all
     description: "MySQL GRANT ALL PRIVILEGES"
+    example: "mysql -e \"GRANT ALL PRIVILEGES ON *.* TO 'user'@'%'\""
     category: "mysql"
     severity: "error"
     action: "review"
@@ -69,10 +74,11 @@ rules:
     conditions:
       binary: "mysql"
       argumentPatterns:
-        - '(?i)grant\s+all\s+privileges'
+        - 'grant\s+all\s+privileges'
 
   - id: mysql/set-global
     description: "MySQL SET GLOBAL"
+    example: "mysql -e \"SET GLOBAL max_connections=500\""
     category: "mysql"
     severity: "error"
     action: "review"
@@ -80,12 +86,13 @@ rules:
     conditions:
       binary: "mysql"
       argumentPatterns:
-        - '(?i)set\s+global'
+        - 'set\s+global'
 
   # ── WARN：记录 ────────────────────────────────────────────────
 
   - id: mysql/outfile
     description: "MySQL SELECT INTO OUTFILE"
+    example: "mysql -e \"SELECT * INTO OUTFILE '/tmp/data.csv' FROM t\""
     category: "mysql"
     severity: "warn"
     action: "review"
@@ -93,4 +100,4 @@ rules:
     conditions:
       binary: "mysql"
       argumentPatterns:
-        - '(?i)select.*into\s+outfile'
+        - 'select.*into\s+outfile'

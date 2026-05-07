@@ -41,7 +41,7 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     // 发送初始状态
     client.emit('initial_state', {
       stats: this.eventManager.getStats(),
-      events: this.eventManager.getEvents().slice(0, 50), // 最近50个事件
+      events: this.eventManager.getEvents().slice(0, 50).map(e => ({ ...e, reason: e.description })),
       sessions: this.eventManager.getSessions(),
       agents: this.eventManager.getAgents(),
     });

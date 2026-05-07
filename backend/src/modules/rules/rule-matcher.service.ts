@@ -190,6 +190,9 @@ export class RuleMatcherService {
       const id = rule.id || `${ruleSet.name}/${rule.category || 'default'}/${rule.description?.substring(0, 30) || 'unknown'}`;
       rule.id = id;
       rule._source = ruleSource;
+      if (!rule.example) {
+        rule.example = this.buildExampleCommand(rule);
+      }
 
       // 用户/项目规则覆盖内置规则：从 ruleIndex 中移除旧条目
       if (ruleSource !== 'built-in') {
@@ -237,6 +240,61 @@ export class RuleMatcherService {
         this.logger.warn(`Config override for unknown rule: ${id}`);
       }
     }
+  }
+
+  // =========================================================================
+  // 示例命令生成（从 conditions 自动拼出可读命令）
+  // =========================================================================
+
+  private buildExampleCommand(rule: YAMLRule): string {
+    const c = rule.conditions;
+    if (!c) return '';
+
+    const parts: string[] = [];
+
+    // binary
+    if (c.binary) {
+      const bin = Array.isArray(c.binary) ? c.binary[0] : c.binary;
+      parts.push(bin);
+    }
+
+    // argumentPatterns → 提取字面量
+    if (c.argumentPatterns) {
+      for (const pat of c.argumentPatterns) {
+        const lit = this.patternToLiteral(pat);
+        if (lit) parts.push(lit);
+      }
+    }
+
+    // subcommand
+    if (c.subcommand) {
+      const sub = Array.isArray(c.subcommand) ? c.subcommand[0] : c.subcommand;
+      const lit = this.patternToLiteral(sub);
+      if (lit && !parts.includes(lit)) parts.push(lit);
+    }
+
+    // hasFlags — 长 flag 用 --, 短 flag 合并为 -xyz
+    if (c.hasFlags && c.hasFlags.length > 0) {
+      const long = c.hasFlags.filter(f => f.length > 1);
+      const short = c.hasFlags.filter(f => f.length === 1);
+      if (long.length > 0) {
+        parts.push(...long.map(f => `--${f}`));
+      } else if (short.length > 0) {
+        parts.push(`-${short.join('')}`);
+      }
+    }
+
+    if (parts.length === 0) return '';
+    return `例: ${parts.join(' ')}`;
+  }
+
+  private patternToLiteral(pattern: string): string {
+    return pattern
+      .replace(/^\^/, '')
+      .replace(/\$$/, '')
+      .replace(/\(([^)]+)\)/g, (_, g: string) => g.split('|')[0])
+      .replace(/[\\.*+?[\]{}|]/g, '')
+      .trim();
   }
 
   private extractBinaries(rule: YAMLRule): string[] {
@@ -387,7 +445,7 @@ export class RuleMatcherService {
     // 5. Full command pattern (管道/重定向/fork-bomb 等无法拆解的模式)
     if (matched && conditions.fullCommandPattern) {
       try {
-        const regex = new RegExp(conditions.fullCommandPattern);
+        const regex = new RegExp(conditions.fullCommandPattern, 'i');
         if (!regex.test(ast.raw)) {
           matched = false;
         } else {

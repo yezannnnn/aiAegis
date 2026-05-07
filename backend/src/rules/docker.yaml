@@ -3,6 +3,7 @@ version: "1.0"
 rules:
   - id: docker/rm-force
     description: "docker rm -f 强制删除运行中的容器"
+    example: "docker rm -f my_container"
     category: "docker"
     severity: "error"
     action: "review"
@@ -14,6 +15,7 @@ rules:
 
   - id: docker/system-prune
     description: "docker system prune 会删除大量资源"
+    example: "docker system prune -a"
     category: "docker"
     severity: "error"
     action: "review"
@@ -25,6 +27,7 @@ rules:
 
   - id: docker/volume-rm
     description: "删除 Docker 卷可能丢失持久化数据"
+    example: "docker volume rm my_data_volume"
     category: "docker"
     severity: "error"
     action: "review"
@@ -47,6 +50,7 @@ rules:
 
   - id: docker/exec-root
     description: "以 root 身份进入容器"
+    example: "docker exec -u root my_container bash"
     category: "docker"
     severity: "warn"
     action: "review"

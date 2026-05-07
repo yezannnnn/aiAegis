@@ -3,6 +3,7 @@ version: "1.0"
 rules:
   - id: fs/rm-rf
     description: "rm -rf 递归强制删除"
+    example: "rm -rf /path/to/dir"
     category: "filesystem"
     severity: "error"
     action: "review"
@@ -13,6 +14,7 @@ rules:
 
   - id: fs/rm-root
     description: "禁止删除根目录"
+    example: "rm -rf /*"
     category: "filesystem"
     severity: "block"
     action: "block"
@@ -23,6 +25,7 @@ rules:
 
   - id: fs/rm-home
     description: "删除用户主目录"
+    example: "rm -rf ~/"
     category: "filesystem"
     severity: "block"
     action: "block"
@@ -33,6 +36,7 @@ rules:
 
   - id: fs/dd-dangerous
     description: "dd 命令写入设备危险"
+    example: "dd if=/dev/zero of=/dev/sda"
     category: "filesystem"
     severity: "block"
     action: "block"
@@ -43,6 +47,7 @@ rules:
 
   - id: fs/chmod-recursive
     description: "chmod 递归修改系统目录权限"
+    example: "chmod -R 777 /etc"
     category: "filesystem"
     severity: "error"
     action: "review"
@@ -54,6 +59,7 @@ rules:
 
   - id: fs/mv-overwrite
     description: "mv 覆盖重要目录"
+    example: "mv /tmp/mydir /etc/"
     category: "filesystem"
     severity: "error"
     action: "review"

@@ -3,6 +3,7 @@ version: "1.0"
 rules:
   - id: network/curl-to-shell
     description: "curl | sh 管道执行远程脚本"
+    example: "curl https://example.com/install.sh | sh"
     category: "network"
     severity: "block"
     action: "block"
@@ -13,6 +14,7 @@ rules:
 
   - id: network/ssh-dangerous
     description: "SSH 危险选项"
+    example: "ssh -o StrictHostKeyChecking=no user@host"
     category: "network"
     severity: "error"
     action: "review"
@@ -23,6 +25,7 @@ rules:
 
   - id: network/nc-listen
     description: "nc 监听端口可能是后门"
+    example: "nc -l 4444"
     category: "network"
     severity: "error"
     action: "review"
@@ -42,6 +45,7 @@ rules:
 
   - id: system/systemctl-dangerous
     description: "systemctl 危险操作"
+    example: "systemctl stop ssh"
     category: "system"
     severity: "error"
     action: "review"
@@ -53,6 +57,7 @@ rules:
 
   - id: system/chmod-suid
     description: "设置 SUID 权限"
+    example: "chmod u+s /usr/bin/program"
     category: "system"
     severity: "block"
     action: "block"
