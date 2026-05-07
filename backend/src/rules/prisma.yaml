@@ -1,5 +1,5 @@
 name: "prisma"
-version: "1.0"
+version: "2.0"
 rules:
   - id: prisma/migrate-reset
     description: "prisma migrate reset 重置数据库"
@@ -7,12 +7,9 @@ rules:
     severity: "block"
     action: "block"
     reason: "migrate reset 删除所有数据并重新应用迁移，不可恢复"
-    conditions:
-      binary: "npx"
-      argumentPatterns:
-        - '^prisma$'
-        - '^migrate$'
-        - '^reset$'
+    selector:
+      binary: npx
+      subcommands: [prisma, migrate, reset]
 
   - id: prisma/migrate-force
     description: "prisma migrate dev/deploy --force"
@@ -20,12 +17,11 @@ rules:
     severity: "block"
     action: "block"
     reason: "--force 跳过安全检查，可能导致数据丢失"
-    conditions:
-      binary: "npx"
-      hasFlags: ["force"]
-      argumentPatterns:
-        - '^prisma$'
-        - '^migrate$'
+    selector:
+      binary: npx
+      subcommands: [prisma, migrate]
+      flags:
+        anyOf: [force]
 
   - id: prisma/db-push-force-reset
     description: "prisma db push --force-reset"
@@ -33,12 +29,11 @@ rules:
     severity: "block"
     action: "block"
     reason: "--force-reset 删除所有数据并重建 schema"
-    conditions:
-      binary: "npx"
-      hasFlags: ["force-reset"]
-      argumentPatterns:
-        - '^prisma$'
-        - '^db$'
+    selector:
+      binary: npx
+      subcommands: [prisma, db, push]
+      flags:
+        anyOf: [force-reset]
 
   - id: prisma/db-seed-force
     description: "prisma db seed --force"
@@ -46,13 +41,11 @@ rules:
     severity: "block"
     action: "block"
     reason: "强制 seed 可能覆盖生产数据"
-    conditions:
-      binary: "npx"
-      hasFlags: ["force"]
-      argumentPatterns:
-        - '^prisma$'
-        - '^db$'
-        - '^seed$'
+    selector:
+      binary: npx
+      subcommands: [prisma, db, seed]
+      flags:
+        anyOf: [force]
 
   - id: prisma/migrate-apply
     description: "prisma migrate dev / deploy"
@@ -60,12 +53,12 @@ rules:
     severity: "error"
     action: "review"
     reason: "数据库迁移会修改生产 schema，需人工确认"
-    conditions:
-      binary: "npx"
-      argumentPatterns:
-        - '^prisma$'
-        - '^migrate$'
-        - '^(dev|deploy)$'
+    selector:
+      binary: npx
+      subcommands: [prisma, migrate]
+      arguments:
+        - pattern: "^(dev|deploy)$"
+          position: 2
 
   - id: prisma/db-push
     description: "prisma db push 同步 schema"
@@ -73,12 +66,9 @@ rules:
     severity: "error"
     action: "review"
     reason: "db push 直接修改数据库结构，不产生迁移历史"
-    conditions:
-      binary: "npx"
-      argumentPatterns:
-        - '^prisma$'
-        - '^db$'
-        - '^push$'
+    selector:
+      binary: npx
+      subcommands: [prisma, db, push]
 
   - id: prisma/migrate-resolve
     description: "prisma migrate resolve"
@@ -86,12 +76,9 @@ rules:
     severity: "error"
     action: "review"
     reason: "手动解决迁移冲突需要谨慎操作"
-    conditions:
-      binary: "npx"
-      argumentPatterns:
-        - '^prisma$'
-        - '^migrate$'
-        - '^resolve$'
+    selector:
+      binary: npx
+      subcommands: [prisma, migrate, resolve]
 
   - id: prisma/db-execute
     description: "prisma db execute 直接执行 SQL"
@@ -99,9 +86,6 @@ rules:
     severity: "error"
     action: "review"
     reason: "直接执行任意 SQL 风险较高"
-    conditions:
-      binary: "npx"
-      argumentPatterns:
-        - '^prisma$'
-        - '^db$'
-        - '^execute$'
+    selector:
+      binary: npx
+      subcommands: [prisma, db, execute]

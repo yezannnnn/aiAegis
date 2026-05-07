@@ -117,6 +117,7 @@ export interface YAMLRule {
   reason?: string;
   example?: string;
   _source?: 'built-in' | 'user' | 'project';
+  selector?: Selector;    // v2.0 stable DSL — takes priority over conditions when present
   conditions?: {
     binary?: string | string[];
     subcommand?: string | string[];
@@ -137,6 +138,56 @@ export interface YAMLRuleSet {
   name: string;
   version: string;
   rules: YAMLRule[];
+}
+
+// =========================================================================
+// Selector DSL (v2.0 — stable public API, no breaking changes after launch)
+// =========================================================================
+
+export interface Flag {
+  name: string;
+  short?: string;
+  value?: string;
+}
+
+export interface CommandSignature {
+  binary: string;
+  positionalArgs: string[];
+  flags: Flag[];
+  raw: string;
+  hasPipes: boolean;
+  hasRedirects: boolean;
+  hasLogicalOperators: boolean;
+}
+
+export interface FlagSelector {
+  anyOf?: string[];
+  allOf?: string[];
+  noneOf?: string[];
+  allGroups?: string[][];  // 每组内 anyOf，组间 AND
+}
+
+export interface ArgumentSelector {
+  pattern: string;
+  anyPosition?: boolean;  // default true
+  position?: number;      // 0-indexed, used only when anyPosition is false
+  _regex?: RegExp;        // pre-compiled at rule load time (internal)
+}
+
+export interface Selector {
+  binary?: string | string[];
+  subcommands?: string[];
+  flags?: FlagSelector;
+  arguments?: ArgumentSelector[];
+  rawPattern?: string;
+  hasPipes?: boolean;
+  hasRedirects?: boolean;
+  hasLogicalOperators?: boolean;
+  anySegment?: Selector;  // at least one pipeline segment satisfies this sub-selector
+  contextChecks?: {
+    gitBranch?: string[];
+    isProduction?: boolean;
+  };
 }
 
 export interface RuleEvaluation {

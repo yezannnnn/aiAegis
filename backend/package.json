@@ -17,6 +17,17 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": ["**/*.(t|j)s"],
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node"
+  },
   "dependencies": {
     "@nestjs/common": "^9.4.0",
     "@nestjs/config": "^2.3.2",
@@ -32,6 +43,7 @@
     "shell-quote": "^1.8.0",
     "socket.io": "^4.6.0",
     "sqlite3": "^6.0.1",
+    "unbash": "^3.0.0",
     "uuid": "^9.0.0",
     "yaml": "^2.3.0"
   },
