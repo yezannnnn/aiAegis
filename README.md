@@ -75,7 +75,8 @@ Aegis 自带一套覆盖常见风险场景的规则，开箱即用：
 | `filesystem` | rm -rf、覆写系统文件 |
 | `git` | force push、reset --hard |
 | `docker` | --privileged 容器、删除所有镜像 |
-| `mysql` | DROP TABLE、清空数据库 |
+| `mysql` | DROP TABLE、清空数据库、GRANT ALL |
+| `sqlite` | DROP TABLE/INDEX/VIEW、无条件 DELETE、.dump 导出、删除 .db 文件 |
 | `prisma` | migrate reset、db push --force |
 | `network` | 暴露公网端口、修改 hosts |
 | `development` | pip 安装非官方来源的包 |
@@ -95,8 +96,9 @@ aegis rules list
 ### 创建规则文件
 
 ```bash
-aegis rules new          # 在 ~/.aegis/rules/ 创建模板文件
-aegis rules path         # 查看规则目录路径
+aegis rules new <name>            # 在 ~/.aegis/rules/ 创建全局规则模板
+aegis rules new <name> --project  # 在当前项目 .aegis/rules/ 创建项目级规则（可提交 git）
+aegis rules path                  # 查看规则目录路径
 ```
 
 ### 规则文件格式
@@ -108,9 +110,10 @@ version: "1.0"
 rules:
   - id: custom/your-rule-id
     description: "规则说明"
-    category: "filesystem"       # 分类（自由填写）
-    severity: "error"            # error / block / warn
-    action: "review"             # review（需审批）/ block（直接拒绝）/ warn（仅记录）
+    example: "触发此规则的示例命令"  # 可选，不填则自动推断
+    category: "filesystem"           # 分类（自由填写）
+    severity: "error"                # error / block / warn
+    action: "review"                 # review（需审批）/ block（直接拒绝）/ warn（仅记录）
     reason: "展示给用户的风险说明"
     conditions:
       # 匹配条件（见下方说明）
@@ -249,10 +252,11 @@ aegis start              # 启动服务（默认端口 3001）
 aegis start -p 8080      # 指定端口
 aegis status             # 检查服务状态
 
-aegis rules list         # 查看所有已加载规则（含来源）
-aegis rules new          # 创建自定义规则模板
-aegis rules path         # 查看用户规则目录
-aegis rules reload       # 热重载规则（无需重启）
+aegis rules list                   # 查看所有已加载规则（含来源、示例命令）
+aegis rules new <name>             # 创建全局自定义规则模板
+aegis rules new <name> --project   # 创建项目级规则（写入 .aegis/rules/）
+aegis rules path                   # 查看用户规则目录
+aegis rules reload                 # 热重载规则（无需重启）
 ```
 
 ---
