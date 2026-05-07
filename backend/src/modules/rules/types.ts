@@ -115,6 +115,7 @@ export interface YAMLRule {
   severity?: RuleSeverity;
   action?: RuleAction;
   reason?: string;
+  example?: string;
   _source?: 'built-in' | 'user' | 'project';
   conditions?: {
     binary?: string | string[];

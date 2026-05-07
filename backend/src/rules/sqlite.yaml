@@ -1,0 +1,104 @@
+name: "sqlite"
+version: "1.0"
+rules:
+  # ── BLOCK：极危险操作 ──────────────────────────────────────────
+
+  - id: sqlite/drop-schema
+    description: "SQLite DROP TABLE / DROP INDEX / DROP VIEW"
+    example: "sqlite3 app.db \"DROP TABLE users\""
+    category: "sqlite"
+    severity: "block"
+    action: "block"
+    reason: "DROP 操作永久删除表结构和数据，不可恢复"
+    conditions:
+      binary: "sqlite3"
+      argumentPatterns:
+        - 'drop\s+(table|index|view|trigger)'
+
+  - id: sqlite/delete-file
+    description: "直接删除 SQLite 数据库文件"
+    example: "rm app.db"
+    category: "sqlite"
+    severity: "block"
+    action: "block"
+    reason: "删除 .db/.sqlite 文件等同于删库，数据全部丢失"
+    conditions:
+      binary: "rm"
+      argumentPatterns:
+        - '\.(db|sqlite|sqlite3)$'
+
+  # ── ERROR：需要审批 ────────────────────────────────────────────
+
+  - id: sqlite/unqualified-delete
+    description: "SQLite 无条件 DELETE（清空整表）"
+    example: "sqlite3 app.db \"DELETE FROM users\""
+    category: "sqlite"
+    severity: "error"
+    action: "review"
+    reason: "无 WHERE 条件的 DELETE 会清空整张表"
+    conditions:
+      binary: "sqlite3"
+      argumentPatterns:
+        - 'delete\s+from\s+\w+\s*;?\s*$'
+
+  - id: sqlite/drop-column
+    description: "SQLite ALTER TABLE DROP COLUMN"
+    example: "sqlite3 app.db \"ALTER TABLE t DROP COLUMN col\""
+    category: "sqlite"
+    severity: "error"
+    action: "review"
+    reason: "删除列操作不可逆，该列数据永久丢失"
+    conditions:
+      binary: "sqlite3"
+      argumentPatterns:
+        - 'alter\s+table.*drop\s+column'
+
+  - id: sqlite/dump
+    description: "sqlite3 .dump 导出完整数据库"
+    example: "sqlite3 app.db .dump"
+    category: "sqlite"
+    severity: "error"
+    action: "review"
+    reason: ".dump 导出所有数据，可能泄露敏感信息"
+    conditions:
+      binary: "sqlite3"
+      argumentPatterns:
+        - '\.dump'
+
+  - id: sqlite/read-sql-file
+    description: "sqlite3 .read 执行外部 SQL 文件"
+    example: "sqlite3 app.db \".read migration.sql\""
+    category: "sqlite"
+    severity: "error"
+    action: "review"
+    reason: ".read 会执行任意 SQL 文件，内容不可控"
+    conditions:
+      binary: "sqlite3"
+      argumentPatterns:
+        - '\.read\s+'
+
+  - id: sqlite/copy-db-file
+    description: "复制或移动 SQLite 数据库文件"
+    example: "cp app.db /tmp/app_backup.db"
+    category: "sqlite"
+    severity: "error"
+    action: "review"
+    reason: "复制数据库文件可能导致敏感数据外泄"
+    conditions:
+      binary: "cp"
+      argumentPatterns:
+        - '\.(db|sqlite|sqlite3)'
+
+  # ── WARN：记录 ────────────────────────────────────────────────
+
+  - id: sqlite/pragma-security
+    description: "SQLite PRAGMA 修改安全相关配置"
+    example: "sqlite3 app.db \"PRAGMA journal_mode=OFF\""
+    category: "sqlite"
+    severity: "warn"
+    action: "review"
+    reason: "修改 journal_mode/synchronous 可能影响数据完整性"
+    conditions:
+      binary: "sqlite3"
+      argumentPatterns:
+        - 'pragma\s+(journal_mode|synchronous|wal_checkpoint|foreign_keys)\s*='

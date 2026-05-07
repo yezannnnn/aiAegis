@@ -26,6 +26,7 @@ rules:
 
   - id: python/pip-install-url
     description: "pip 从 URL 安装"
+    example: "pip install https://example.com/package.tar.gz"
     category: "package"
     severity: "error"
     action: "review"

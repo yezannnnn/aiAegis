@@ -117,7 +117,7 @@
             >TASK {{ event.taskId.slice(0, 8) }}</span>
           </div>
           <div v-if="event.matchedRules && event.matchedRules.length > 0" class="event-matched-rules">
-            🎯 {{ event.matchedRules.join(', ') }}
+            <span v-for="rule in event.matchedRules" :key="rule" class="matched-rule-tag">🎯 {{ rule }}</span>
           </div>
           <div v-if="event.userInput" class="event-user-input">
             👤 {{ event.userInput }}
@@ -125,7 +125,7 @@
           <div v-if="event.assistPrompt" class="event-assist-prompt">
             🤖 {{ event.assistPrompt }}
           </div>
-          <div class="event-user-context">{{ event.reason }}</div>
+          <div class="event-user-context">{{ event.reason || event.description }}</div>
 
           <!-- 审批操作区域 -->
           <div v-if="event.status === 'pending' && event.approvalId" class="event-approval-actions">
@@ -483,6 +483,22 @@ defineEmits(['set-filter', 'set-time-filter', 'scroll', 'approve-event', 'deny-e
 }
 
 .session-id {
+  font-size: 0.7rem;
+  color: #888;
+  font-family: monospace;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.2rem 0.5rem;
+  border: 1px solid #333;
+}
+
+.event-matched-rules {
+  margin-top: 0.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.matched-rule-tag {
   font-size: 0.7rem;
   color: #888;
   font-family: monospace;

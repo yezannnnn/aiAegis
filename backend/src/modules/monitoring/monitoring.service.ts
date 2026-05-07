@@ -11,13 +11,14 @@ export class MonitoringService {
   }
 
   getEvents(offset = 0, limit?: number) {
+    const addReason = (e: any) => ({ ...e, reason: e.description });
     if (limit !== undefined) {
       const { events, total } = this.eventManager.getEventsPaged(offset, limit);
-      return { success: true, data: events, total, offset, limit, timestamp: new Date().toISOString() };
+      return { success: true, data: events.map(addReason), total, offset, limit, timestamp: new Date().toISOString() };
     }
     return {
       success: true,
-      data: this.eventManager.getEvents(),
+      data: this.eventManager.getEvents().map(addReason),
       timestamp: new Date().toISOString(),
     };
   }

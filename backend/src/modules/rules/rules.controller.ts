@@ -117,6 +117,7 @@ export class RulesController {
           approvalId: requestId,
           sessionId: body.sessionId || 'unknown',
           command: body.command,
+          cwd: body.cwd,
           agent: body.agentType || 'Claude Code',
           risk: this.severityToRisk(evaluation.severity),
           reason: evaluation.reason,
