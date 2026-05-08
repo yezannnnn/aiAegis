@@ -1,5 +1,5 @@
 name: "sqlite"
-version: "1.0"
+version: "2.0"
 rules:
   # ── BLOCK：极危险操作 ──────────────────────────────────────────
 
@@ -10,10 +10,10 @@ rules:
     severity: "block"
     action: "block"
     reason: "DROP 操作永久删除表结构和数据，不可恢复"
-    conditions:
-      binary: "sqlite3"
-      argumentPatterns:
-        - 'drop\s+(table|index|view|trigger)'
+    selector:
+      binary: sqlite3
+      arguments:
+        - pattern: 'drop\s+(table|index|view|trigger)'
 
   - id: sqlite/delete-file
     description: "直接删除 SQLite 数据库文件"
@@ -22,10 +22,10 @@ rules:
     severity: "block"
     action: "block"
     reason: "删除 .db/.sqlite 文件等同于删库，数据全部丢失"
-    conditions:
-      binary: "rm"
-      argumentPatterns:
-        - '\.(db|sqlite|sqlite3)$'
+    selector:
+      binary: rm
+      arguments:
+        - pattern: '\.(db|sqlite|sqlite3)$'
 
   # ── ERROR：需要审批 ────────────────────────────────────────────
 
@@ -36,10 +36,10 @@ rules:
     severity: "error"
     action: "review"
     reason: "无 WHERE 条件的 DELETE 会清空整张表"
-    conditions:
-      binary: "sqlite3"
-      argumentPatterns:
-        - 'delete\s+from\s+\w+\s*;?\s*$'
+    selector:
+      binary: sqlite3
+      arguments:
+        - pattern: 'delete\s+from\s+\w+\s*;?\s*$'
 
   - id: sqlite/drop-column
     description: "SQLite ALTER TABLE DROP COLUMN"
@@ -48,10 +48,10 @@ rules:
     severity: "error"
     action: "review"
     reason: "删除列操作不可逆，该列数据永久丢失"
-    conditions:
-      binary: "sqlite3"
-      argumentPatterns:
-        - 'alter\s+table.*drop\s+column'
+    selector:
+      binary: sqlite3
+      arguments:
+        - pattern: 'alter\s+table.*drop\s+column'
 
   - id: sqlite/dump
     description: "sqlite3 .dump 导出完整数据库"
@@ -60,10 +60,10 @@ rules:
     severity: "error"
     action: "review"
     reason: ".dump 导出所有数据，可能泄露敏感信息"
-    conditions:
-      binary: "sqlite3"
-      argumentPatterns:
-        - '\.dump'
+    selector:
+      binary: sqlite3
+      arguments:
+        - pattern: '\.dump'
 
   - id: sqlite/read-sql-file
     description: "sqlite3 .read 执行外部 SQL 文件"
@@ -72,10 +72,10 @@ rules:
     severity: "error"
     action: "review"
     reason: ".read 会执行任意 SQL 文件，内容不可控"
-    conditions:
-      binary: "sqlite3"
-      argumentPatterns:
-        - '\.read\s+'
+    selector:
+      binary: sqlite3
+      arguments:
+        - pattern: '\.read\s+'
 
   - id: sqlite/copy-db-file
     description: "复制或移动 SQLite 数据库文件"
@@ -84,10 +84,10 @@ rules:
     severity: "error"
     action: "review"
     reason: "复制数据库文件可能导致敏感数据外泄"
-    conditions:
-      binary: "cp"
-      argumentPatterns:
-        - '\.(db|sqlite|sqlite3)'
+    selector:
+      binary: cp
+      arguments:
+        - pattern: '\.(db|sqlite|sqlite3)'
 
   # ── WARN：记录 ────────────────────────────────────────────────
 
@@ -98,7 +98,7 @@ rules:
     severity: "warn"
     action: "review"
     reason: "修改 journal_mode/synchronous 可能影响数据完整性"
-    conditions:
-      binary: "sqlite3"
-      argumentPatterns:
-        - 'pragma\s+(journal_mode|synchronous|wal_checkpoint|foreign_keys)\s*='
+    selector:
+      binary: sqlite3
+      arguments:
+        - pattern: 'pragma\s+(journal_mode|synchronous|wal_checkpoint|foreign_keys)\s*='

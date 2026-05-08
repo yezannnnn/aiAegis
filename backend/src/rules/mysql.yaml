@@ -1,5 +1,5 @@
 name: "mysql"
-version: "1.0"
+version: "2.0"
 rules:
   # ── BLOCK：极危险操作 ──────────────────────────────────────────
 
@@ -10,10 +10,10 @@ rules:
     severity: "block"
     action: "block"
     reason: "DROP/TRUNCATE 会永久删除数据，不可恢复"
-    conditions:
-      binary: "mysql"
-      argumentPatterns:
-        - 'drop\s+(database|table)|truncate\s+table'
+    selector:
+      binary: mysql
+      arguments:
+        - pattern: 'drop\s+(database|table)|truncate\s+table'
 
   - id: mysql/privilege-reset
     description: "MySQL FLUSH PRIVILEGES / RESET MASTER/SLAVE"
@@ -22,10 +22,10 @@ rules:
     severity: "block"
     action: "block"
     reason: "影响整个 MySQL 实例的权限或复制状态"
-    conditions:
-      binary: "mysql"
-      argumentPatterns:
-        - 'flush\s+privileges|reset\s+master|reset\s+slave'
+    selector:
+      binary: mysql
+      arguments:
+        - pattern: 'flush\s+privileges|reset\s+master|reset\s+slave'
 
   - id: mysqldump/system-dump
     description: "mysqldump 导出系统库或所有数据库"
@@ -33,10 +33,9 @@ rules:
     severity: "block"
     action: "block"
     reason: "系统库包含敏感权限配置"
-    conditions:
-      binary: "mysqldump"
-      argumentPatterns:
-        - '^(--all-databases|information_schema|performance_schema|mysql)$'
+    selector:
+      binary: mysqldump
+      rawPattern: '--all-databases|information_schema|performance_schema\b'
 
   # ── ERROR：需要审批 ────────────────────────────────────────────
 
@@ -47,10 +46,10 @@ rules:
     severity: "error"
     action: "review"
     reason: "无 WHERE 条件的 DELETE/UPDATE 影响所有行"
-    conditions:
-      binary: "mysql"
-      argumentPatterns:
-        - 'delete\s+from|update\s+\S+\s+set'
+    selector:
+      binary: mysql
+      arguments:
+        - pattern: 'delete\s+from|update\s+\S+\s+set'
 
   - id: mysql/drop-column
     description: "MySQL ALTER TABLE DROP COLUMN"
@@ -59,10 +58,10 @@ rules:
     severity: "error"
     action: "review"
     reason: "删除列操作不可逆，数据无法恢复"
-    conditions:
-      binary: "mysql"
-      argumentPatterns:
-        - 'alter\s+table.*drop\s+column'
+    selector:
+      binary: mysql
+      arguments:
+        - pattern: 'alter\s+table.*drop\s+column'
 
   - id: mysql/grant-all
     description: "MySQL GRANT ALL PRIVILEGES"
@@ -71,10 +70,10 @@ rules:
     severity: "error"
     action: "review"
     reason: "授予全部权限存在安全风险"
-    conditions:
-      binary: "mysql"
-      argumentPatterns:
-        - 'grant\s+all\s+privileges'
+    selector:
+      binary: mysql
+      arguments:
+        - pattern: 'grant\s+all\s+privileges'
 
   - id: mysql/set-global
     description: "MySQL SET GLOBAL"
@@ -83,10 +82,10 @@ rules:
     severity: "error"
     action: "review"
     reason: "SET GLOBAL 修改服务器全局配置，影响所有连接"
-    conditions:
-      binary: "mysql"
-      argumentPatterns:
-        - 'set\s+global'
+    selector:
+      binary: mysql
+      arguments:
+        - pattern: 'set\s+global'
 
   # ── WARN：记录 ────────────────────────────────────────────────
 
@@ -97,7 +96,7 @@ rules:
     severity: "warn"
     action: "review"
     reason: "将查询结果写入服务器本地文件"
-    conditions:
-      binary: "mysql"
-      argumentPatterns:
-        - 'select.*into\s+outfile'
+    selector:
+      binary: mysql
+      arguments:
+        - pattern: 'select.*into\s+outfile'

@@ -1,5 +1,5 @@
 name: "defaults"
-version: "1.0"
+version: "2.0"
 
 rules:
 
@@ -9,8 +9,8 @@ rules:
     severity: "block"
     action: "block"
     reason: "关机/重启会立即中断所有服务"
-    conditions:
-      binary: ["shutdown", "reboot", "halt", "poweroff"]
+    selector:
+      binary: [shutdown, reboot, halt, poweroff]
 
   - id: system/systemctl-poweroff
     description: "systemctl poweroff / reboot / halt"
@@ -18,10 +18,10 @@ rules:
     severity: "block"
     action: "block"
     reason: "通过 systemctl 触发系统关机"
-    conditions:
-      binary: "systemctl"
-      argumentPatterns:
-        - '^(poweroff|reboot|halt|kexec)$'
+    selector:
+      binary: systemctl
+      arguments:
+        - pattern: "^(poweroff|reboot|halt|kexec)$"
 
   - id: package/npm-unpublish
     description: "npm unpublish 撤销已发布的包"
@@ -29,7 +29,6 @@ rules:
     severity: "error"
     action: "review"
     reason: "unpublish 会破坏依赖此包的所有用户"
-    conditions:
-      binary: "npm"
-      subcommand: "unpublish"
-
+    selector:
+      binary: npm
+      subcommands: [unpublish]
