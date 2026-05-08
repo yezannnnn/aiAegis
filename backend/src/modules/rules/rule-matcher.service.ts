@@ -3,9 +3,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as yaml from 'js-yaml';
+import * as shellQuote from 'shell-quote';
 import { YAMLRuleSet, YAMLRule, MatchResult, RuleAction, RuleSeverity, RuleEvaluation } from './types';
-import { CommandNode, CommandContext } from './types';
+import { CommandNode, CommandContext, CommandSignature, Flag, Selector } from './types';
 import { hasFlag, getFlagValue, getArgumentValues } from './ast-parser.service';
+import { BashAstService } from './bash-ast.service';
 
 interface ResolvedRuleSet {
   name: string;
@@ -32,7 +34,7 @@ export class RuleMatcherService {
   // project rules cache: cwd → Map<ruleId, YAMLRule>
   private projectRulesCache: Map<string, Map<string, YAMLRule>> = new Map();
 
-  constructor() {
+  constructor(private readonly bashAst: BashAstService) {
     this.loadConfig();
     this.loadBuiltInRules();
     this.loadUserRules();
@@ -194,6 +196,17 @@ export class RuleMatcherService {
         rule.example = this.buildExampleCommand(rule);
       }
 
+      // Pre-compile argument pattern regexes at load time
+      if (rule.selector?.arguments) {
+        for (const argSel of rule.selector.arguments) {
+          try {
+            argSel._regex = new RegExp(argSel.pattern, 'i');
+          } catch (e: any) {
+            this.logger.warn(`Rule ${id}: invalid argument pattern '${argSel.pattern}': ${e.message}`);
+          }
+        }
+      }
+
       // 用户/项目规则覆盖内置规则：从 ruleIndex 中移除旧条目
       if (ruleSource !== 'built-in') {
         for (const [binary, rules] of this.ruleIndex) {
@@ -298,9 +311,13 @@ export class RuleMatcherService {
   }
 
   private extractBinaries(rule: YAMLRule): string[] {
-    const conditions = rule.conditions;
-    if (!conditions?.binary) return ['*'];
-    return Array.isArray(conditions.binary) ? conditions.binary : [conditions.binary];
+    if (rule.selector?.binary) {
+      return Array.isArray(rule.selector.binary) ? rule.selector.binary : [rule.selector.binary];
+    }
+    if (rule.conditions?.binary) {
+      return Array.isArray(rule.conditions.binary) ? rule.conditions.binary : [rule.conditions.binary];
+    }
+    return ['*'];
   }
 
   private countRules(): number {
@@ -316,22 +333,19 @@ export class RuleMatcherService {
   // =========================================================================
 
   evaluate(ast: CommandNode, context: CommandContext, cwd?: string): RuleEvaluation {
-    // Base candidates from built-in + user rules (already indexed)
     let candidates = this.getCandidateRules(ast.binary);
 
-    // Merge project rules: higher priority, override same-id rules
     if (cwd) {
       const projectRules = this.getProjectRules(cwd);
       if (projectRules.size > 0) {
-        // Remove any existing rules that are overridden by project rules
         candidates = candidates.filter(r => !r.id || !projectRules.has(r.id));
-        // Add project rules that match this binary
         for (const rule of projectRules.values()) {
           const binaries = this.extractBinaries(rule);
           if (binaries.includes(ast.binary) || binaries.includes('*')) {
             candidates.push(rule);
           }
-          if (rule.conditions?.fullCommandPattern && !rule.conditions?.binary) {
+          if ((rule.conditions?.fullCommandPattern && !rule.conditions?.binary) ||
+              (rule.selector && !rule.selector.binary)) {
             candidates.push(rule);
           }
         }
@@ -341,11 +355,26 @@ export class RuleMatcherService {
     this.logger.debug(`Evaluating '${ast.binary}', ${candidates.length} candidate rules`);
     const results: MatchResult[] = [];
 
+    // Lazy pipeline signatures via BashAstService (unbash + fallback)
+    let pipelineSignatures: CommandSignature[] | undefined;
+    const getSignatures = (): CommandSignature[] => {
+      if (!pipelineSignatures) {
+        pipelineSignatures = this.bashAst.parse(ast.raw);
+        if (pipelineSignatures.length === 0) {
+          // Empty result shouldn't happen, but guard
+          pipelineSignatures = [{ binary: ast.binary, positionalArgs: [], flags: [], raw: ast.raw, hasPipes: false, hasRedirects: false, hasLogicalOperators: false }];
+        }
+      }
+      return pipelineSignatures;
+    };
+
     for (const rule of candidates) {
-      // 被 config 设为 off 的规则直接跳过
       if (rule.severity === 'off') continue;
 
-      const match = this.matchRule(rule, ast, context);
+      const match = rule.selector
+        ? this.matchRuleSelector(rule, getSignatures(), ast.raw, context)
+        : this.matchRule(rule, ast, context);
+
       this.logger.debug(`Rule ${rule.id}: matched=${match.matched}`);
       if (match.matched) {
         results.push(match);
@@ -495,6 +524,252 @@ export class RuleMatcherService {
         riskLevel: this.severityToRiskLevel(rule.severity),
       },
     };
+  }
+
+  // =========================================================================
+  // Pipeline 分割 & Signature 构建
+  // =========================================================================
+
+  /** Split a raw command on unquoted | (not ||) into segments. */
+  private splitPipelineSegments(raw: string): string[] {
+    const segments: string[] = [];
+    let current = '';
+    let inSingle = false;
+    let inDouble = false;
+
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw[i];
+      if (ch === "'" && !inDouble) {
+        inSingle = !inSingle;
+        current += ch;
+      } else if (ch === '"' && !inSingle) {
+        inDouble = !inDouble;
+        current += ch;
+      } else if (ch === '|' && !inSingle && !inDouble) {
+        // Skip || (logical OR)
+        if (raw[i + 1] === '|' || (i > 0 && raw[i - 1] === '|')) {
+          current += ch;
+        } else {
+          segments.push(current.trim());
+          current = '';
+        }
+      } else {
+        current += ch;
+      }
+    }
+
+    if (current.trim()) segments.push(current.trim());
+    return segments.length > 0 ? segments : [raw.trim()];
+  }
+
+  /** Convert a single command string into a CommandSignature. */
+  private segmentToSignature(segment: string, hasPipes: boolean): CommandSignature {
+    let tokens: any[];
+    try {
+      tokens = (shellQuote as any).parse(segment) as any[];
+    } catch {
+      tokens = segment.split(/\s+/);
+    }
+
+    const flags: Flag[] = [];
+    const positionalArgs: string[] = [];
+    let binary = '';
+
+    for (const token of tokens) {
+      if (typeof token !== 'string') continue;
+      if (!binary) {
+        binary = token;
+        continue;
+      }
+      if (token.startsWith('--')) {
+        const eqIdx = token.indexOf('=');
+        if (eqIdx > 0) {
+          flags.push({ name: token.substring(2, eqIdx), value: token.substring(eqIdx + 1) });
+        } else {
+          flags.push({ name: token.substring(2) });
+        }
+      } else if (token.startsWith('-') && token.length > 1) {
+        for (const ch of token.substring(1)) {
+          flags.push({ name: ch, short: ch });
+        }
+      } else {
+        positionalArgs.push(token);
+      }
+    }
+
+    return {
+      binary,
+      positionalArgs,
+      flags,
+      raw: segment,
+      hasPipes,
+      hasRedirects: /\s>>?|</.test(segment),
+      hasLogicalOperators: /&&|\|\|/.test(segment),
+    };
+  }
+
+  // =========================================================================
+  // Selector DSL 匹配引擎
+  // =========================================================================
+
+  /** Top-level selector match: handles hasPipes, rawPattern, anySegment, then primary sig. */
+  private matchRuleSelector(
+    rule: YAMLRule,
+    signatures: CommandSignature[],
+    raw: string,
+    context: CommandContext,
+  ): MatchResult {
+    const sel = rule.selector!;
+    const triggered: string[] = [];
+    const hasPipes = signatures.length > 1;
+
+    // hasPipes check
+    if (sel.hasPipes !== undefined && sel.hasPipes !== hasPipes) return { matched: false };
+    if (sel.hasPipes && hasPipes) triggered.push('hasPipes');
+
+    // rawPattern: match against the full raw command string
+    if (sel.rawPattern) {
+      try {
+        if (!new RegExp(sel.rawPattern, 'i').test(raw)) return { matched: false };
+        triggered.push('rawPattern');
+      } catch (e: any) {
+        this.logger.warn(`Invalid rawPattern '${sel.rawPattern}': ${e.message}`);
+        return { matched: false };
+      }
+    }
+
+    // anySegment: at least one pipeline segment satisfies the sub-selector
+    if (sel.anySegment) {
+      if (!signatures.some(s => this.matchSigBySelector(sel.anySegment!, s))) {
+        return { matched: false };
+      }
+      triggered.push('anySegment');
+    }
+
+    // Find primary signature (the one matching sel.binary)
+    let primarySig: CommandSignature | undefined;
+    if (sel.binary) {
+      const binaries = Array.isArray(sel.binary) ? sel.binary : [sel.binary];
+      primarySig = signatures.find(s => binaries.includes(s.binary) || binaries.includes('*'));
+      if (!primarySig) return { matched: false };
+      triggered.push(`binary:${primarySig.binary}`);
+    } else {
+      primarySig = signatures[0];
+    }
+
+    // Check subcommands, flags, arguments on primary signature
+    if (primarySig) {
+      if (sel.subcommands) {
+        for (let i = 0; i < sel.subcommands.length; i++) {
+          if (primarySig.positionalArgs[i] !== sel.subcommands[i]) return { matched: false };
+        }
+        triggered.push(`subcommands:${sel.subcommands.join(' ')}`);
+      }
+
+      if (sel.flags) {
+        const hasF = (name: string) => primarySig!.flags.some(f => f.name === name || f.short === name);
+        const { anyOf, allOf, noneOf, allGroups } = sel.flags;
+        if (anyOf && !anyOf.some(hasF)) return { matched: false };
+        if (allOf && !allOf.every(hasF)) return { matched: false };
+        if (noneOf && noneOf.some(hasF)) return { matched: false };
+        if (allGroups) {
+          for (const group of allGroups) {
+            if (!group.some(hasF)) return { matched: false };
+          }
+        }
+        triggered.push('flags');
+      }
+
+      if (sel.arguments) {
+        for (const argSel of sel.arguments) {
+          const regex = argSel._regex ?? (() => {
+            try { return new RegExp(argSel.pattern, 'i'); } catch { return null; }
+          })();
+          if (!regex) {
+            this.logger.warn(`Invalid argument pattern '${argSel.pattern}'`);
+            return { matched: false };
+          }
+          const anyPosition = argSel.anyPosition !== false;
+          if (anyPosition) {
+            if (!primarySig.positionalArgs.some(a => regex.test(a))) return { matched: false };
+          } else if (argSel.position !== undefined) {
+            if (!regex.test(primarySig.positionalArgs[argSel.position] ?? '')) return { matched: false };
+          }
+          triggered.push(`arg:${argSel.pattern}`);
+        }
+      }
+    }
+
+    // Context checks
+    if (sel.contextChecks) {
+      const ctx = sel.contextChecks;
+      if (ctx.gitBranch && context.git) {
+        if (!ctx.gitBranch.includes(context.git.currentBranch)) return { matched: false };
+        triggered.push(`git-branch:${context.git.currentBranch}`);
+      }
+      if (ctx.isProduction !== undefined && context.project) {
+        if (context.project.isProduction !== ctx.isProduction) return { matched: false };
+        triggered.push(`production:${ctx.isProduction}`);
+      }
+    }
+
+    return {
+      matched: true,
+      severity: rule.severity || 'warn',
+      action: rule.action || 'review',
+      description: rule.description,
+      reason: rule.reason,
+      source: rule.id,
+      metadata: {
+        triggeredRules: triggered,
+        triggeredCount: triggered.length,
+        riskLevel: this.severityToRiskLevel(rule.severity),
+      },
+    };
+  }
+
+  /** Pure boolean check: does this CommandSignature satisfy the given Selector? Used by anySegment. */
+  private matchSigBySelector(sel: Selector, sig: CommandSignature): boolean {
+    if (sel.binary) {
+      const binaries = Array.isArray(sel.binary) ? sel.binary : [sel.binary];
+      if (!binaries.includes(sig.binary) && !binaries.includes('*')) return false;
+    }
+
+    if (sel.subcommands) {
+      for (let i = 0; i < sel.subcommands.length; i++) {
+        if (sig.positionalArgs[i] !== sel.subcommands[i]) return false;
+      }
+    }
+
+    if (sel.flags) {
+      const hasF = (name: string) => sig.flags.some(f => f.name === name || f.short === name);
+      const { anyOf, allOf, noneOf, allGroups } = sel.flags;
+      if (anyOf && !anyOf.some(hasF)) return false;
+      if (allOf && !allOf.every(hasF)) return false;
+      if (noneOf && noneOf.some(hasF)) return false;
+      if (allGroups) {
+        for (const group of allGroups) {
+          if (!group.some(hasF)) return false;
+        }
+      }
+    }
+
+    if (sel.arguments) {
+      for (const argSel of sel.arguments) {
+        const regex = argSel._regex ?? (() => {
+          try { return new RegExp(argSel.pattern, 'i'); } catch { return null; }
+        })();
+        if (!regex) return false;
+        const anyPosition = argSel.anyPosition !== false;
+        if (anyPosition) {
+          if (!sig.positionalArgs.some(a => regex.test(a))) return false;
+        } else if (argSel.position !== undefined) {
+          if (!regex.test(sig.positionalArgs[argSel.position] ?? '')) return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   // =========================================================================

@@ -1,5 +1,5 @@
 name: "development"
-version: "1.0"
+version: "2.0"
 rules:
   - id: npm/uninstall-production
     description: "生产环境卸载依赖"
@@ -7,9 +7,9 @@ rules:
     severity: "error"
     action: "review"
     reason: "生产环境卸载依赖可能导致服务中断"
-    conditions:
-      binary: "npm"
-      subcommand: "uninstall"
+    selector:
+      binary: npm
+      subcommands: [uninstall]
       contextChecks:
         isProduction: true
 
@@ -19,10 +19,11 @@ rules:
     severity: "error"
     action: "review"
     reason: "audit fix --force 可能引入破坏性变更"
-    conditions:
-      binary: "npm"
-      subcommand: "audit"
-      hasFlags: ["force", "f"]
+    selector:
+      binary: npm
+      subcommands: [audit, fix]
+      flags:
+        anyOf: [force, f]
 
   - id: python/pip-install-url
     description: "pip 从 URL 安装"
@@ -31,7 +32,8 @@ rules:
     severity: "error"
     action: "review"
     reason: "从 URL 安装包无法验证来源安全性"
-    conditions:
-      binary: "pip"
-      subcommand: "install"
-      argumentPatterns: ["http", "https"]
+    selector:
+      binary: pip
+      subcommands: [install]
+      arguments:
+        - pattern: "^https?://"

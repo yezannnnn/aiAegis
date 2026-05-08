@@ -1,5 +1,5 @@
 name: "network"
-version: "1.0"
+version: "2.0"
 rules:
   - id: network/curl-to-shell
     description: "curl | sh 管道执行远程脚本"
@@ -8,9 +8,11 @@ rules:
     severity: "block"
     action: "block"
     reason: "curl | sh 会立即执行远程下载的脚本，极危险"
-    conditions:
-      binary: "sh"
-      argumentPatterns: ["curl.*\\|.*sh", "wget.*\\|.*sh", "curl.*\\|.*bash"]
+    selector:
+      binary: [curl, wget]
+      hasPipes: true
+      anySegment:
+        binary: [sh, bash, zsh, dash, fish]
 
   - id: network/ssh-dangerous
     description: "SSH 危险选项"
@@ -19,9 +21,9 @@ rules:
     severity: "error"
     action: "review"
     reason: "SSH 禁用主机检查或转发代理有安全隐患"
-    conditions:
-      binary: "ssh"
-      hasFlags: ["oStrictHostKeyChecking=no", "oUserKnownHostsFile=/dev/null", "A"]
+    selector:
+      binary: ssh
+      rawPattern: "StrictHostKeyChecking=no|UserKnownHostsFile=/dev/null|\\s-A\\s|\\s-A$"
 
   - id: network/nc-listen
     description: "nc 监听端口可能是后门"
@@ -30,9 +32,10 @@ rules:
     severity: "error"
     action: "review"
     reason: "nc -l 开启监听可能被利用为后门"
-    conditions:
-      binary: "nc"
-      hasFlags: ["listen", "l"]
+    selector:
+      binary: nc
+      flags:
+        anyOf: [listen, l]
 
   - id: system/sudo
     description: "sudo 提权操作"
@@ -40,8 +43,8 @@ rules:
     severity: "warn"
     action: "review"
     reason: "sudo 以 root 权限执行，风险较高"
-    conditions:
-      binary: "sudo"
+    selector:
+      binary: sudo
 
   - id: system/systemctl-dangerous
     description: "systemctl 危险操作"
@@ -50,10 +53,13 @@ rules:
     severity: "error"
     action: "review"
     reason: "停止关键系统服务可能导致系统不可用"
-    conditions:
-      binary: "systemctl"
-      subcommand: ["stop", "disable", "mask"]
-      argumentPatterns: ["ssh", "network", "cron", "systemd"]
+    selector:
+      binary: systemctl
+      arguments:
+        - pattern: "^(stop|disable|mask)$"
+          anyPosition: false
+          position: 0
+        - pattern: "^(ssh|network|cron|systemd)"
 
   - id: system/chmod-suid
     description: "设置 SUID 权限"
@@ -62,6 +68,7 @@ rules:
     severity: "block"
     action: "block"
     reason: "SUID 程序以所有者权限运行，极危险"
-    conditions:
-      binary: "chmod"
-      argumentPatterns: ["u\\+s", "4755", "4750"]
+    selector:
+      binary: chmod
+      arguments:
+        - pattern: "u\\+s|4755|4750"

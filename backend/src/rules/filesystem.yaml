@@ -1,5 +1,5 @@
 name: "filesystem"
-version: "1.0"
+version: "2.0"
 rules:
   - id: fs/rm-rf
     description: "rm -rf 递归强制删除"
@@ -8,9 +8,12 @@ rules:
     severity: "error"
     action: "review"
     reason: "rm -rf 会永久删除目录及所有内容"
-    conditions:
-      binary: "rm"
-      hasFlags: ["recursive", "r", "force", "f"]
+    selector:
+      binary: rm
+      flags:
+        allGroups:
+          - [recursive, r]
+          - [force, f]
 
   - id: fs/rm-root
     description: "禁止删除根目录"
@@ -19,9 +22,10 @@ rules:
     severity: "block"
     action: "block"
     reason: "删除根目录会摧毁整个系统"
-    conditions:
-      binary: "rm"
-      argumentPatterns: ["^/$"]
+    selector:
+      binary: rm
+      arguments:
+        - pattern: "^/\\*?$"
 
   - id: fs/rm-home
     description: "删除用户主目录"
@@ -30,9 +34,10 @@ rules:
     severity: "block"
     action: "block"
     reason: "删除主目录会丢失所有用户数据"
-    conditions:
-      binary: "rm"
-      argumentPatterns: ["~/", "~\\/.*", "/home/\\w+"]
+    selector:
+      binary: rm
+      arguments:
+        - pattern: "^~/|/home/\\w+"
 
   - id: fs/dd-dangerous
     description: "dd 命令写入设备危险"
@@ -41,9 +46,10 @@ rules:
     severity: "block"
     action: "block"
     reason: "dd 可以直接覆盖磁盘，极危险"
-    conditions:
-      binary: "dd"
-      argumentPatterns: ["of=/dev/[sh]d[a-z]", "of=/dev/disk"]
+    selector:
+      binary: dd
+      arguments:
+        - pattern: "of=/dev/([sh]d[a-z]|disk)"
 
   - id: fs/chmod-recursive
     description: "chmod 递归修改系统目录权限"
@@ -52,10 +58,12 @@ rules:
     severity: "error"
     action: "review"
     reason: "chmod -R 777 会将目录权限全部开放，可能危及系统安全"
-    conditions:
-      binary: "chmod"
-      hasFlags: ["R"]
-      argumentPatterns: ["^(/|/usr|/etc|/bin|/sbin|/var|/home|~)"]
+    selector:
+      binary: chmod
+      flags:
+        anyOf: [R]
+      arguments:
+        - pattern: "^(/|/usr|/etc|/bin|/sbin|/var|/home|~)"
 
   - id: fs/mv-overwrite
     description: "mv 覆盖重要目录"
@@ -64,6 +72,7 @@ rules:
     severity: "error"
     action: "review"
     reason: "mv 覆盖系统目录可能导致系统损坏"
-    conditions:
-      binary: "mv"
-      argumentPatterns: ["/etc/.*", "/usr/.*", "/var/.*", "/bin/.*", "/sbin/.*"]
+    selector:
+      binary: mv
+      arguments:
+        - pattern: "^(/etc|/usr|/var|/bin|/sbin)/"

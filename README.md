@@ -93,6 +93,8 @@ aegis rules list
 
 你可以在 `~/.aegis/rules/` 目录下创建任意 `.yaml` 文件来定义自己的规则。文件名以 `example-` 开头的会被跳过（模板用途）。
 
+> 完整的规则语法参考见 **[规则编写指南 →](./docs/rules-authoring.md)**
+
 ### 创建规则文件
 
 ```bash
@@ -105,7 +107,7 @@ aegis rules path                  # 查看规则目录路径
 
 ```yaml
 name: "my-rules"
-version: "1.0"
+version: "2.0"
 
 rules:
   - id: custom/your-rule-id
@@ -115,53 +117,95 @@ rules:
     severity: "error"                # error / block / warn
     action: "review"                 # review（需审批）/ block（直接拒绝）/ warn（仅记录）
     reason: "展示给用户的风险说明"
-    conditions:
+    selector:
       # 匹配条件（见下方说明）
 ```
 
-### 匹配条件
+### selector 字段说明
 
-**按命令名匹配（最常用）：**
+#### `binary` — 匹配命令名
 
 ```yaml
-conditions:
-  binary: "rm"                   # 单个命令
-  # 或
-  binary: ["rm", "unlink"]       # 多个命令任意匹配
+selector:
+  binary: rm                    # 单个命令
+  binary: [curl, wget]          # 多个（任意一个触发）
 ```
 
-**按命令名 + 参数匹配：**
+#### `subcommands` — 匹配子命令（有序前缀）
 
 ```yaml
-conditions:
-  binary: "kubectl"
-  argumentPatterns:
-    - "delete"                   # 参数中包含 "delete"
-    - "--all"                    # 同时包含 "--all"（AND 关系）
+selector:
+  binary: docker
+  subcommands: [system, prune]  # 匹配 docker system prune ...
 ```
 
-**按子命令匹配（git、npm 等）：**
+#### `flags` — 匹配命令标志
 
 ```yaml
-conditions:
-  binary: "git"
-  subcommand: "push"             # git push ...
-  argumentPatterns:
-    - "--force"
+# 任意一个即触发
+selector:
+  flags:
+    anyOf: [force, f]
+
+# 必须同时存在
+selector:
+  flags:
+    allOf: [verbose, v]
+
+# 分组 AND — 每组内 anyOf，组间 allOf
+# 下例：要求同时有 -r/-recursive 和 -f/--force
+selector:
+  flags:
+    allGroups:
+      - [recursive, r]
+      - [force, f]
 ```
 
-**匹配完整命令字符串（管道、重定向等复杂场景）：**
+#### `arguments` — 匹配位置参数（支持正则）
 
 ```yaml
-conditions:
-  fullCommandPattern: "mysql.*prod.*<.*\\.sql"   # 正则表达式
+selector:
+  binary: rm
+  arguments:
+    - pattern: "^/\\*?$"         # 匹配 / 或 /*，默认任意位置
+    - pattern: "^(stop|disable)$"
+      anyPosition: false
+      position: 0                 # 只看第 0 个位置参数
+```
+
+#### `hasPipes` + `anySegment` — 管道检测
+
+```yaml
+# 拦截 curl | sh 类命令
+selector:
+  binary: [curl, wget]
+  hasPipes: true
+  anySegment:                    # 管道中任意一段满足即触发
+    binary: [sh, bash, zsh, dash, fish]
+```
+
+#### `rawPattern` — 匹配整条命令字符串（正则）
+
+```yaml
+selector:
+  binary: mysqldump
+  rawPattern: "--all-databases"  # 对整条命令做正则匹配
+```
+
+#### `contextChecks` — 上下文条件
+
+```yaml
+selector:
+  binary: git
+  contextChecks:
+    gitBranch: [main, master]    # 只在主分支触发
 ```
 
 ### 完整示例
 
 ```yaml
 name: "team-rules"
-version: "1.0"
+version: "2.0"
 
 rules:
   # 禁止删除 data/ 目录（直接拒绝，无法审批）
@@ -171,10 +215,10 @@ rules:
     severity: "block"
     action: "block"
     reason: "data/ 目录包含重要数据，禁止删除"
-    conditions:
-      binary: "rm"
-      argumentPatterns:
-        - "data/"
+    selector:
+      binary: rm
+      arguments:
+        - pattern: "data/"
 
   # 生产环境部署需要人工审批
   - id: custom/deploy-prod
@@ -183,10 +227,10 @@ rules:
     severity: "error"
     action: "review"
     reason: "部署到生产环境前需要你确认"
-    conditions:
-      binary: "sh"
-      argumentPatterns:
-        - "deploy.*prod"
+    selector:
+      binary: sh
+      arguments:
+        - pattern: "deploy.*prod"
 
   # 防止 .env 文件被打印到终端
   - id: custom/cat-env
@@ -195,20 +239,38 @@ rules:
     severity: "block"
     action: "block"
     reason: "防止 API 密钥等机密信息泄露"
-    conditions:
-      binary: "cat"
-      argumentPatterns:
-        - "\\.env$"
+    selector:
+      binary: cat
+      arguments:
+        - pattern: "\\.env$"
 
-  # 拦截管道命令（直接导入 SQL 到生产库）
-  - id: custom/pipe-to-prod-db
-    description: "防止直接导入 SQL 到生产数据库"
-    category: "database"
+  # 拦截管道命令（curl 下载脚本直接执行）
+  - id: custom/curl-to-shell
+    description: "禁止 curl | sh 执行远程脚本"
+    category: "network"
+    severity: "block"
+    action: "block"
+    reason: "直接执行远程脚本存在供应链攻击风险"
+    selector:
+      binary: [curl, wget]
+      hasPipes: true
+      anySegment:
+        binary: [sh, bash, zsh]
+
+  # 强推主分支需要审批
+  - id: custom/force-push-main
+    description: "主分支 force push 需确认"
+    category: "git"
     severity: "error"
     action: "review"
-    reason: "直接导入 SQL 到生产库需要你确认"
-    conditions:
-      fullCommandPattern: "mysql.*prod.*<.*\\.sql"
+    reason: "主分支 force push 会覆盖团队提交"
+    selector:
+      binary: git
+      subcommands: [push]
+      flags:
+        anyOf: [force, f]
+      contextChecks:
+        gitBranch: [main, master]
 
   # 覆盖内置规则：把 fs/rm-rf 从 review 升级为 block
   - id: fs/rm-rf
