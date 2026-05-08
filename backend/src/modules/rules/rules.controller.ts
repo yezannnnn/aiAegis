@@ -92,7 +92,7 @@ export class RulesController {
         userInput: body.userInput,
         assistPrompt: body.assistPrompt,
         matchedRules: evaluation.matchedRules || [],
-        approvalId: approvalRequestId,
+        approvalId: requiresApproval ? requestId : undefined,
       });
 
       if (requiresApproval) {
