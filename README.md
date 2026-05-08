@@ -4,7 +4,6 @@
 
 ### AI Agent 高危命令拦截器 — 给 agent Cli 的最后一道防线
 
-[![Version](https://img.shields.io/github/v/release/yezannnnn/aiAegis?color=blue&label=version)](https://github.com/yezannnnn/aiAegis/releases)
 [![npm](https://img.shields.io/npm/v/ai-aegis.svg)](https://www.npmjs.com/package/ai-aegis)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/yezannnnn/aiAegis)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
