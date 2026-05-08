@@ -2,7 +2,7 @@
 
 # 🛡️ Aegis
 
-### AI Agent 高危命令拦截器 — 给 agent Cli 的最后一道防线
+### The Last Line of Defense for AI Agent CLIs — Intercept Dangerous Commands Before They Execute
 
 [![Version](https://img.shields.io/github/v/release/yezannnnn/aiAegis?color=blue&label=version)](https://github.com/yezannnnn/aiAegis/releases)
 [![npm](https://img.shields.io/npm/v/ai-aegis.svg)](https://www.npmjs.com/package/ai-aegis)
@@ -12,93 +12,95 @@
 [![Built with NestJS](https://img.shields.io/badge/backend-NestJS-e0234e.svg)](https://nestjs.com/)
 [![Built with Vue 3](https://img.shields.io/badge/frontend-Vue%203-4fc08d.svg)](https://vuejs.org/)
 
+[English](README.md) | [中文](README_CN.md)
+
 </div>
 
 ## Why Aegis?
 
-AI Agent（Claude Code、Hermes、Codex）是个黑盒子。你给它一个任务，它会自主执行一系列命令 — 大多数时候没问题，但偶尔它会做出你根本没想到的操作：
+AI agents like Claude Code, Hermes, and Codex are black boxes. You give them a task, they autonomously execute a chain of shell commands — and most of the time, everything's fine. But occasionally, they do something you never anticipated:
 
 ```bash
-rm -rf /                    # 删库跑路
-git push --force origin main   # 覆盖同事代码
-chmod -R 777 /etc              # 打开系统全部权限
-cat .env | pbcopy              # 泄露密钥到剪贴板
-npx prisma migrate reset       # 清空生产数据库
+rm -rf /                           # nuke your system
+git push --force origin main       # overwrite your teammate's work
+chmod -R 777 /etc                  # open up system permissions
+cat .env | pbcopy                  # leak secrets to clipboard
+npx prisma migrate reset           # wipe production database
 ```
 
-**你不应该用"祈祷"来保证安全。**
+**You shouldn't rely on "hope" for security.**
 
-**Aegis 是最后一道防线。** 它在命令真正执行之前介入 — AST 解析命令结构，11 条规则集覆盖 100+ 条规则判定风险等级，高危操作在监控界面弹出审批请求。你说允许才放行，你说拒绝就终止。
+**Aegis is the last line of defense.** It intercepts commands *before* they execute — parses the command structure via AST, evaluates against 11 built-in rule sets covering 100+ rules, and pops an approval request in the monitoring dashboard for high-risk operations. The command only runs if you say so.
 
 ```
-AI Agent 发出命令 → PreToolUse Hook 拦截 → AST 规则引擎判定 → 监控界面审批 → 执行或终止
+AI Agent emits command → PreToolUse Hook intercepts → AST rule engine evaluates → Dashboard approval → Execute or Abort
 ```
 
-- **不是事后日志** — 命令发出之前就拦下来
-- **不是全局开关** — 分三级（block 直接拒绝 / review 需审批 / warn 仅记录），精细控制
-- **不依赖 AI 自觉** — 系统层面强制介入，绕过不了
+- **Not after-the-fact logging** — commands are stopped *before* execution
+- **Not a blunt on/off switch** — three-tier control: `block` (deny), `review` (approval required), `warn` (log only)
+- **Doesn't depend on AI self-restraint** — system-level enforcement that can't be bypassed
 
-![Aegis 拦截演示](./docs/images/index.gif)
+![Aegis Interception Demo](./docs/images/index.gif)
 
 ---
 
 ## Features
 
-### 🧠 AST 规则引擎
+### 🧠 AST Rule Engine
 
-- **结构化命令解析** — 将 bash 命令解析为 AST（binary + subcommands + flags + arguments），精准匹配而非正则猜测
-- **11 个内置规则集** — 覆盖 filesystem、git、docker、mysql、prisma、network、development、sqlite、defaults 等常见风险场景
-- **三级风险判定** — `block` 直接拒绝不可绕过 / `review` 弹窗审批 / `warn` 仅记录放行
-- **上下文感知** — git 命令自动检测当前分支（main/master vs 其他），同一规则不同策略
+- **Structured command parsing** — Bash commands are parsed into AST (binary + subcommands + flags + arguments) for precise matching instead of regex guessing
+- **11 built-in rule sets** — filesystem, git, docker, mysql, prisma, network, development, sqlite, defaults, and more
+- **Three-tier risk classification** — `block` (non-bypassable deny) / `review` (popup approval) / `warn` (log and proceed)
+- **Context-aware** — Git commands automatically detect current branch (main/master vs. others), same rule, different strategy
 
-### 🖥️ 实时监控面板
+### 🖥️ Real-Time Monitoring Dashboard
 
-- **Web Dashboard** — `http://localhost:3001` 打开即用，实时展示所有拦截事件
-- **审批中心** — 高危命令弹出审批窗口，一键允许/拒绝，60 秒超时自动拒绝
-- **事件流** — 按时间线展示所有命令评估记录，可追溯每条命令的决策过程
-- **统计面板** — 拦截次数、审批通过/拒绝比例、规则触发频率可视化
+- **Web Dashboard** — Open `http://localhost:3001`, see all interception events in real time
+- **Approval Center** — High-risk commands trigger approval windows; one-click allow/deny, auto-deny after 60s timeout
+- **Event Stream** — Timeline view of all command evaluations, traceable decision history for every command
+- **Stats Panel** — Visualized interception count, approval pass/deny ratio, rule trigger frequency
 
-### 📝 自定义规则系统
+### 📝 Custom Rules System
 
-- **YAML 声明式配置** — 无需写代码，YAML 文件定义规则
-- **多种匹配方式** — 命令名匹配 / 子命令匹配 / Flag 匹配 / 参数正则匹配 / 完整命令正则匹配
-- **热重载** — `aegis rules reload` 即时生效，无需重启服务
-- **规则优先级** — 项目规则 > 用户自定义规则 > 内置规则，同 ID 规则自动覆盖
-- **项目级规则** — `.aegis/rules/` 目录下放规则文件，只对该项目生效
+- **YAML declarative configuration** — Define rules without writing code
+- **Multiple matching modes** — Binary match / subcommand match / flag match / argument regex / full-command regex
+- **Hot reload** — `aegis rules reload` takes effect immediately, no restart needed
+- **Rule priority** — Project rules > user custom rules > built-in rules; same ID auto-overrides
+- **Project-level rules** — `.aegis/rules/` directory in your project, scoped to that project only
 
-### 🔌 Claude Code 集成
+### 🔌 Claude Code Integration
 
-- **一键注入 Hook** — `aegis setup` 自动配置 Claude Code PreToolUse Hook
-- **零侵入** — 不修改 Claude Code 本身，通过标准 Hook 机制工作
-- **通用协议** — Hook 脚本通过 HTTP 与本地 Aegis 服务通信，任何支持 Hook 的 AI Agent 工具都可对接
+- **One-command hook injection** — `aegis setup` auto-configures Claude Code PreToolUse Hook
+- **Zero intrusion** — Doesn't modify Claude Code itself; works through standard hook mechanism
+- **Universal protocol** — Hook script communicates with local Aegis service via HTTP; any AI agent tool supporting hooks can integrate
 
-### ⚡ 性能与可靠性
+### ⚡ Performance & Reliability
 
-- **本地运行** — 所有逻辑在本地完成，无需网络，零延迟
-- **SQLite 存储** — 审批历史、规则配置持久化存储
-- **原子写入** — 配置修改采用原子写入，断电不会损坏
-- **超时保护** — 审批 60 秒超时自动拒绝，Agent 不会因你离开而悄悄放行
+- **Local-only** — All logic runs locally, no network required, zero latency
+- **SQLite persistence** — Approval history and rule configs are durably stored
+- **Atomic writes** — Config modifications use atomic write; power loss won't corrupt
+- **Timeout protection** — Approval requests auto-deny after 60s; agents won't silently execute while you're away
 
 ---
 
 ## Built-in Rules
 
-Aegis 内置 11 个规则集，覆盖 100+ 条规则，开箱即用：
+Aegis ships with 11 rule sets, 100+ rules, ready to use out of the box:
 
-| 规则集 | 文件 | 覆盖场景 |
-|-------|------|---------|
-| `defaults` | `defaults.yaml` | 系统关机/重启、`npm unpublish`、fork bomb、`:(){:\|:&};:` |
-| `filesystem` | `filesystem.yaml` | `rm -rf`、删除根目录/主目录、`dd` 写入设备、`chmod -R` 系统目录、`mv` 覆盖系统文件 |
-| `git` | `git.yaml` | main 分支 force push、非 main 分支 force push、`--force-with-lease`、`reset --hard`、`clean -f`、main 分支 rebase |
-| `docker` | `docker.yaml` | `--privileged` 容器、挂载系统目录、删除所有镜像/容器/卷、`docker exec` 危险操作 |
-| `mysql` | `mysql.yaml` | `DROP TABLE`、`DROP DATABASE`、`TRUNCATE`、`DELETE` 无条件删除、生产库操作 |
-| `prisma` | `prisma.yaml` | `migrate reset`、`db push --force`、`db push --force-reset`、`db push --accept-data-loss` |
-| `network` | `network.yaml` | 暴露公网端口、修改 `/etc/hosts`、`iptables` 规则修改、`nc` 反向 shell |
-| `development` | `development.yaml` | `pip install` 非 PyPI 来源、`npm install -g` 全局安装、`eval` 执行动态代码 |
-| `sqlite` | `sqlite.yaml` | 删除 `.db`/`.sqlite` 文件、生产数据库覆盖写入 |
-| `security` | `aegis.config.yaml` | `cat .env`/`.pem`/`.key`、`curl` pipe bash、密钥复制到剪贴板 |
+| Rule Set | File | Coverage |
+|----------|------|----------|
+| `defaults` | `defaults.yaml` | System shutdown/reboot, `npm unpublish`, fork bombs, `:(){:\|:&};:` |
+| `filesystem` | `filesystem.yaml` | `rm -rf`, deleting root/home dirs, `dd` to devices, `chmod -R` on system dirs, `mv` overwriting system files |
+| `git` | `git.yaml` | Force push to main, force push to non-main, `--force-with-lease`, `reset --hard`, `clean -f`, rebase on main |
+| `docker` | `docker.yaml` | `--privileged` containers, mounting system dirs, wiping all images/containers/volumes, dangerous `docker exec` |
+| `mysql` | `mysql.yaml` | `DROP TABLE`, `DROP DATABASE`, `TRUNCATE`, unconditional `DELETE`, production DB operations |
+| `prisma` | `prisma.yaml` | `migrate reset`, `db push --force`, `db push --force-reset`, `db push --accept-data-loss` |
+| `network` | `network.yaml` | Exposing public ports, modifying `/etc/hosts`, `iptables` changes, `nc` reverse shells |
+| `development` | `development.yaml` | `pip install` from non-PyPI sources, `npm install -g`, `eval` executing dynamic code |
+| `sqlite` | `sqlite.yaml` | Deleting `.db`/`.sqlite` files, overwriting production databases |
+| `security` | `aegis.config.yaml` | `cat .env`/`.pem`/`.key`, `curl` piped to bash, copying secrets to clipboard |
 
-查看所有已加载规则：
+View all loaded rules:
 
 ```bash
 aegis rules list
@@ -116,50 +118,50 @@ aegis rules list
 
 ## Quick Start
 
-### 安装
+### Install
 
 ```bash
 npm install -g ai-aegis
 ```
 
-> 安装时会自动编译 sqlite3 原生模块（约 1-2 分钟），为正常现象。
+> The install will compile the sqlite3 native module (takes ~1–2 min), which is normal.
 
-### 初始化
+### Initialize
 
 ```bash
 aegis setup
 ```
 
-Setup 会做三件事：
-1. 创建配置目录 `~/.aegis/`
-2. 在 `~/.claude/settings.json` 注入 PreToolUse Hook
-3. 生成自定义规则模板 `~/.aegis/rules/example-custom.yaml`
+Setup does three things:
+1. Creates config directory `~/.aegis/`
+2. Injects PreToolUse Hook into `~/.claude/settings.json`
+3. Generates custom rule template `~/.aegis/rules/example-custom.yaml`
 
-### 启动
+### Start
 
 ```bash
 aegis start
 ```
 
-服务启动后访问 **http://localhost:3001** 打开监控界面。
+Visit **http://localhost:3001** to open the monitoring dashboard.
 
-以后每次使用 Claude Code 前，确保 Aegis 在运行即可。命令拦截、审批决策全自动。
+From now on, just make sure Aegis is running before you use Claude Code. Interception and approval are fully automatic.
 
 ---
 
 ## Custom Rules
 
-你可以在 `~/.aegis/rules/` 目录下创建 `.yaml` 文件定义自己的规则。文件名以 `example-` 开头的会被跳过（模板用途）。
+Create `.yaml` files in `~/.aegis/rules/`. Files starting with `example-` are skipped (template use).
 
-### 创建规则文件
+### Create Rules
 
 ```bash
-aegis rules new          # 创建模板文件
-aegis rules path         # 查看规则目录路径
-aegis rules reload       # 热重载（无需重启服务）
+aegis rules new          # Create template file
+aegis rules path         # Show rules directory path
+aegis rules reload       # Hot reload (no restart needed)
 ```
 
-### 规则文件格式
+### Rule File Format
 
 ```yaml
 name: "my-rules"
@@ -167,76 +169,76 @@ version: "2.0"
 
 rules:
   - id: custom/deploy-prod
-    description: "生产部署需人工确认"
+    description: "Production deployment requires human confirmation"
     example: "sh deploy-prod.sh"
     category: "deploy"
     severity: "error"
     action: "review"
-    reason: "部署到生产环境前需要你确认"
+    reason: "Deploying to production requires your confirmation"
     selector:
       binary: sh
       arguments:
         - pattern: "deploy.*prod"
 
   - id: custom/rm-data-dir
-    description: "禁止删除 data/ 目录"
+    description: "Deleting data/ directory is prohibited"
     example: "rm -rf data/"
     category: "filesystem"
     severity: "block"
     action: "block"
-    reason: "data/ 目录包含重要数据，禁止删除"
+    reason: "data/ contains important data, deletion is prohibited"
     selector:
       binary: rm
       arguments:
         - pattern: "data/"
 ```
 
-### 匹配方式速查
+### Matching Modes Cheat Sheet
 
-| 匹配方式 | 写法 | 说明 |
-|---------|------|------|
-| 匹配命令名 | `binary: git` | 单个命令 |
-| 匹配子命令 | `subcommands: [push]` | 如 git push |
-| 匹配 Flag（任一即可） | `flags: { anyOf: [force, f] }` | --force 或 -f |
-| 匹配 Flag（全部都要） | `flags: { allGroups: [[recursive, r], [force, f]] }` | -r 且 -f |
-| 参数正则匹配 | `arguments: [{ pattern: "^/etc" }]` | 匹配 /etc 路径 |
-| 完整命令正则 | `fullCommandPattern: "mysql.*prod.*<.*\\.sql"` | 管道/重定向场景 |
+| Mode | Syntax | Description |
+|------|--------|-------------|
+| Match binary | `binary: git` | Single command |
+| Match subcommand | `subcommands: [push]` | e.g., git push |
+| Match flag (any) | `flags: { anyOf: [force, f] }` | `--force` or `-f` |
+| Match flag (all) | `flags: { allGroups: [[recursive, r], [force, f]] }` | `-r` and `-f` |
+| Argument regex | `arguments: [{ pattern: "^/etc" }]` | Match `/etc` paths |
+| Full command regex | `fullCommandPattern: "mysql.*prod.*<.*\\.sql"` | Pipe/redirect scenarios |
 
-### 覆盖内置规则
+### Override Built-in Rules
 
-用相同的 `id` 可以直接覆盖内置规则：
+Use the same `id` to override:
 
 ```yaml
 rules:
-  - id: fs/rm-rf              # 内置规则 ID
-    action: "warn"             # 降级为仅记录，不再拦截
+  - id: fs/rm-rf              # Built-in rule ID
+    action: "warn"             # Downgrade to log-only, no interception
 ```
 
-### 项目级规则
+### Project-Level Rules
 
 ```bash
 your-project/
 └── .aegis/
     └── rules/
-        └── project-rules.yaml   # 只对该项目生效
+        └── project-rules.yaml   # Only applies to this project
 ```
 
-**优先级**：项目规则 > 用户自定义规则 > 内置规则
+**Priority**: Project rules > User custom rules > Built-in rules
 
 ---
 
 ## CLI Reference
 
 ```bash
-aegis setup              # 初始化，自动注入 Claude Code Hook
-aegis start              # 启动服务（默认 :3001）
-aegis start -p 8080      # 指定端口
-aegis status             # 检查服务运行状态
+aegis setup              # Initialize, auto-inject Claude Code Hook
+aegis start              # Start service (default :3001)
+aegis start -p 8080      # Specify port
+aegis status             # Check service status
 
-aegis rules list         # 查看所有已加载规则（含来源）
-aegis rules new          # 创建自定义规则模板
-aegis rules path         # 查看用户规则目录路径
-aegis rules reload       # 热重载规则（无需重启）
+aegis rules list         # List all loaded rules (with source)
+aegis rules new          # Create custom rule template
+aegis rules path         # Show user rules directory path
+aegis rules reload       # Hot reload rules (no restart)
 ```
 
 ---
@@ -244,17 +246,17 @@ aegis rules reload       # 热重载规则（无需重启）
 ## FAQ
 
 <details>
-<summary><strong>命令没有被拦截？</strong></summary>
+<summary><strong>Commands aren't being intercepted?</strong></summary>
 
-检查 Hook 是否注入成功：
+Check if the hook was injected successfully:
 
 ```bash
 cat ~/.claude/settings.json | grep aegis
 ```
 
-如果没有出现 aegis 相关配置，重新运行 `aegis setup`。
+If no aegis config appears, re-run `aegis setup`.
 
-确认 Aegis 服务正在运行：
+Confirm Aegis service is running:
 
 ```bash
 aegis status
@@ -263,18 +265,18 @@ aegis status
 </details>
 
 <details>
-<summary><strong>审批弹窗消失了但没有回应？</strong></summary>
+<summary><strong>The approval popup disappeared with no response?</strong></summary>
 
-命令默认等待 60 秒，超时后**自动拒绝**执行。这个设计保证 Agent 不会因为你不在而悄悄放行高危命令。
+Commands wait 60 seconds by default, then **auto-deny**. This design ensures agents won't silently execute high-risk commands while you're away.
 
-如果你在弹窗关闭前点了"允许"或"拒绝"，命令会立即按你的决定执行。
+If you clicked "Allow" or "Deny" before the popup closed, the command executes immediately according to your decision.
 
 </details>
 
 <details>
-<summary><strong>想临时关闭某条内置规则？</strong></summary>
+<summary><strong>Want to temporarily disable a built-in rule?</strong></summary>
 
-在自定义规则文件里覆盖它，把 `action` 改成 `warn`（仅记录但不拦截）：
+Override it in your custom rules file, changing `action` to `warn` (log only, no interception):
 
 ```yaml
 rules:
@@ -282,37 +284,37 @@ rules:
     action: "warn"
 ```
 
-`aegis rules reload` 即时生效。
+`aegis rules reload` takes effect immediately.
 
 </details>
 
 <details>
-<summary><strong>会影响 Claude Code 的执行速度吗？</strong></summary>
+<summary><strong>Does it slow down Claude Code?</strong></summary>
 
-不会。Aegis 是本地服务，Hook 评估通常在 50ms 以内完成（AST 解析 + 规则匹配 + SQLite 写入）。只有命中 `review` 规则时需要等待你审批，这是有意设计的停顿。
-
-</details>
-
-<details>
-<summary><strong>可以用于 Claude Code 以外的工具吗？</strong></summary>
-
-目前不行。目前平台只对接了Claude Code的hook，后续会对接Hermes、Codex等其他Agent Cli请看到时候的更新日志。
+No. Aegis is a local service; hook evaluation typically completes within 50ms (AST parse + rule match + SQLite write). Only `review` rules require waiting for your approval — this pause is intentional.
 
 </details>
 
 <details>
-<summary><strong>项目级规则和全局规则同时存在，哪个先生效？</strong></summary>
+<summary><strong>Can it be used with tools other than Claude Code?</strong></summary>
 
-Aegis 按优先级合并：**项目规则 > 用户自定义规则 > 内置规则**。同 `id` 的规则，高优先级会覆盖低优先级。不同 `id` 的规则全部生效。
+Currently, the platform only integrates with Claude Code's hook. Hermes, Codex, and other agent CLIs will be supported in future updates — check the release notes.
 
 </details>
 
 <details>
-<summary><strong>数据存储在哪里？</strong></summary>
+<summary><strong>Project-level and global rules both exist — which takes precedence?</strong></summary>
 
-- **配置 & 数据库**：`~/.aegis/`（SQLite + YAML 规则文件）
-- **审批历史 & 事件记录**：`~/.aegis/data/`
-- **规则热备份**：修改规则文件后自动备份原文件
+Aegis merges by priority: **Project rules > User custom rules > Built-in rules**. Same `id` rules are overridden by higher priority. Different `id` rules all take effect.
+
+</details>
+
+<details>
+<summary><strong>Where is data stored?</strong></summary>
+
+- **Config & Database**: `~/.aegis/` (SQLite + YAML rule files)
+- **Approval history & event logs**: `~/.aegis/data/`
+- **Rule hot backup**: Original files are auto-backed up on modification
 
 </details>
 
@@ -323,7 +325,7 @@ Aegis 按优先级合并：**项目规则 > 用户自定义规则 > 内置规则
 ```
                        ┌──────────────────────────────────┐
                        │         Claude Code / AI Agent      │
-                       │            执行 bash 命令            │
+                       │            Execute bash command     │
                        └──────────┬───────────────────────┘
                                   │  PreToolUse Hook
                                   ▼
@@ -352,11 +354,11 @@ Aegis 按优先级合并：**项目规则 > 用户自定义规则 > 内置规则
                        │    └───────────────────┘            │
                        └──────────────────────────────────┘
                                   │
-                    审批结果（允许/拒绝/超时）
+                    Approval result (allow / deny / timeout)
                                   │
                                   ▼
                        ┌──────────────────────────────────┐
-                       │    命令执行 / 终止返回错误           │
+                       │    Command executes / Abort with error│
                        └──────────────────────────────────┘
 ```
 
@@ -364,14 +366,14 @@ Aegis 按优先级合并：**项目规则 > 用户自定义规则 > 内置规则
 
 ## Tech Stack
 
-| 层 | 技术 |
-|---|------|
-| CLI 入口 | Node.js + Commander + Inquirer |
-| 后端 | NestJS + Bull (Redis) + SQLite (better-sqlite3) |
-| 前端 | Vue 3 + Vite + Pinia + WebSocket |
-| 规则引擎 | AST 命令解析 + YAML 规则集 |
-| Hook 集成 | Claude Code PreToolUse Hook → HTTP |
-| 通信 | HTTP REST + WebSocket (实时推送) |
+| Layer | Technology |
+|-------|------------|
+| CLI Entry | Node.js + Commander + Inquirer |
+| Backend | NestJS + Bull (Redis) + SQLite (better-sqlite3) |
+| Frontend | Vue 3 + Vite + Pinia + WebSocket |
+| Rule Engine | AST command parsing + YAML rule sets |
+| Hook Integration | Claude Code PreToolUse Hook → HTTP |
+| Communication | HTTP REST + WebSocket (real-time push) |
 
 ---
 
