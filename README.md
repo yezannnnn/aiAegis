@@ -112,7 +112,7 @@ version: "2.0"
 rules:
   - id: custom/your-rule-id
     description: "规则说明"
-    example: "触发此规则的示例命令"  # 可选
+    example: "触发此规则的示例命令"  # 可选，不填则自动推断
     category: "filesystem"           # 分类（自由填写）
     severity: "error"                # error / block / warn
     action: "review"                 # review（需审批）/ block（直接拒绝）/ warn（仅记录）
