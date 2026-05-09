@@ -186,7 +186,7 @@ def _evaluate_with_backend(payload):
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
-            if resp.status == 200:
+            if resp.status in (200, 201):
                 return json.loads(resp.read().decode("utf-8"))
     except Exception as e:
         print(f"[Aegis] 后端评估失败: {e}", file=sys.stderr)
