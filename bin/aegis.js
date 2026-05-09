@@ -52,6 +52,8 @@ program
       }
 
       let hookInfo = null;
+      let hermesHookInfo = null;
+
       if (!options.skipHook) {
         const { setupHook } = await inquirer.prompt([{
           type: 'confirm',
@@ -64,13 +66,20 @@ program
         }
       }
 
+      // 新增：Hermes Plugin Hook 配置
+      const { setupHermes } = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'setupHermes',
+        message: '是否配置 Hermes Plugin Hook 自动拦截？',
+        default: true
+      }]);
+      if (setupHermes) {
+        hermesHookInfo = await setupUtils.setupHermesHook();
+      }
+
       const config = await setupUtils.createSystemConfig({ port: options.port });
       await setupUtils.validateInstallation();
-      setupUtils.showInstallationSummary(config, hookInfo || {
-        hookPath: path.join(AEGIS_HOME, 'universal-hook.js'),
-        settingsFile: path.join(require('os').homedir(), '.claude', 'settings.json'),
-        backupCreated: false
-      });
+      setupUtils.showInstallationSummary(config, hookInfo, hermesHookInfo);
 
     } catch (error) {
       console.error(chalk.red('❌ 设置失败:'), error.message);
