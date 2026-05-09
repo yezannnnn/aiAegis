@@ -124,6 +124,36 @@ class AegisSetupUtils {
   }
 
   // ============================================================
+  // 配置 Hermes Plugin Hook
+  // ============================================================
+  async setupHermesHook() {
+    const spinner = ora('配置 Hermes Plugin Hook...').start();
+    try {
+      const hermesPluginDir = path.join(this.homeDir, '.hermes', 'plugins', 'aegis');
+      await fs.ensureDir(hermesPluginDir);
+
+      const pluginSrc = path.join(this.packageDir, 'hooks', 'hermes', 'plugin.py');
+      const pluginDest = path.join(hermesPluginDir, 'plugin.py');
+
+      if (await fs.pathExists(pluginSrc)) {
+        await fs.copy(pluginSrc, pluginDest);
+      } else {
+        throw new Error(`Hermes Plugin 文件不存在: ${pluginSrc}`);
+      }
+
+      spinner.succeed('Hermes Plugin Hook 已配置');
+
+      return {
+        pluginDir: hermesPluginDir,
+        pluginPath: pluginDest,
+      };
+    } catch (error) {
+      spinner.fail('Hermes Plugin Hook 配置失败: ' + error.message);
+      throw error;
+    }
+  }
+
+  // ============================================================
   // 安装后端运行时依赖（frontend 已预构建，无需安装前端 deps）
   // ============================================================
   async installDependencies() {
@@ -193,7 +223,7 @@ class AegisSetupUtils {
   // ============================================================
   // 显示安装摘要
   // ============================================================
-  showInstallationSummary(config, hookInfo) {
+  showInstallationSummary(config, hookInfo, hermesHookInfo) {
     const port = config.ports?.webInterface || config.backend?.port || 3001;
     console.log('');
     console.log(chalk.green('🎉 Aegis Security Monitor 安装完成!'));
@@ -201,15 +231,23 @@ class AegisSetupUtils {
     console.log(chalk.cyan('📍 配置信息:'));
     console.log(`   配置目录:  ${chalk.yellow(this.aegisDir)}`);
     console.log(`   用户规则:  ${chalk.yellow(this.userRulesDir)}`);
-    console.log(`   Hook 文件: ${chalk.yellow(hookInfo.hookPath)}`);
+    if (hookInfo) {
+      console.log(`   Claude Hook: ${chalk.yellow(hookInfo.hookPath)}`);
+    }
+    if (hermesHookInfo) {
+      console.log(`   Hermes Plugin: ${chalk.yellow(hermesHookInfo.pluginPath)}`);
+    }
     console.log('');
     console.log(chalk.cyan('📋 下一步:'));
     console.log(`   1. 运行 ${chalk.green('aegis start')} 启动服务`);
     console.log(`   2. 访问 ${chalk.green(`http://localhost:${port}`)} 查看监控界面`);
     console.log(`   3. 运行 ${chalk.green('aegis rules new my-rules')} 创建自定义规则`);
     console.log('');
-    if (hookInfo.backupCreated) {
+    if (hookInfo?.backupCreated) {
       console.log(chalk.gray('💾 原 Claude 配置已备份到 ~/.aegis/backup/'));
+    }
+    if (hermesHookInfo) {
+      console.log(chalk.yellow('⚠️  请重启 Hermes CLI 使 Plugin 生效'));
     }
   }
 
