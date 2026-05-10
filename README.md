@@ -88,8 +88,11 @@ AI Agent emits command → PreToolUse Hook intercepts → AST rule engine evalua
 |-------|--------|----------------|-------|
 | [Claude Code](https://claude.ai/code) | ✅ Supported | `PreToolUse` hook in `~/.claude/settings.json` | Auto-configured via `aegis setup` |
 | [Hermes](https://github.com/princeton-nlp/Hermes) | ✅ Supported | `pre_tool_call` plugin hook in `~/.hermes/plugins/` | Auto-configured via `aegis setup` |
+| [OpenClaw](https://github.com/openclaw/openclaw) | 🔜 Coming soon | — | — |
+| [Codex](https://github.com/openai/codex) | 🔜 Coming soon | — | — |
+| [OpenCode](https://opencode.ai) | 🔜 Coming soon | — | — |
 
-Both agents share the same backend rule engine and approval dashboard — interception events from all agents appear in a single unified stream.
+Supported agents share the same backend rule engine and approval dashboard — interception events from all agents appear in a single unified stream.
 
 ---
 

@@ -89,8 +89,11 @@ AI Agent 发出命令 → PreToolUse Hook 拦截 → AST 规则引擎判定 → 
 |-------|------|-----------|---------|
 | [Claude Code](https://claude.ai/code) | ✅ 已支持 | `PreToolUse` Hook（`~/.claude/settings.json`） | `aegis setup` 自动配置 |
 | [Hermes](https://github.com/princeton-nlp/Hermes) | ✅ 已支持 | `pre_tool_call` 插件 Hook（`~/.hermes/plugins/`） | `aegis setup` 自动配置 |
+| [OpenClaw](https://github.com/openclaw/openclaw) | 🔜 即将支持 | — | — |
+| [Codex](https://github.com/openai/codex) | 🔜 即将支持 | — | — |
+| [OpenCode](https://opencode.ai) | 🔜 即将支持 | — | — |
 
-两个 Agent 共享同一套规则引擎和审批面板，所有来源的拦截事件统一显示在同一个事件流中。
+已支持的 Agent 共享同一套规则引擎和审批面板，所有来源的拦截事件统一显示在同一个事件流中。
 
 ---
 
