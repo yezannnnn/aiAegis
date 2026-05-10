@@ -406,7 +406,7 @@ const handleApprovalNotification = (data: any) => {
     agent: data.agent || data.agentType || "Claude Code",
     risk: data.risk || "UNKNOWN",
     cwd: data.cwd || data.context?.cwd || "/unknown",
-    reason: data.reason || data.description || `${data.risk || "UNKNOWN"} 风险命令`,
+    reason: data.reason || data.description || `${data.risk || "UNKNOWN"} risk command`,
   };
 
   // 更新待审批统计（事件本身由 new_event 统一处理）
@@ -676,7 +676,7 @@ const connectWebSocket = () => {
     if (eventIndex !== -1) {
       events.value[eventIndex].status = data.decision === 'approved' ? 'allowed' : 'blocked';
       events.value[eventIndex].action = data.decision === 'approved' ? 'allow' : 'deny';
-      events.value[eventIndex].reason = `${data.reason} (来自Claude Code)`;
+      events.value[eventIndex].reason = `${data.reason} (from Claude Code)`;
       events.value[eventIndex].decidedBy = 'claude_code';
       console.log(`🔄 Claude Code同步更新: ${data.approvalId} -> ${events.value[eventIndex].status}`);
     }
