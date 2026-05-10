@@ -47,6 +47,12 @@ class AegisSetupUtils {
         throw new Error(`Hook file not found: ${hookSrc}`);
       }
 
+      const postHookSrc = path.join(this.packageDir, 'hooks', 'claude-code', 'post-tool-use-handler.js');
+      const postHookDest = path.join(this.aegisDir, 'post-tool-use-handler.js');
+      if (await fs.pathExists(postHookSrc)) {
+        await fs.copy(postHookSrc, postHookDest);
+      }
+
       const hookConfigDest = path.join(this.aegisDir, 'config.json');
       if (!await fs.pathExists(hookConfigDest)) {
         await fs.writeJson(hookConfigDest, { ports: { webInterface: 3001 } }, { spaces: 2 });
