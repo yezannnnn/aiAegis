@@ -382,7 +382,8 @@ const handleApprovalNotification = (data: any) => {
   const pageFocused = document.hasFocus();
   if (Notification.permission === "granted" && !pageFocused) {
     try {
-      const n = new Notification("🛡️ Aegis: Approval Required", {
+      const notifTitle = currentLang.value === 'zh' ? '🛡️ Aegis 拦截请求，需要审批' : '🛡️ Aegis: Approval Required';
+      const n = new Notification(notifTitle, {
         body: `[${data.risk || "UNKNOWN"}] ${data.command || "unknown command"}`,
         tag: data.approvalId,
         requireInteraction: true,

@@ -39,17 +39,17 @@ process.stdin.on('data', chunk => {
 
 process.stdin.on('end', async () => {
   try {
-    console.error('🚨 [AEGIS HOOK] Hook被调用! 时间:', new Date().toISOString());
-    console.error('🚨 [AEGIS HOOK] 端口:', AEGIS_PORT);
+    console.error('[AEGIS HOOK] triggered at:', new Date().toISOString());
+    console.error('[AEGIS HOOK] port:', AEGIS_PORT);
 
     if (!raw.includes('"tool_name"')) {
-      console.error('🚨 [AEGIS HOOK] 非工具调用，直接允许');
+      console.error('[AEGIS HOOK] not a tool call, allowing');
       process.exit(0);
     }
 
     const input = JSON.parse(raw.trim());
     if (input.tool_name !== 'Bash' || !input.tool_input?.command) {
-      console.error('🚨 [AEGIS HOOK] 非Bash工具，直接允许');
+      console.error('[AEGIS HOOK] not a Bash tool, allowing');
       process.exit(0);
     }
 
@@ -63,31 +63,29 @@ process.stdin.on('end', async () => {
     const taskId = loadTaskId(sessionId);
     const { userInput, assistPrompt } = loadContext(sessionId, transcriptPath);
 
-    console.error(`🚨 [AEGIS HOOK] 处理Bash命令: ${command}`);
-    console.error(`🚨 [AEGIS HOOK] 会话ID: ${sessionId}`);
-    console.error(`🚨 [AEGIS HOOK] 模型: ${model || 'unknown'}`);
-    console.error(`🚨 [AEGIS HOOK] 任务ID: ${taskId || 'unknown'}`);
-    console.error(`🚨 [AEGIS HOOK] 用户输入: ${userInput ? userInput.substring(0, 80) : 'unknown'}`);
-    console.error(`🚨 [AEGIS HOOK] AI想法: ${assistPrompt ? assistPrompt.substring(0, 80) : 'unknown'}`);
+    console.error(`[AEGIS HOOK] command: ${command}`);
+    console.error(`[AEGIS HOOK] session: ${sessionId}`);
+    console.error(`[AEGIS HOOK] model: ${model || 'unknown'}`);
+    console.error(`[AEGIS HOOK] taskId: ${taskId || 'unknown'}`);
+    console.error(`[AEGIS HOOK] userInput: ${userInput ? userInput.substring(0, 80) : 'unknown'}`);
+    console.error(`[AEGIS HOOK] assistPrompt: ${assistPrompt ? assistPrompt.substring(0, 80) : 'unknown'}`);
 
-    // 调用后端 AST 规则引擎
     const result = await evaluateWithBackend(command, sessionId, cwd, model, persona, taskId, userInput, assistPrompt);
 
     if (!result) {
-      // 后端不可用，默认允许（避免阻塞正常工作流）
-      console.error('[Aegis] ⚠️ 后端不可用，默认允许');
+      console.error('[Aegis] ⚠️ Backend unavailable, allowing by default');
       process.exit(0);
     }
 
     const { evaluation, requiresApproval, approvalRequestId } = result;
-    console.error(`[Aegis] AST评估: action=${evaluation.action}, severity=${evaluation.severity}, reason=${evaluation.reason}`);
+    console.error(`[Aegis] evaluated: action=${evaluation.action}, severity=${evaluation.severity}, reason=${evaluation.reason}`);
     if (evaluation.matchedRules && evaluation.matchedRules.length > 0) {
-      console.error(`[Aegis] 命中规则: ${evaluation.matchedRules.join(', ')}`);
+      console.error(`[Aegis] matched rules: ${evaluation.matchedRules.join(', ')}`);
     }
 
     switch (evaluation.action) {
       case 'allow':
-        console.error('[Aegis] ✅ 规则引擎允许，命令直接执行');
+        console.error('[Aegis] ✅ Allowed by rules, executing');
         process.exit(0);
         break;
 
@@ -105,42 +103,41 @@ process.stdin.on('end', async () => {
         break;
 
       case 'review':
-        console.error(`[Aegis] 📋 当前命令被 Aegis 拦截: ${evaluation.reason}`);
-        console.error(`[Aegis] 👉 请在 http://localhost:${AEGIS_PORT} 进行审批`);
-        console.error(`[Aegis] ⏳ 等待审批中 (最多30秒)...`);
+        console.error(`[Aegis] 📋 Command intercepted: ${evaluation.reason}`);
+        console.error(`[Aegis] 👉 Approve at http://localhost:${AEGIS_PORT}`);
+        console.error(`[Aegis] ⏳ Waiting for approval (max 30s)...`);
 
         if (!approvalRequestId) {
-          console.error('[Aegis] ❌ 未能创建审批请求，拒绝执行');
+          console.error('[Aegis] ❌ Failed to create approval request, denying');
           process.stdout.write(JSON.stringify({
             hookSpecificOutput: {
               hookEventName: 'PreToolUse',
               permissionDecision: 'deny',
-              permissionDecisionReason: '[Aegis] 无法创建审批请求',
+              permissionDecisionReason: '[Aegis] Failed to create approval request',
             }
           }));
           process.exit(0);
           break;
         }
 
-        // 短轮询等待审批（每2秒检查一次，最多30秒）
+        // Poll for approval (every 2s, max 30s)
         const decision = await pollForApproval(approvalRequestId, 30);
 
         if (decision && decision.status === 'approved') {
-          console.error('[Aegis] ✅ 3001审批通过，允许执行');
+          console.error('[Aegis] ✅ Approved, executing command');
           process.exit(0);
         } else {
-          // 超时（decision === null）则通知后端标记
           if (!decision) {
             await markApprovalAsTimedOut(approvalRequestId);
           }
-          const reason = decision?.reason || '审批超时';
-          console.error(`[Aegis] ❌ 审批未通过: ${reason}`);
+          const reason = decision?.reason || 'Approval timed out';
+          console.error(`[Aegis] ❌ Not approved: ${reason}`);
           process.stdout.write(JSON.stringify({
-            systemMessage: `🛡️ Aegis: ${evaluation.reason}\n⏱️ 审批超时 — 请先到 http://localhost:${AEGIS_PORT} 审批后再重试`,
+            systemMessage: `🛡️ Aegis: ${evaluation.reason}\n⏱️ Approval timed out — visit http://localhost:${AEGIS_PORT} to approve and retry`,
             hookSpecificOutput: {
               hookEventName: 'PreToolUse',
               permissionDecision: 'deny',
-              permissionDecisionReason: `[Aegis] ${reason} — 请在 http://localhost:${AEGIS_PORT} 审批后重试`,
+              permissionDecisionReason: `[Aegis] ${reason} — approve at http://localhost:${AEGIS_PORT} and retry`,
             }
           }));
           process.exit(0);
@@ -148,7 +145,7 @@ process.stdin.on('end', async () => {
         break;
 
       default:
-        console.error(`[Aegis] 未知动作: ${evaluation.action}，默认允许`);
+        console.error(`[Aegis] Unknown action: ${evaluation.action}, allowing by default`);
         process.exit(0);
     }
 
@@ -192,11 +189,11 @@ function loadContext(sessionId, transcriptPath) {
     if (index.lastUserInput) {
       if (scanned && scanned !== index.lastUserInput) {
         // 新 turn！索引已过时，用扫描结果；扫描 transcript 取当前 thinking
-        console.error(`[Aegis] 🔄 检测到新用户输入，使用扫描结果`);
+        console.error(`[Aegis] 🔄 New user input detected, using scanned result`);
         result.userInput = scanned;
         result.assistPrompt = scanLastAssistPrompt(transcriptPath, sessionId);
       } else {
-        console.error(`[Aegis] 📝 从索引获取上下文`);
+        console.error(`[Aegis] 📝 Context loaded from index`);
         result.userInput = index.lastUserInput;
         result.assistPrompt = index.lastAssistPrompt || null;
       }
@@ -207,7 +204,7 @@ function loadContext(sessionId, transcriptPath) {
   // 索引不存在，用扫描结果
   result.userInput = scanned;
   if (scanned) {
-    console.error('[Aegis] 🔍 回退扫描获取用户输入');
+    console.error('[Aegis] 🔍 Fallback scan for user input');
   }
   return result;
 }
@@ -245,7 +242,7 @@ function scanLastUserInput(transcriptPath, sessionId) {
         if (d.toolUseResult || d.isCompactSummary) continue;
         const text = extractText(d.message?.content);
         if (text) {
-          console.error('[Aegis] 🔍 回退扫描获取用户输入');
+          console.error('[Aegis] 🔍 Fallback scan for user input');
           return text;
         }
       } catch {}
@@ -458,7 +455,7 @@ function pollForApproval(approvalId, maxWaitSec) {
           try {
             const result = JSON.parse(response);
             if (result.status && result.status !== 'pending') {
-              console.error(`[Aegis] 审批结果: ${result.status} (第${attempts}次检查)`);
+              console.error(`[Aegis] Approval result: ${result.status} (attempt ${attempts})`);
               resolve({ status: result.status, reason: result.reason });
               return;
             }
@@ -509,9 +506,9 @@ function markApprovalAsTimedOut(approvalId) {
       res.on('end', () => {
         try {
           const result = JSON.parse(response);
-          console.error(`[Aegis] ⏰ 审批已标记超时: ${result.status}`);
+          console.error(`[Aegis] ⏰ Approval marked as timed out: ${result.status}`);
         } catch (e) {
-          console.error(`[Aegis] ⏰ 审批超时标记完成`);
+          console.error(`[Aegis] ⏰ Approval timeout marked`);
         }
         resolve();
       });
