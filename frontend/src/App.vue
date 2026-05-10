@@ -441,7 +441,7 @@ const handleApprovalDecision = async (approved: boolean) => {
       },
       body: JSON.stringify({
         action: approved ? "approve" : "deny",
-        reason: approved ? "用户在弹窗中批准" : "用户在弹窗中拒绝",
+        reason: approved ? "Approved by user" : "Denied by user",
       }),
     });
 
@@ -493,7 +493,7 @@ const approveEventInList = async (event: any) => {
       },
       body: JSON.stringify({
         action: "approve",
-        reason: "用户在列表中批准",
+        reason: "Approved by user",
       }),
     });
 
@@ -540,7 +540,7 @@ const denyEventInList = async (event: any) => {
       },
       body: JSON.stringify({
         action: "deny",
-        reason: "用户在列表中拒绝",
+        reason: "Denied by user",
       }),
     });
 
