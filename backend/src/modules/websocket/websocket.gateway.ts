@@ -35,13 +35,13 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     });
   }
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     console.log('📡 WebSocket客户端连接:', client.id);
 
     // 发送初始状态
     client.emit('initial_state', {
-      stats: this.eventManager.getStats(),
-      events: this.eventManager.getEvents().slice(0, 50).map(e => ({ ...e, reason: e.description })),
+      stats: await this.eventManager.getStats(),
+      events: this.eventManager.getInitialEvents(50).map(e => ({ ...e, reason: e.description })),
       sessions: this.eventManager.getSessions(),
       agents: this.eventManager.getAgents(),
     });
@@ -57,8 +57,8 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   }
 
   @SubscribeMessage('get_stats')
-  handleGetStats(@ConnectedSocket() client: Socket) {
-    client.emit('stats_update', this.eventManager.getStats());
+  async handleGetStats(@ConnectedSocket() client: Socket) {
+    client.emit('stats_update', await this.eventManager.getStats());
   }
 
   @SubscribeMessage('approval_response')

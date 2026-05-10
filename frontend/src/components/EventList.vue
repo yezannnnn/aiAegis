@@ -108,7 +108,7 @@
           </div>
           <div class="event-session-info">
             <span class="session-id">
-              {{ currentTexts.session }}: {{ event.sessionId || "未知" }}
+              {{ currentTexts.session }}: {{ event.sessionId || currentTexts.unknown }}
             </span>
             <span
               v-if="event.taskId"

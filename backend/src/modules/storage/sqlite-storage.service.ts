@@ -151,17 +151,18 @@ export class SqliteStorageService implements OnModuleInit {
   }
 
   async getEventStats() {
-    if (!this.db) return { total: 0, blocked: 0, allowed: 0, warning: 0, pending: 0 };
+    if (!this.db) return { total: 0, blocked: 0, allowed: 0, warning: 0, pending: 0, timed_out: 0 };
     return new Promise((resolve, reject) => {
       this.db.get(
         `SELECT
           COUNT(*) as total,
           SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END) as blocked,
-          SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as allowed,
+          SUM(CASE WHEN status = 'approved' OR status = 'allowed' THEN 1 ELSE 0 END) as allowed,
           SUM(CASE WHEN risk = 'MEDIUM' THEN 1 ELSE 0 END) as warning,
-          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'timed_out' THEN 1 ELSE 0 END) as timed_out
         FROM events`,
-        (err, row) => err ? reject(err) : resolve(row || { total: 0, blocked: 0, allowed: 0, warning: 0, pending: 0 })
+        (err, row) => err ? reject(err) : resolve(row || { total: 0, blocked: 0, allowed: 0, warning: 0, pending: 0, timed_out: 0 })
       );
     });
   }

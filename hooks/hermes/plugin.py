@@ -22,6 +22,16 @@ from pathlib import Path
 AEGIS_PORT = 3001  # 默认端口，Hook 脚本内固定（与 Claude Code Hook 一致）
 CACHE_TTL = 300    # 5 分钟
 
+def _load_aegis_lang():
+    """从 ~/.aegis/config.json 读取语言设置，默认 zh"""
+    config_path = Path.home() / ".aegis" / "config.json"
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        return config.get("lang", "zh")
+    except Exception:
+        return "zh"
+
 # ============================================================================
 # 缓存管理 — pre_llm_call 缓存 model 和 userInput
 # ============================================================================
@@ -78,6 +88,18 @@ def _clear_cache(task_id):
         pass
 
 # ============================================================================
+# Hermes 插件注册入口
+# ============================================================================
+
+def register(ctx):
+    """
+    Hermes 插件注册函数。
+    通过 ctx.register_hook() 注册 pre_tool_call 和 pre_llm_call hooks。
+    """
+    ctx.register_hook("pre_tool_call", pre_tool_call)
+    ctx.register_hook("pre_llm_call", pre_llm_call)
+
+# ============================================================================
 # pre_llm_call — 每轮 LLM 调用前缓存上下文
 # ============================================================================
 
@@ -99,12 +121,32 @@ def pre_tool_call(tool_name, args, task_id, **kwargs):
     Hermes Plugin Hook 入口。
     拦截 terminal/Shell 工具调用，发送到 Aegis 后端评估。
     """
-    # 只拦截 Shell 相关工具
-    if tool_name not in ("terminal", "Shell"):
+    # DEBUG: 记录调用次数和参数
+    debug_file = os.path.expanduser("~/.aegis/hook-debug.log")
+    try:
+        with open(debug_file, "a") as f:
+            f.write(f"[DEBUG] pre_tool_call called: tool_name={tool_name}, command={args.get('command', '')}, task_id={task_id}, kwargs_keys={list(kwargs.keys())}\n")
+    except Exception:
+        pass
+    
+    # 只拦截 Shell 相关工具（Hermes 可能用 terminal/exec/shell 等名称）
+    if tool_name.lower() not in ("terminal", "shell", "exec", "spawn", "bash", "sh"):
         return None
 
     command = args.get("command", "")
     if not command:
+        return None
+
+    # Hermes 对每个工具调用触发两次 pre_tool_call：
+    #   第1次：拦截检查（run_agent → get_pre_tool_call_block_message），tool_call_id=""
+    #   第2次：observer 通知（model_tools skip=True 路径），tool_call_id=<真实ID>
+    # 我们只处理第1次（拦截检查），第2次直接跳过。
+    if kwargs.get('tool_call_id'):
+        try:
+            with open(debug_file, "a") as f:
+                f.write(f"[DEBUG] observer call skipped (tool_call_id={kwargs['tool_call_id'][:8]}): {command}\n")
+        except Exception:
+            pass
         return None
 
     # 读取缓存
@@ -125,6 +167,7 @@ def pre_tool_call(tool_name, args, task_id, **kwargs):
         "taskId": task_id,
         "userInput": user_input,
         "requestId": request_id,
+        "lang": _load_aegis_lang(),
     }
 
     # 调用 Aegis 后端
@@ -141,17 +184,23 @@ def pre_tool_call(tool_name, args, task_id, **kwargs):
 
     if action in ("deny", "block"):
         reason = evaluation.get("reason", "规则拦截")
+        matched_rules = evaluation.get("matchedRules", [])
+        rules_str = f" (规则: {', '.join(matched_rules)})" if matched_rules else ""
         return {
             "action": "block",
-            "message": f"[Aegis] {reason}"
+            "message": f"🛡️ Aegis 安全拦截{rules_str}\n原因: {reason}\n命令被拒绝执行。"
         }
 
     if action == "review":
         approval_id = result.get("approvalRequestId")
+        reason = evaluation.get("reason", "需要审批")
+        matched_rules = evaluation.get("matchedRules", [])
+        rules_str = f" (规则: {', '.join(matched_rules)})" if matched_rules else ""
+        
         if not approval_id:
             return {
                 "action": "block",
-                "message": "[Aegis] 无法创建审批请求"
+                "message": f"🛡️ Aegis 安全拦截{rules_str}\n原因: {reason}\n错误: 无法创建审批请求"
             }
 
         # 长轮询等待审批（最多 60 秒）
@@ -159,10 +208,10 @@ def pre_tool_call(tool_name, args, task_id, **kwargs):
         if decision and decision.get("status") == "approved":
             return None
 
-        reason = decision.get("reason", "审批超时") if decision else "审批超时"
+        decision_reason = decision.get("reason", "审批超时") if decision else "审批超时"
         return {
             "action": "block",
-            "message": f"[Aegis] {reason} — 请在 http://localhost:{AEGIS_PORT} 审批后重试"
+            "message": f"🛡️ Aegis 安全拦截{rules_str}\n原因: {reason}\n状态: {decision_reason}\n请在 http://localhost:{AEGIS_PORT} 审批后重试"
         }
 
     # 未知 action，默认放行
@@ -174,6 +223,15 @@ def pre_tool_call(tool_name, args, task_id, **kwargs):
 
 def _evaluate_with_backend(payload):
     """POST /api/v1/rules/evaluate"""
+    # DEBUG: 记录评估请求
+    debug_file = os.path.expanduser("~/.aegis/hook-debug.log")
+    command = payload.get("command", "")
+    try:
+        with open(debug_file, "a") as f:
+            f.write(f"[DEBUG] _evaluate_with_backend called: command={command}, requestId={payload.get('requestId', 'none')}\n")
+    except Exception:
+        pass
+    
     try:
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
@@ -187,9 +245,19 @@ def _evaluate_with_backend(payload):
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             if resp.status in (200, 201):
-                return json.loads(resp.read().decode("utf-8"))
+                result = json.loads(resp.read().decode("utf-8"))
+                try:
+                    with open(debug_file, "a") as f:
+                        f.write(f"[DEBUG] _evaluate_with_backend result: action={result.get('evaluation', {}).get('action', 'unknown')}, approvalRequestId={result.get('approvalRequestId', 'none')}\n")
+                except Exception:
+                    pass
+                return result
     except Exception as e:
-        print(f"[Aegis] 后端评估失败: {e}", file=sys.stderr)
+        try:
+            with open(debug_file, "a") as f:
+                f.write(f"[DEBUG] _evaluate_with_backend error: {e}\n")
+        except Exception:
+            pass
     return None
 
 def _poll_for_approval(approval_id, max_wait_sec):
@@ -209,8 +277,8 @@ def _poll_for_approval(approval_id, max_wait_sec):
                     status = result.get("status")
                     if status == "approved":
                         return {"status": "approved"}
-                    if status == "rejected":
-                        return {"status": "rejected", "reason": result.get("reason", "审批被拒绝")}
+                    if status in ("denied", "rejected"):
+                        return {"status": "denied", "reason": result.get("reason", "审批被拒绝")}
         except Exception:
             pass
         time.sleep(poll_interval)

@@ -121,6 +121,9 @@ const languages = {
     notifDeniedMacLabel: "macOS 系统设置",
     notifDeniedMac: "系统设置 → 通知 → Google Chrome → 允许通知",
     notifTestBtn: "发送测试通知",
+    executing: "执行",
+    intercepted: "拦截",
+    unknown: "未知",
   },
   en: {
     title: "AEGIS",
@@ -172,6 +175,9 @@ const languages = {
     notifDeniedMacLabel: "MACOS SYSTEM SETTINGS",
     notifDeniedMac: "System Settings → Notifications → Google Chrome → Allow Notifications",
     notifTestBtn: "SEND TEST NOTIFICATION",
+    executing: "Running",
+    intercepted: "Blocked",
+    unknown: "Unknown",
   },
 };
 
@@ -325,6 +331,11 @@ const formatEventTime = (date: Date): string => {
 const toggleLanguage = () => {
   currentLang.value = currentLang.value === "zh" ? "en" : "zh";
   localStorage.setItem("aegis-lang", currentLang.value);
+  fetch("/api/monitoring/lang", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lang: currentLang.value }),
+  }).catch(() => {});
 };
 
 // 设置时间筛选
