@@ -28,10 +28,10 @@ program
 // ============================================================
 program
   .command('setup')
-  .description('初始化和配置 Aegis 安全监控系统')
-  .option('--skip-deps', '跳过依赖安装')
-  .option('--port <port>', '指定后端端口', '3001')
-  .option('--skip-hook', '跳过 Claude Code Hook 配置')
+  .description('Initialize and configure Aegis security monitoring')
+  .option('--skip-deps', 'Skip dependency installation')
+  .option('--port <port>', 'Backend port', '3001')
+  .option('--skip-hook', 'Skip Claude Code Hook configuration')
   .action(async (options) => {
     console.log(chalk.cyan('🛡️ Aegis Security Monitor Setup'));
     console.log(chalk.gray('====================================='));
@@ -42,7 +42,6 @@ program
       await setupUtils.createDirectories();
       await setupUtils.copySystemFiles();
 
-      // 依赖安装由 npm postinstall 自动完成；若未安装则补跑一次
       if (!options.skipDeps) {
         const backendMods = path.join(__dirname, '../backend/node_modules');
         const fse = require('fs-extra');
@@ -58,7 +57,7 @@ program
         const { setupHook } = await inquirer.prompt([{
           type: 'confirm',
           name: 'setupHook',
-          message: '是否配置 Claude Code Hook 自动拦截？',
+          message: 'Set up Claude Code Hook for automatic interception?',
           default: true
         }]);
         if (setupHook) {
@@ -66,11 +65,10 @@ program
         }
       }
 
-      // 新增：Hermes Plugin Hook 配置
       const { setupHermes } = await inquirer.prompt([{
         type: 'confirm',
         name: 'setupHermes',
-        message: '是否配置 Hermes Plugin Hook 自动拦截？',
+        message: 'Set up Hermes Plugin Hook for automatic interception?',
         default: true
       }]);
       if (setupHermes) {
@@ -82,23 +80,22 @@ program
       setupUtils.showInstallationSummary(config, hookInfo, hermesHookInfo);
 
     } catch (error) {
-      console.error(chalk.red('❌ 设置失败:'), error.message);
+      console.error(chalk.red('❌ Setup failed:'), error.message);
       process.exit(1);
     }
   });
 
 // ============================================================
-// start — 单进程：node dist/main（NestJS 同时托管前端静态文件）
+// start — single process: node dist/main (NestJS serves frontend statics)
 // ============================================================
 program
   .command('start')
-  .description('启动 Aegis（后端 + 前端一体化，仅一个进程）')
-  .option('-p, --port <port>', '端口', '3001')
+  .description('Start Aegis (all-in-one, single process)')
+  .option('-p, --port <port>', 'Port', '3001')
   .action(async (options) => {
-    console.log(chalk.cyan('🚀 启动 Aegis Security Monitor'));
-    console.log(chalk.gray('================================'));
+    console.log(chalk.cyan('🚀 Starting Aegis Security Monitor'));
+    console.log(chalk.gray('===================================='));
 
-    // 更新 config.json 端口
     const configFile = path.join(AEGIS_HOME, 'config.json');
     if (await fs.pathExists(configFile)) {
       const config = await fs.readJson(configFile);
@@ -109,32 +106,30 @@ program
 
     const distMain = path.join(BACKEND_DIR, 'dist', 'main.js');
     if (!await fs.pathExists(distMain)) {
-      console.error(chalk.red('❌ 未找到编译产物 backend/dist/main.js'));
-      console.error(chalk.yellow('💡 请先运行: aegis build'));
+      console.error(chalk.red('❌ Build artifact not found: backend/dist/main.js'));
+      console.error(chalk.yellow('💡 Run first: aegis build'));
       process.exit(1);
     }
 
-    // 检查 backend/node_modules 是否已安装
     const backendNodeModules = path.join(BACKEND_DIR, 'node_modules');
     if (!await fs.pathExists(backendNodeModules)) {
-      console.log(chalk.yellow('⚠️  后端依赖未安装，正在安装...'));
+      console.log(chalk.yellow('⚠️  Backend dependencies not found, installing...'));
       try {
         const { execSync: exec } = require('child_process');
         exec('npm install --production --legacy-peer-deps --no-audit --no-fund', {
           cwd: BACKEND_DIR, stdio: 'inherit', timeout: 300000
         });
       } catch (e) {
-        console.error(chalk.red('❌ 依赖安装失败，请运行: cd ' + BACKEND_DIR + ' && npm install --production'));
+        console.error(chalk.red('❌ Dependency installation failed. Run manually: cd ' + BACKEND_DIR + ' && npm install --production'));
         process.exit(1);
       }
     }
 
-    // 数据文件存放在用户主目录（可写，跨版本升级持久化）
     const dataDir = path.join(AEGIS_HOME, 'data');
     await fs.ensureDir(dataDir);
     const sqlitePath = path.join(dataDir, 'aegis.db');
 
-    console.log(chalk.blue('🔧 启动服务...'));
+    console.log(chalk.blue('🔧 Starting service...'));
     const proc = spawn('node', ['dist/main.js'], {
       cwd: BACKEND_DIR,
       stdio: 'inherit',
@@ -147,14 +142,14 @@ program
     });
 
     console.log('');
-    console.log(chalk.green('✅ 服务已启动:'));
-    console.log(chalk.white('   🖥️  监控界面: ') + chalk.cyan(`http://localhost:${options.port}`));
-    console.log(chalk.white('   📚 API 文档:  ') + chalk.cyan(`http://localhost:${options.port}/api`));
+    console.log(chalk.green('✅ Service started:'));
+    console.log(chalk.white('   🖥️  Dashboard: ') + chalk.cyan(`http://localhost:${options.port}`));
+    console.log(chalk.white('   📚 API Docs:   ') + chalk.cyan(`http://localhost:${options.port}/api`));
     console.log('');
-    console.log(chalk.yellow('按 Ctrl+C 停止服务'));
+    console.log(chalk.yellow('Press Ctrl+C to stop'));
 
     process.on('SIGINT', () => {
-      console.log('\n🛑 正在停止...');
+      console.log('\n🛑 Stopping...');
       proc.kill();
       process.exit(0);
     });
@@ -163,80 +158,74 @@ program
   });
 
 // ============================================================
-// build — 一键构建前后端
+// build
 // ============================================================
 program
   .command('build')
-  .description('构建前端 + 后端（发布前或重新编译时运行）')
+  .description('Build frontend + backend')
   .action(async () => {
     const root = path.join(__dirname, '..');
 
-    console.log(chalk.cyan('🔨 构建 Aegis...'));
+    console.log(chalk.cyan('🔨 Building Aegis...'));
     console.log('');
 
-    // 构建后端（需要 devDependencies，先确保全量安装）
-    const backendSpinner = ora('编译后端 TypeScript...').start();
+    const backendSpinner = ora('Compiling backend TypeScript...').start();
     try {
-      // 确保 @nestjs/cli 等 devDeps 已安装（强制 NODE_ENV=development 避免 publish 时被跳过）
       execSync('npm install --legacy-peer-deps --no-audit --no-fund', {
         cwd: path.join(root, 'backend'),
         stdio: 'pipe',
         env: { ...process.env, NODE_ENV: 'development' },
       });
-      // 用本地 nest 二进制，不依赖全局安装
       execSync('./node_modules/.bin/nest build', { cwd: path.join(root, 'backend'), stdio: 'pipe' });
-      // 同步 YAML 规则到 dist
       execSync('cp src/rules/*.yaml dist/rules/ 2>/dev/null || true', {
         cwd: path.join(root, 'backend'),
         shell: true,
         stdio: 'pipe'
       });
-      backendSpinner.succeed('后端编译完成');
+      backendSpinner.succeed('Backend compiled');
     } catch (e) {
-      backendSpinner.fail('后端编译失败');
+      backendSpinner.fail('Backend compilation failed');
       console.error(e.stderr?.toString() || e.message);
       process.exit(1);
     }
 
-    // 构建前端
-    const frontendSpinner = ora('构建前端 Vue...').start();
+    const frontendSpinner = ora('Building frontend Vue...').start();
     try {
       execSync('npm run build', { cwd: path.join(root, 'frontend'), stdio: 'pipe' });
-      frontendSpinner.succeed('前端构建完成');
+      frontendSpinner.succeed('Frontend built');
     } catch (e) {
-      frontendSpinner.fail('前端构建失败');
+      frontendSpinner.fail('Frontend build failed');
       console.error(e.stderr?.toString() || e.message);
       process.exit(1);
     }
 
     console.log('');
-    console.log(chalk.green('✅ 构建完成，可以运行 aegis start'));
+    console.log(chalk.green('✅ Build complete. Run aegis start'));
   });
 
 // ============================================================
-// rules — 自定义规则管理
+// rules
 // ============================================================
-const rulesCmd = program.command('rules').description('管理自定义安全规则');
+const rulesCmd = program.command('rules').description('Manage custom security rules');
 
 rulesCmd
   .command('list')
-  .description('查看所有生效的规则（内置 + 用户自定义）')
+  .description('List all active rules (built-in + user)')
   .action(async () => {
     try {
       const data = await apiGet('http://localhost:3001/api/v1/rules');
       const info = await apiGet('http://localhost:3001/api/v1/rules/info');
 
-      console.log(chalk.cyan('📋 Aegis 规则列表'));
-      console.log(chalk.gray(`总计: ${data.count} 条规则\n`));
+      console.log(chalk.cyan('📋 Aegis Rule List'));
+      console.log(chalk.gray(`Total: ${data.count} rules\n`));
 
       if (info) {
-        console.log(`  内置规则: ${chalk.white(info.bySource['built-in'])} 条`);
-        console.log(`  用户规则: ${chalk.green(info.bySource['user'])} 条  (${info.userRulesDir})`);
-        console.log(`  项目规则: ${chalk.yellow(info.bySource['project'])} 条  (./.aegis/rules/)`);
+        console.log(`  Built-in: ${chalk.white(info.bySource['built-in'])} rules`);
+        console.log(`  User:     ${chalk.green(info.bySource['user'])} rules  (${info.userRulesDir})`);
+        console.log(`  Project:  ${chalk.yellow(info.bySource['project'])} rules  (./.aegis/rules/)`);
         console.log('');
       }
 
-      // 按来源分组显示
       const bySource = {};
       for (const rule of data.rules) {
         const src = rule._source || 'built-in';
@@ -245,9 +234,9 @@ rulesCmd
       }
 
       const sourceLabels = {
-        'built-in': chalk.gray('[内置]'),
-        'user': chalk.green('[用户]'),
-        'project': chalk.yellow('[项目]'),
+        'built-in': chalk.gray('[built-in]'),
+        'user':     chalk.green('[user]'),
+        'project':  chalk.yellow('[project]'),
       };
 
       for (const [src, rules] of Object.entries(bySource)) {
@@ -255,20 +244,23 @@ rulesCmd
         for (const rule of rules) {
           const actionColor = rule.action === 'block' ? chalk.red : rule.action === 'review' ? chalk.yellow : chalk.green;
           const exampleStr = (rule.example || '—').padEnd(45);
-          const reasonStr = rule.reason || '';
+          const reason = rule.reason;
+          const reasonStr = typeof reason === 'object'
+            ? (reason.en || reason.zh || '')
+            : (reason || '');
           console.log(`  ${chalk.white(rule.id?.padEnd(40))} ${actionColor(rule.action?.padEnd(8))} ${chalk.cyan(exampleStr)} ${chalk.gray(reasonStr)}`);
         }
         console.log('');
       }
     } catch (e) {
-      console.error(chalk.red('❌ 无法连接到 Aegis 服务，请先运行 aegis start'));
+      console.error(chalk.red('❌ Cannot connect to Aegis service. Run aegis start first'));
     }
   });
 
 rulesCmd
   .command('new <name>')
-  .description('创建新的规则文件模板（默认写入全局用户目录，--project 写入当前项目）')
-  .option('--project', '写入当前项目的 .aegis/rules/ 目录（可提交到 git）')
+  .description('Create a new rule file template (global by default, --project for current project)')
+  .option('--project', 'Write to current project .aegis/rules/ directory (can be committed to git)')
   .action(async (name, options) => {
     const targetDir = options.project
       ? path.join(process.cwd(), '.aegis', 'rules')
@@ -278,7 +270,7 @@ rulesCmd
     const dest = path.join(targetDir, filename);
 
     if (await fs.pathExists(dest)) {
-      console.log(chalk.yellow(`⚠️  文件已存在: ${dest}`));
+      console.log(chalk.yellow(`⚠️  File already exists: ${dest}`));
       return;
     }
 
@@ -286,27 +278,31 @@ rulesCmd
 version: "1.0"
 
 rules:
-  # 示例：阻止删除特定目录
+  # Example: block a dangerous operation
   - id: ${name}/example-block
-    description: "示例：阻止危险操作"
-    example: "rm -rf important-dir/"   # 触发此规则的实际命令示例（不写则自动推断）
+    description: "Example: block dangerous operation"
+    example: "rm -rf important-dir/"
     category: "custom"
     severity: "block"
     action: "block"
-    reason: "这里写明为什么要阻止"
+    reason:
+      en: "Explain why this should be blocked"
+      zh: "说明为什么要阻止"
     conditions:
       binary: "rm"
       argumentPatterns:
         - "important-dir/"
 
-  # 示例：需要审批才能执行
+  # Example: require approval before execution
   - id: ${name}/example-review
-    description: "示例：需要审批的操作"
-    example: "./deploy.sh prod"        # 触发此规则的实际命令示例（不写则自动推断）
+    description: "Example: operation requires approval"
+    example: "./deploy.sh prod"
     category: "custom"
     severity: "error"
     action: "review"
-    reason: "这里写明为什么需要审批"
+    reason:
+      en: "Explain why this needs approval"
+      zh: "说明为什么需要审批"
     conditions:
       binary: "sh"
       argumentPatterns:
@@ -314,40 +310,40 @@ rules:
 `;
 
     await fs.writeFile(dest, template, 'utf8');
-    console.log(chalk.green(`✅ 已创建规则文件: ${dest}`));
+    console.log(chalk.green(`✅ Rule file created: ${dest}`));
     if (options.project) {
-      console.log(chalk.yellow('📁 项目级规则，建议提交到 git'));
+      console.log(chalk.yellow('📁 Project-level rule — consider committing to git'));
     } else {
-      console.log(chalk.gray('🌍 全局规则，对所有项目生效'));
+      console.log(chalk.gray('🌍 Global rule — applies to all projects'));
     }
-    console.log(chalk.gray('编辑此文件后运行 `aegis rules reload` 使规则生效'));
+    console.log(chalk.gray('Edit the file then run `aegis rules reload` to apply'));
   });
 
 rulesCmd
   .command('path')
-  .description('显示用户规则目录路径')
+  .description('Show user rules directory path')
   .action(() => {
-    console.log(chalk.cyan('用户规则目录:'));
-    console.log(`  全局: ${chalk.white(USER_RULES_DIR)}`);
-    console.log(`  项目: ${chalk.white('<当前目录>/.aegis/rules/')}`);
+    console.log(chalk.cyan('User rules directories:'));
+    console.log(`  Global:  ${chalk.white(USER_RULES_DIR)}`);
+    console.log(`  Project: ${chalk.white('<cwd>/.aegis/rules/')}`);
     console.log('');
-    console.log(chalk.gray('全局规则对所有项目生效，项目规则仅对当前项目生效（可提交到 git）'));
+    console.log(chalk.gray('Global rules apply to all projects. Project rules apply only to the current project (committable to git).'));
   });
 
 rulesCmd
   .command('reload')
-  .description('热重载所有规则（无需重启服务）')
+  .description('Hot-reload all rules (no restart required)')
   .action(async () => {
-    const spinner = ora('重载规则...').start();
+    const spinner = ora('Reloading rules...').start();
     try {
       const result = await apiPost('http://localhost:3001/api/v1/rules/reload', {});
-      spinner.succeed('规则已重载');
+      spinner.succeed('Rules reloaded');
       if (result?.summary) {
         const s = result.summary;
-        console.log(`  总计: ${s.total} 条  (内置 ${s.bySource['built-in']} + 用户 ${s.bySource['user']} + 项目 ${s.bySource['project']})`);
+        console.log(`  Total: ${s.total}  (built-in ${s.bySource['built-in']} + user ${s.bySource['user']} + project ${s.bySource['project']})`);
       }
     } catch (e) {
-      spinner.fail('重载失败，请确认 Aegis 服务正在运行');
+      spinner.fail('Reload failed — make sure Aegis service is running');
     }
   });
 
@@ -356,18 +352,18 @@ rulesCmd
 // ============================================================
 program
   .command('status')
-  .description('检查 Aegis 服务状态')
+  .description('Check Aegis service status')
   .action(async () => {
-    console.log(chalk.cyan('🔍 Aegis 服务状态'));
-    console.log(chalk.gray('==================='));
+    console.log(chalk.cyan('🔍 Aegis Service Status'));
+    console.log(chalk.gray('======================='));
     try {
       const info = await apiGet('http://localhost:3001/api/v1/rules/info');
-      console.log(`服务: ${chalk.green('✅ 运行中')}`);
-      console.log(`规则: ${info.total} 条 (内置 ${info.bySource['built-in']} / 用户 ${info.bySource['user']})`);
-      console.log(`监控界面: ${chalk.cyan('http://localhost:3001')}`);
+      console.log(`Service: ${chalk.green('✅ Running')}`);
+      console.log(`Rules:   ${info.total} rules (built-in ${info.bySource['built-in']} / user ${info.bySource['user']})`);
+      console.log(`Dashboard: ${chalk.cyan('http://localhost:3001')}`);
     } catch {
-      console.log(`服务: ${chalk.red('❌ 未运行')}`);
-      console.log('💡 运行 ' + chalk.cyan('aegis start') + ' 启动服务');
+      console.log(`Service: ${chalk.red('❌ Not running')}`);
+      console.log('💡 Run ' + chalk.cyan('aegis start') + ' to start the service');
     }
   });
 
@@ -376,9 +372,9 @@ program
 // ============================================================
 program
   .command('config')
-  .description('配置管理')
-  .option('--list', '列出当前配置')
-  .option('--reset', '重置配置')
+  .description('Configuration management')
+  .option('--list', 'List current configuration')
+  .option('--reset', 'Reset configuration')
   .action(async (options) => {
     const setupUtils = new AegisSetupUtils();
 
@@ -387,16 +383,16 @@ program
         const configFile = path.join(AEGIS_HOME, 'config.json');
         if (await fs.pathExists(configFile)) {
           const config = await fs.readJson(configFile);
-          console.log(chalk.cyan('📋 当前配置'));
-          console.log(`版本: ${chalk.yellow(config.version)}`);
-          console.log(`端口: ${chalk.yellow(config.ports?.webInterface || 3001)}`);
-          console.log(`配置目录: ${chalk.yellow(AEGIS_HOME)}`);
-          console.log(`用户规则: ${chalk.yellow(USER_RULES_DIR)}`);
+          console.log(chalk.cyan('📋 Current Configuration'));
+          console.log(`Version:    ${chalk.yellow(config.version)}`);
+          console.log(`Port:       ${chalk.yellow(config.ports?.webInterface || 3001)}`);
+          console.log(`Config dir: ${chalk.yellow(AEGIS_HOME)}`);
+          console.log(`User rules: ${chalk.yellow(USER_RULES_DIR)}`);
         } else {
-          console.log(chalk.yellow('⚠️ 未找到配置，请运行 aegis setup'));
+          console.log(chalk.yellow('⚠️  No configuration found. Run aegis setup'));
         }
       } catch (e) {
-        console.error(chalk.red('❌ 读取配置失败'));
+        console.error(chalk.red('❌ Failed to read configuration'));
       }
     }
 
@@ -404,22 +400,22 @@ program
       const { confirm } = await inquirer.prompt([{
         type: 'confirm',
         name: 'confirm',
-        message: '确认重置所有配置？',
+        message: 'Reset all configuration?',
         default: false
       }]);
       if (confirm) {
         try {
           await setupUtils.resetInstallation();
-          console.log(chalk.green('✅ 配置已重置，请运行 aegis setup 重新初始化'));
+          console.log(chalk.green('✅ Configuration reset. Run aegis setup to reinitialize'));
         } catch (e) {
-          console.error(chalk.red('❌ 重置失败:'), e.message);
+          console.error(chalk.red('❌ Reset failed:'), e.message);
         }
       }
     }
   });
 
 // ============================================================
-// Helper: HTTP 请求
+// Helper: HTTP requests
 // ============================================================
 function apiGet(url) {
   return new Promise((resolve, reject) => {
