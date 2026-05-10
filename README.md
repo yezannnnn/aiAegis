@@ -67,11 +67,11 @@ AI Agent emits command → PreToolUse Hook intercepts → AST rule engine evalua
 - **Rule priority** — Project rules > user custom rules > built-in rules; same ID auto-overrides
 - **Project-level rules** — `.aegis/rules/` directory in your project, scoped to that project only
 
-### 🔌 Claude Code Integration
+### 🔌 Agent Integration
 
-- **One-command hook injection** — `aegis setup` auto-configures Claude Code PreToolUse Hook
-- **Zero intrusion** — Doesn't modify Claude Code itself; works through standard hook mechanism
-- **Universal protocol** — Hook script communicates with local Aegis service via HTTP; any AI agent tool supporting hooks can integrate
+- **One-command hook injection** — `aegis setup` auto-configures hooks for Claude Code and Hermes
+- **Zero intrusion** — Doesn't modify the agent itself; works through each platform's native hook mechanism
+- **Universal protocol** — Hook scripts communicate with local Aegis service via HTTP; any AI agent CLI supporting hooks can integrate
 
 ### ⚡ Performance & Reliability
 
@@ -79,6 +79,17 @@ AI Agent emits command → PreToolUse Hook intercepts → AST rule engine evalua
 - **SQLite persistence** — Approval history and rule configs are durably stored
 - **Atomic writes** — Config modifications use atomic write; power loss won't corrupt
 - **Timeout protection** — Approval requests auto-deny after 60s; agents won't silently execute while you're away
+
+---
+
+## Supported Agents
+
+| Agent | Status | Hook Mechanism | Setup |
+|-------|--------|----------------|-------|
+| [Claude Code](https://claude.ai/code) | ✅ Supported | `PreToolUse` hook in `~/.claude/settings.json` | Auto-configured via `aegis setup` |
+| [Hermes](https://github.com/princeton-nlp/Hermes) | ✅ Supported | `pre_tool_call` plugin hook in `~/.hermes/plugins/` | Auto-configured via `aegis setup` |
+
+Both agents share the same backend rule engine and approval dashboard — interception events from all agents appear in a single unified stream.
 
 ---
 
@@ -297,7 +308,9 @@ No. Aegis is a local service; hook evaluation typically completes within 50ms (A
 <details>
 <summary><strong>Can it be used with tools other than Claude Code?</strong></summary>
 
-Currently, the platform only integrates with Claude Code's hook. Hermes, Codex, and other agent CLIs will be supported in future updates — check the release notes.
+Yes. Aegis currently supports **Claude Code** and **Hermes** out of the box. Both are auto-configured during `aegis setup`. Events from all agents appear in the same monitoring dashboard.
+
+Support for additional agent CLIs (Codex, Cursor, etc.) is planned for future releases.
 
 </details>
 

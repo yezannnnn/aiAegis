@@ -68,11 +68,11 @@ AI Agent 发出命令 → PreToolUse Hook 拦截 → AST 规则引擎判定 → 
 - **规则优先级** — 项目规则 > 用户自定义规则 > 内置规则，同 ID 规则自动覆盖
 - **项目级规则** — `.aegis/rules/` 目录下放规则文件，只对该项目生效
 
-### 🔌 Claude Code 集成
+### 🔌 Agent 集成
 
-- **一键注入 Hook** — `aegis setup` 自动配置 Claude Code PreToolUse Hook
-- **零侵入** — 不修改 Claude Code 本身，通过标准 Hook 机制工作
-- **通用协议** — Hook 脚本通过 HTTP 与本地 Aegis 服务通信，任何支持 Hook 的 AI Agent 工具都可对接
+- **一键注入 Hook** — `aegis setup` 自动配置 Claude Code 和 Hermes 的 Hook
+- **零侵入** — 不修改 Agent 本身，通过各平台原生 Hook 机制工作
+- **通用协议** — Hook 脚本通过 HTTP 与本地 Aegis 服务通信，任何支持 Hook 的 AI Agent CLI 都可对接
 
 ### ⚡ 性能与可靠性
 
@@ -80,6 +80,17 @@ AI Agent 发出命令 → PreToolUse Hook 拦截 → AST 规则引擎判定 → 
 - **SQLite 存储** — 审批历史、规则配置持久化存储
 - **原子写入** — 配置修改采用原子写入，断电不会损坏
 - **超时保护** — 审批 60 秒超时自动拒绝，Agent 不会因你离开而悄悄放行
+
+---
+
+## 支持的 Agent
+
+| Agent | 状态 | Hook 机制 | 配置方式 |
+|-------|------|-----------|---------|
+| [Claude Code](https://claude.ai/code) | ✅ 已支持 | `PreToolUse` Hook（`~/.claude/settings.json`） | `aegis setup` 自动配置 |
+| [Hermes](https://github.com/princeton-nlp/Hermes) | ✅ 已支持 | `pre_tool_call` 插件 Hook（`~/.hermes/plugins/`） | `aegis setup` 自动配置 |
+
+两个 Agent 共享同一套规则引擎和审批面板，所有来源的拦截事件统一显示在同一个事件流中。
 
 ---
 
@@ -298,7 +309,9 @@ rules:
 <details>
 <summary><strong>可以用于 Claude Code 以外的工具吗？</strong></summary>
 
-目前不行。目前平台只对接了Claude Code的hook，后续会对接Hermes、Codex等其他Agent Cli请看到时候的更新日志。
+可以。Aegis 目前已原生支持 **Claude Code** 和 **Hermes**，运行 `aegis setup` 会自动配置两者的 Hook。两个 Agent 的事件都会显示在同一个监控面板里。
+
+后续计划支持更多 Agent CLI（Codex、Cursor 等），敬请关注更新日志。
 
 </details>
 
