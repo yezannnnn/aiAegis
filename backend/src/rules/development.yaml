@@ -1,39 +1,49 @@
-name: "development"
-version: "2.0"
+name: development
+version: '2.0'
 rules:
-  - id: npm/uninstall-production
-    description: "生产环境卸载依赖"
-    category: "package"
-    severity: "error"
-    action: "review"
-    reason: "生产环境卸载依赖可能导致服务中断"
-    selector:
-      binary: npm
-      subcommands: [uninstall]
-      contextChecks:
-        isProduction: true
-
-  - id: npm/audit-fix-force
-    description: "npm audit fix --force 强制修复"
-    category: "package"
-    severity: "error"
-    action: "review"
-    reason: "audit fix --force 可能引入破坏性变更"
-    selector:
-      binary: npm
-      subcommands: [audit, fix]
-      flags:
-        anyOf: [force, f]
-
-  - id: python/pip-install-url
-    description: "pip 从 URL 安装"
-    example: "pip install https://example.com/package.tar.gz"
-    category: "package"
-    severity: "error"
-    action: "review"
-    reason: "从 URL 安装包无法验证来源安全性"
-    selector:
-      binary: pip
-      subcommands: [install]
-      arguments:
-        - pattern: "^https?://"
+- id: npm/uninstall-production
+  description: 生产环境卸载依赖
+  category: package
+  severity: error
+  action: review
+  reason:
+    en: Uninstalling dependencies in production may cause service interruption
+    zh: 生产环境卸载依赖可能导致服务中断
+  selector:
+    binary: npm
+    subcommands:
+    - uninstall
+    contextChecks:
+      isProduction: true
+- id: npm/audit-fix-force
+  description: npm audit fix --force 强制修复
+  category: package
+  severity: error
+  action: review
+  reason:
+    en: audit fix --force may introduce breaking changes
+    zh: audit fix --force 可能引入破坏性变更
+  selector:
+    binary: npm
+    subcommands:
+    - audit
+    - fix
+    flags:
+      anyOf:
+      - force
+      - f
+- id: python/pip-install-url
+  description: pip 从 URL 安装
+  example: pip install https://example.com/package.tar.gz
+  category: package
+  severity: error
+  action: review
+  reason:
+    en: Installing packages from URL cannot verify source security
+    zh: 从 URL 安装包无法验证来源安全性
+  selector:
+    binary: pip
+    subcommands:
+    - install
+    arguments:
+    - pattern: ^https?://

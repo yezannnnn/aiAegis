@@ -8,6 +8,7 @@ import { YAMLRuleSet, YAMLRule, MatchResult, RuleAction, RuleSeverity, RuleEvalu
 import { CommandNode, CommandContext, CommandSignature, Flag, Selector } from './types';
 import { hasFlag, getFlagValue, getArgumentValues } from './ast-parser.service';
 import { BashAstService } from './bash-ast.service';
+import { resolveReason } from './utils/reason-resolver';
 
 interface ResolvedRuleSet {
   name: string;
@@ -332,7 +333,7 @@ export class RuleMatcherService {
   // 规则匹配引擎
   // =========================================================================
 
-  evaluate(ast: CommandNode, context: CommandContext, cwd?: string): RuleEvaluation {
+  evaluate(ast: CommandNode, context: CommandContext, cwd?: string, lang: string = 'en'): RuleEvaluation {
     let candidates = this.getCandidateRules(ast.binary);
 
     if (cwd) {
@@ -381,7 +382,7 @@ export class RuleMatcherService {
       }
     }
 
-    return this.aggregateResults(results);
+    return this.aggregateResults(results, lang);
   }
 
   private getCandidateRules(binary: string): YAMLRule[] {
@@ -776,7 +777,7 @@ export class RuleMatcherService {
   // 结果聚合 — 确定性优先级
   // =========================================================================
 
-  private aggregateResults(results: MatchResult[]): RuleEvaluation {
+  private aggregateResults(results: MatchResult[], lang: string = 'en'): RuleEvaluation {
     if (results.length === 0) {
       return {
         action: 'allow',
@@ -816,7 +817,7 @@ export class RuleMatcherService {
 
     return {
       action: top.action || 'allow',
-      reason: top.reason || top.description || 'Rule matched',
+      reason: resolveReason(top.reason, lang) || top.description || 'Rule matched',
       severity: top.severity || 'warn',
       riskScore,
       matchedRules: results.map(r => r.source!).filter(Boolean),
