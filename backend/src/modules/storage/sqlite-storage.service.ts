@@ -20,20 +20,20 @@ export class SqliteStorageService implements OnModuleInit {
 
       this.db = new sqlite3.Database(this.dbPath, (err) => {
         if (err) {
-          console.error('❌ SQLite 数据库连接失败:', err.message);
+          console.error('❌ SQLite connection failed:', err.message);
           this.db = null;
           return;
         }
-        console.log('📄 SQLite 数据库已连接:', this.dbPath);
+        console.log('📄 SQLite connected:', this.dbPath);
       });
 
       if (this.db) {
         await this.initTables();
-        console.log('✅ SQLite 持久化已启动:', this.dbPath);
+        console.log('✅ SQLite persistence ready:', this.dbPath);
         this._ready = true;
       }
     } catch (e) {
-      console.error('❌ SQLite 初始化失败:', e.message);
+      console.error('❌ SQLite init failed:', e.message);
       this.db = null;
     }
   }

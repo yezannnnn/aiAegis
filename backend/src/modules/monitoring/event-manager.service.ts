@@ -29,16 +29,15 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
 
   async loadFromStorage() {
     if (!this.storage) {
-      this.logger.warn('Storage 未初始化');
+      this.logger.warn('Storage not initialized');
       return;
     }
 
-    // onApplicationBootstrap 在 onModuleInit 之后执行，DB 应该已就绪
     if (!this.storage.isReady()) {
       await new Promise(r => setTimeout(r, 1000));
     }
     if (!this.storage.isReady()) {
-      this.logger.warn('Storage 未就绪，跳过加载历史数据');
+      this.logger.warn('Storage not ready, skipping history load');
       return;
     }
 
@@ -52,7 +51,7 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
       for (const s of sessions) {
         this.sessions.set(s.id, s);
       }
-      this.logger.log(`从 SQLite 加载了 ${events.length} 个事件, ${sessions.length} 个会话`);
+      this.logger.log(`Loaded ${events.length} events and ${sessions.length} sessions from SQLite`);
     } catch (e: any) {
       this.logger.warn(`SQLite 加载失败: ${e.message}`);
     }
@@ -74,7 +73,7 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
     try {
       this.storage?.saveEvent(event);
     } catch (e) {
-      console.error('❌ 事件持久化失败:', e.message);
+      console.error('❌ Failed to persist event:', e.message);
     }
 
     // 发出事件通知
@@ -111,7 +110,7 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
       try {
         this.storage?.updateEventStatus(id, status);
       } catch (e) {
-        console.error('❌ 状态更新持久化失败:', e.message);
+        console.error('❌ Failed to persist status update:', e.message);
       }
       this.emit('new_event', event);
       return true;
@@ -190,7 +189,7 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
     try {
       this.storage?.saveSession(session);
     } catch (e) {
-      console.error('❌ 会话持久化失败:', e.message);
+      console.error('❌ Failed to persist session:', e.message);
     }
   }
 

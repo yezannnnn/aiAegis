@@ -20,10 +20,9 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Swagger API文档配置
   const config = new DocumentBuilder()
     .setTitle('Aegis Security Monitor')
-    .setDescription('AI Agent安全监控系统API')
+    .setDescription('AI Agent Security Monitor API')
     .setVersion('2.0')
     .addTag('security')
     .addTag('monitoring')
@@ -35,9 +34,9 @@ async function bootstrap() {
   const port = process.env.PORT || 3001;
   await app.listen(port);
 
-  console.log('🛡️ Aegis Security Monitor (NestJS) 已启动');
-  console.log(`🌐 API服务: http://localhost:${port}`);
-  console.log(`📚 API文档: http://localhost:${port}/api`);
+  console.log('🛡️ Aegis Security Monitor started');
+  console.log(`🌐 API: http://localhost:${port}`);
+  console.log(`📚 API Docs: http://localhost:${port}/api`);
 }
 
 bootstrap();

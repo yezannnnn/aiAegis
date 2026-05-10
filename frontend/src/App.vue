@@ -260,8 +260,8 @@ const handleTestNotification = () => {
     return;
   }
   try {
-    const n = new Notification("🧪 Aegis 测试通知", {
-      body: "如果你能看到这条消息，说明浏览器通知配置正确！",
+    const n = new Notification("🧪 Aegis Test Notification", {
+      body: "If you can see this, browser notifications are working correctly.",
       requireInteraction: true,
     });
     n.onclick = () => { window.focus(); n.close(); };
@@ -382,20 +382,20 @@ const handleApprovalNotification = (data: any) => {
   const pageFocused = document.hasFocus();
   if (Notification.permission === "granted" && !pageFocused) {
     try {
-      const n = new Notification("🛡️ Aegis 拦截请求，需要审批", {
+      const n = new Notification("🛡️ Aegis: Approval Required", {
         body: `[${data.risk || "UNKNOWN"}] ${data.command || "unknown command"}`,
         tag: data.approvalId,
         requireInteraction: true,
       });
       n.onclick = () => { window.focus(); n.close(); };
-      console.log("✅ 浏览器通知已发送 (页面无焦点)");
+      console.log("✅ Browser notification sent (page not focused)");
     } catch (e) {
-      console.error("❌ 浏览器通知发送失败:", e);
+      console.error("❌ Browser notification failed:", e);
     }
   } else if (Notification.permission === "granted") {
-    console.log("💡 页面有焦点，跳过系统通知（页内弹窗已显示）");
+    console.log("💡 Page focused, skipping system notification (in-page modal shown)");
   } else {
-    console.warn("⚠️ 通知权限未授予，当前状态:", Notification.permission);
+    console.warn("⚠️ Notification permission not granted, current state:", Notification.permission);
   }
 
   currentApproval.value = {

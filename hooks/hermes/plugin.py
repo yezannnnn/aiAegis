@@ -183,35 +183,35 @@ def pre_tool_call(tool_name, args, task_id, **kwargs):
         return None
 
     if action in ("deny", "block"):
-        reason = evaluation.get("reason", "规则拦截")
+        reason = evaluation.get("reason", "Blocked by rule")
         matched_rules = evaluation.get("matchedRules", [])
-        rules_str = f" (规则: {', '.join(matched_rules)})" if matched_rules else ""
+        rules_str = f" (rules: {', '.join(matched_rules)})" if matched_rules else ""
         return {
             "action": "block",
-            "message": f"🛡️ Aegis 安全拦截{rules_str}\n原因: {reason}\n命令被拒绝执行。"
+            "message": f"🛡️ Aegis blocked{rules_str}\nReason: {reason}\nCommand denied."
         }
 
     if action == "review":
         approval_id = result.get("approvalRequestId")
-        reason = evaluation.get("reason", "需要审批")
+        reason = evaluation.get("reason", "Requires approval")
         matched_rules = evaluation.get("matchedRules", [])
-        rules_str = f" (规则: {', '.join(matched_rules)})" if matched_rules else ""
-        
+        rules_str = f" (rules: {', '.join(matched_rules)})" if matched_rules else ""
+
         if not approval_id:
             return {
                 "action": "block",
-                "message": f"🛡️ Aegis 安全拦截{rules_str}\n原因: {reason}\n错误: 无法创建审批请求"
+                "message": f"🛡️ Aegis blocked{rules_str}\nReason: {reason}\nError: failed to create approval request"
             }
 
-        # 长轮询等待审批（最多 60 秒）
+        # Long-poll waiting for approval (max 60s)
         decision = _poll_for_approval(approval_id, 60)
         if decision and decision.get("status") == "approved":
             return None
 
-        decision_reason = decision.get("reason", "审批超时") if decision else "审批超时"
+        decision_reason = decision.get("reason", "Approval timed out") if decision else "Approval timed out"
         return {
             "action": "block",
-            "message": f"🛡️ Aegis 安全拦截{rules_str}\n原因: {reason}\n状态: {decision_reason}\n请在 http://localhost:{AEGIS_PORT} 审批后重试"
+            "message": f"🛡️ Aegis blocked{rules_str}\nReason: {reason}\nStatus: {decision_reason}\nApprove at http://localhost:{AEGIS_PORT} and retry"
         }
 
     # 未知 action，默认放行

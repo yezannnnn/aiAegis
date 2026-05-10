@@ -36,7 +36,7 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   }
 
   async handleConnection(client: Socket) {
-    console.log('📡 WebSocket客户端连接:', client.id);
+    console.log('📡 WebSocket client connected:', client.id);
 
     // 发送初始状态
     client.emit('initial_state', {
@@ -48,7 +48,7 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   }
 
   handleDisconnect(client: Socket) {
-    console.log('📡 WebSocket客户端断开:', client.id);
+    console.log('📡 WebSocket client disconnected:', client.id);
   }
 
   @SubscribeMessage('ping')
