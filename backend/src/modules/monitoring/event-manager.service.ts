@@ -90,8 +90,23 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
   updateEventStatus(id: string, status: EventStatus): boolean {
     const event = this.events.get(id);
     if (event) {
+      const prevStatus = event.status;
       event.status = status;
       this.events.set(id, event);
+
+      // When transitioning to blocked/timed_out, increment agent's blockedCount
+      const wasNotBlocked = prevStatus !== EventStatus.BLOCKED && prevStatus !== EventStatus.TIMED_OUT;
+      const isNowBlocked = status === EventStatus.BLOCKED || status === EventStatus.TIMED_OUT;
+      if (wasNotBlocked && isNowBlocked && event.agent) {
+        const key = `${event.agent}::${event.sessionId || 'unknown'}`;
+        const agent = this.agents.get(key);
+        if (agent) {
+          agent.blockedCount = (agent.blockedCount || 0) + 1;
+          this.agents.set(key, agent);
+          this.emit('agent_update', agent);
+        }
+      }
+
       // 同步更新 SQLite
       try {
         this.storage?.updateEventStatus(id, status);
@@ -109,14 +124,42 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
+  // Returns up to `limit` events, but always includes all pending/timed_out events
+  // so the frontend list stays consistent with the stats card
+  getInitialEvents(limit = 50): SecurityEvent[] {
+    const all = Array.from(this.events.values());
+    const important = all.filter(
+      e => e.status === EventStatus.PENDING || e.status === EventStatus.TIMED_OUT
+    );
+    const recent = all
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, limit);
+    const merged = [...important, ...recent];
+    const seen = new Set<string>();
+    return merged
+      .filter(e => { if (seen.has(e.id)) return false; seen.add(e.id); return true; })
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
+
   getEventsPaged(offset: number, limit: number): { events: SecurityEvent[]; total: number } {
     const sorted = this.getEvents();
     return { events: sorted.slice(offset, offset + limit), total: sorted.length };
   }
 
-  getStats(): EventStatsDto {
+  async getStats(): Promise<EventStatsDto> {
+    if (this.storage?.isReady()) {
+      const row = await this.storage.getEventStats() as any;
+      return {
+        total: row.total || 0,
+        blocked: row.blocked || 0,
+        allowed: row.allowed || 0,
+        warning: row.warning || 0,
+        pending: row.pending || 0,
+        timed_out: row.timed_out || 0,
+      };
+    }
+    // Fallback to in-memory if DB not ready
     const events = Array.from(this.events.values());
-
     return {
       total: events.length,
       blocked: events.filter(e => e.status === EventStatus.BLOCKED).length,

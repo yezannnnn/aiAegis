@@ -6,7 +6,7 @@ import { CreateEventDto, EventStatsDto, EventStatus } from './dto';
 export class MonitoringService {
   constructor(private readonly eventManager: EventManagerService) {}
 
-  getStats(): EventStatsDto {
+  async getStats(): Promise<EventStatsDto> {
     return this.eventManager.getStats();
   }
 

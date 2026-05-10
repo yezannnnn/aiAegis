@@ -23,12 +23,12 @@
             </div>
             <div class="agent-stats">
               <span class="stat-item">
-                <span class="stat-label">执行</span>
+                <span class="stat-label">{{ currentTexts.executing }}</span>
                 <span class="stat-value">{{ agent.commandCount ?? 0 }}</span>
               </span>
               <span class="stat-divider">|</span>
               <span class="stat-item stat-blocked">
-                <span class="stat-label">拦截</span>
+                <span class="stat-label">{{ currentTexts.intercepted }}</span>
                 <span class="stat-value">{{ agent.blockedCount ?? 0 }}</span>
               </span>
             </div>

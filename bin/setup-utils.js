@@ -124,6 +124,60 @@ class AegisSetupUtils {
   }
 
   // ============================================================
+  // 配置 Hermes Plugin Hook
+  // ============================================================
+  async setupHermesHook() {
+    const spinner = ora('配置 Hermes Plugin Hook...').start();
+    try {
+      const hermesPluginDir = path.join(this.homeDir, '.hermes', 'plugins', 'aegis');
+      await fs.ensureDir(hermesPluginDir);
+
+      // 1. 复制 plugin.py 作为 __init__.py
+      const pluginSrc = path.join(this.packageDir, 'hooks', 'hermes', 'plugin.py');
+      const initDest = path.join(hermesPluginDir, '__init__.py');
+
+      if (await fs.pathExists(pluginSrc)) {
+        await fs.copy(pluginSrc, initDest, { overwrite: true });
+      } else {
+        throw new Error(`Hermes Plugin 文件不存在: ${pluginSrc}`);
+      }
+
+      // 2. 创建 plugin.yaml（插件元数据）
+      const yamlContent = `name: aegis
+description: Aegis AI Security Monitor - intercept dangerous terminal commands
+version: 2.0.0
+hooks:
+  - pre_tool_call
+  - pre_llm_call
+`;
+      const yamlDest = path.join(hermesPluginDir, 'plugin.yaml');
+      await fs.writeFile(yamlDest, yamlContent, 'utf8');
+
+      // 3. 自动启用插件（执行 hermes plugins enable aegis）
+      try {
+        await this.runCommand('hermes', ['plugins', 'enable', 'aegis'], {
+          captureOutput: true,
+        });
+        spinner.succeed('Hermes Plugin Hook 已配置并启用');
+      } catch (enableError) {
+        // hermes CLI 可能不在 PATH，提示用户手动启用
+        spinner.warn('Hermes Plugin 文件已安装，但自动启用失败');
+        console.log(chalk.yellow('   请手动运行: hermes plugins enable aegis'));
+      }
+
+      return {
+        pluginDir: hermesPluginDir,
+        pluginPath: initDest,
+        enabled: true,
+        restartRequired: true,
+      };
+    } catch (error) {
+      spinner.fail('Hermes Plugin Hook 配置失败: ' + error.message);
+      throw error;
+    }
+  }
+
+  // ============================================================
   // 安装后端运行时依赖（frontend 已预构建，无需安装前端 deps）
   // ============================================================
   async installDependencies() {
@@ -193,7 +247,7 @@ class AegisSetupUtils {
   // ============================================================
   // 显示安装摘要
   // ============================================================
-  showInstallationSummary(config, hookInfo) {
+  showInstallationSummary(config, hookInfo, hermesHookInfo) {
     const port = config.ports?.webInterface || config.backend?.port || 3001;
     console.log('');
     console.log(chalk.green('🎉 Aegis Security Monitor 安装完成!'));
@@ -201,15 +255,23 @@ class AegisSetupUtils {
     console.log(chalk.cyan('📍 配置信息:'));
     console.log(`   配置目录:  ${chalk.yellow(this.aegisDir)}`);
     console.log(`   用户规则:  ${chalk.yellow(this.userRulesDir)}`);
-    console.log(`   Hook 文件: ${chalk.yellow(hookInfo.hookPath)}`);
+    if (hookInfo) {
+      console.log(`   Claude Hook: ${chalk.yellow(hookInfo.hookPath)}`);
+    }
+    if (hermesHookInfo) {
+      console.log(`   Hermes Plugin: ${chalk.yellow(hermesHookInfo.pluginPath)}`);
+    }
     console.log('');
     console.log(chalk.cyan('📋 下一步:'));
     console.log(`   1. 运行 ${chalk.green('aegis start')} 启动服务`);
     console.log(`   2. 访问 ${chalk.green(`http://localhost:${port}`)} 查看监控界面`);
     console.log(`   3. 运行 ${chalk.green('aegis rules new my-rules')} 创建自定义规则`);
     console.log('');
-    if (hookInfo.backupCreated) {
+    if (hookInfo?.backupCreated) {
       console.log(chalk.gray('💾 原 Claude 配置已备份到 ~/.aegis/backup/'));
+    }
+    if (hermesHookInfo?.restartRequired) {
+      console.log(chalk.yellow('⚠️  Hermes Plugin 已更新，请重启 Hermes CLI 使 Plugin 生效'));
     }
   }
 

@@ -1,78 +1,88 @@
-name: "filesystem"
-version: "2.0"
+name: filesystem
+version: '2.0'
 rules:
-  - id: fs/rm-rf
-    description: "rm -rf 递归强制删除"
-    example: "rm -rf /path/to/dir"
-    category: "filesystem"
-    severity: "error"
-    action: "review"
-    reason: "rm -rf 会永久删除目录及所有内容"
-    selector:
-      binary: rm
-      flags:
-        allGroups:
-          - [recursive, r]
-          - [force, f]
-
-  - id: fs/rm-root
-    description: "禁止删除根目录"
-    example: "rm -rf /*"
-    category: "filesystem"
-    severity: "block"
-    action: "block"
-    reason: "删除根目录会摧毁整个系统"
-    selector:
-      binary: rm
-      arguments:
-        - pattern: "^/\\*?$"
-
-  - id: fs/rm-home
-    description: "删除用户主目录"
-    example: "rm -rf ~/"
-    category: "filesystem"
-    severity: "block"
-    action: "block"
-    reason: "删除主目录会丢失所有用户数据"
-    selector:
-      binary: rm
-      arguments:
-        - pattern: "^~/|/home/\\w+"
-
-  - id: fs/dd-dangerous
-    description: "dd 命令写入设备危险"
-    example: "dd if=/dev/zero of=/dev/sda"
-    category: "filesystem"
-    severity: "block"
-    action: "block"
-    reason: "dd 可以直接覆盖磁盘，极危险"
-    selector:
-      binary: dd
-      arguments:
-        - pattern: "of=/dev/([sh]d[a-z]|disk)"
-
-  - id: fs/chmod-recursive
-    description: "chmod 递归修改系统目录权限"
-    example: "chmod -R 777 /etc"
-    category: "filesystem"
-    severity: "error"
-    action: "review"
-    reason: "chmod -R 777 会将目录权限全部开放，可能危及系统安全"
-    selector:
-      binary: chmod
-      flags:
-        anyOf: [R]
-      arguments:
-        - pattern: "^(/|/usr|/etc|/bin|/sbin|/var|/home|~)"
-
-  - id: fs/mv-overwrite
-    description: "mv 覆盖重要目录"
-    example: "mv /tmp/mydir /etc/"
-    category: "filesystem"
-    severity: "error"
-    action: "review"
-    reason: "mv 覆盖系统目录可能导致系统损坏"
-    selector:
-      binary: mv
-      arguments:
-        - pattern: "^(/etc|/usr|/var|/bin|/sbin)/"
+- id: fs/rm-rf
+  description: rm -rf 递归强制删除
+  example: rm -rf /path/to/dir
+  category: filesystem
+  severity: error
+  action: review
+  reason:
+    en: rm -rf permanently deletes directories and all contents
+    zh: rm -rf 会永久删除目录及所有内容
+  selector:
+    binary: rm
+    flags:
+      allGroups:
+      - - recursive
+        - r
+      - - force
+        - f
+- id: fs/rm-root
+  description: 禁止删除根目录
+  example: rm -rf /*
+  category: filesystem
+  severity: block
+  action: block
+  reason:
+    en: Deleting root directory will destroy the entire system
+    zh: 删除根目录会摧毁整个系统
+  selector:
+    binary: rm
+    arguments:
+    - pattern: ^/\*?$
+- id: fs/rm-home
+  description: 删除用户主目录
+  example: rm -rf ~/
+  category: filesystem
+  severity: block
+  action: block
+  reason:
+    en: Deleting home directory will lose all user data
+    zh: 删除主目录会丢失所有用户数据
+  selector:
+    binary: rm
+    arguments:
+    - pattern: ^~/|/home/\w+
+- id: fs/dd-dangerous
+  description: dd 命令写入设备危险
+  example: dd if=/dev/zero of=/dev/sda
+  category: filesystem
+  severity: block
+  action: block
+  reason:
+    en: dd can directly overwrite disks, extremely dangerous
+    zh: dd 可以直接覆盖磁盘，极危险
+  selector:
+    binary: dd
+    arguments:
+    - pattern: of=/dev/([sh]d[a-z]|disk)
+- id: fs/chmod-recursive
+  description: chmod 递归修改系统目录权限
+  example: chmod -R 777 /etc
+  category: filesystem
+  severity: error
+  action: review
+  reason:
+    en: chmod -R 777 opens all directory permissions, may compromise system security
+    zh: chmod -R 777 会将目录权限全部开放，可能危及系统安全
+  selector:
+    binary: chmod
+    flags:
+      anyOf:
+      - R
+    arguments:
+    - pattern: ^(/|/usr|/etc|/bin|/sbin|/var|/home|~)
+- id: fs/mv-overwrite
+  description: mv 覆盖重要目录
+  example: mv /tmp/mydir /etc/
+  category: filesystem
+  severity: error
+  action: review
+  reason:
+    en: mv overwriting system directories may cause system damage
+    zh: mv 覆盖系统目录可能导致系统损坏
+  selector:
+    binary: mv
+    arguments:
+    - pattern: ^(/etc|/usr|/var|/bin|/sbin)/

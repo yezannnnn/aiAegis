@@ -1,102 +1,105 @@
-name: "mysql"
-version: "2.0"
+name: mysql
+version: '2.0'
 rules:
-  # ── BLOCK：极危险操作 ──────────────────────────────────────────
-
-  - id: mysql/drop-schema
-    description: "MySQL DROP DATABASE/TABLE 或 TRUNCATE"
-    example: "mysql -e \"DROP DATABASE mydb\""
-    category: "mysql"
-    severity: "block"
-    action: "block"
-    reason: "DROP/TRUNCATE 会永久删除数据，不可恢复"
-    selector:
-      binary: mysql
-      arguments:
-        - pattern: 'drop\s+(database|table)|truncate\s+table'
-
-  - id: mysql/privilege-reset
-    description: "MySQL FLUSH PRIVILEGES / RESET MASTER/SLAVE"
-    example: "mysql -e \"FLUSH PRIVILEGES\""
-    category: "mysql"
-    severity: "block"
-    action: "block"
-    reason: "影响整个 MySQL 实例的权限或复制状态"
-    selector:
-      binary: mysql
-      arguments:
-        - pattern: 'flush\s+privileges|reset\s+master|reset\s+slave'
-
-  - id: mysqldump/system-dump
-    description: "mysqldump 导出系统库或所有数据库"
-    category: "mysql"
-    severity: "block"
-    action: "block"
-    reason: "系统库包含敏感权限配置"
-    selector:
-      binary: mysqldump
-      rawPattern: '--all-databases|information_schema|performance_schema\b'
-
-  # ── ERROR：需要审批 ────────────────────────────────────────────
-
-  - id: mysql/unqualified-write
-    description: "MySQL 无条件 DELETE/UPDATE"
-    example: "mysql -e \"DELETE FROM users\""
-    category: "mysql"
-    severity: "error"
-    action: "review"
-    reason: "无 WHERE 条件的 DELETE/UPDATE 影响所有行"
-    selector:
-      binary: mysql
-      arguments:
-        - pattern: 'delete\s+from|update\s+\S+\s+set'
-
-  - id: mysql/drop-column
-    description: "MySQL ALTER TABLE DROP COLUMN"
-    example: "mysql -e \"ALTER TABLE t DROP COLUMN col\""
-    category: "mysql"
-    severity: "error"
-    action: "review"
-    reason: "删除列操作不可逆，数据无法恢复"
-    selector:
-      binary: mysql
-      arguments:
-        - pattern: 'alter\s+table.*drop\s+column'
-
-  - id: mysql/grant-all
-    description: "MySQL GRANT ALL PRIVILEGES"
-    example: "mysql -e \"GRANT ALL PRIVILEGES ON *.* TO 'user'@'%'\""
-    category: "mysql"
-    severity: "error"
-    action: "review"
-    reason: "授予全部权限存在安全风险"
-    selector:
-      binary: mysql
-      arguments:
-        - pattern: 'grant\s+all\s+privileges'
-
-  - id: mysql/set-global
-    description: "MySQL SET GLOBAL"
-    example: "mysql -e \"SET GLOBAL max_connections=500\""
-    category: "mysql"
-    severity: "error"
-    action: "review"
-    reason: "SET GLOBAL 修改服务器全局配置，影响所有连接"
-    selector:
-      binary: mysql
-      arguments:
-        - pattern: 'set\s+global'
-
-  # ── WARN：记录 ────────────────────────────────────────────────
-
-  - id: mysql/outfile
-    description: "MySQL SELECT INTO OUTFILE"
-    example: "mysql -e \"SELECT * INTO OUTFILE '/tmp/data.csv' FROM t\""
-    category: "mysql"
-    severity: "warn"
-    action: "review"
-    reason: "将查询结果写入服务器本地文件"
-    selector:
-      binary: mysql
-      arguments:
-        - pattern: 'select.*into\s+outfile'
+- id: mysql/drop-schema
+  description: MySQL DROP DATABASE/TABLE 或 TRUNCATE
+  example: mysql -e "DROP DATABASE mydb"
+  category: mysql
+  severity: block
+  action: block
+  reason:
+    en: DROP/TRUNCATE permanently deletes data, cannot be recovered
+    zh: DROP/TRUNCATE 会永久删除数据，不可恢复
+  selector:
+    binary: mysql
+    arguments:
+    - pattern: drop\s+(database|table)|truncate\s+table
+- id: mysql/privilege-reset
+  description: MySQL FLUSH PRIVILEGES / RESET MASTER/SLAVE
+  example: mysql -e "FLUSH PRIVILEGES"
+  category: mysql
+  severity: block
+  action: block
+  reason:
+    en: Affects privileges or replication status of entire MySQL instance
+    zh: 影响整个 MySQL 实例的权限或复制状态
+  selector:
+    binary: mysql
+    arguments:
+    - pattern: flush\s+privileges|reset\s+master|reset\s+slave
+- id: mysqldump/system-dump
+  description: mysqldump 导出系统库或所有数据库
+  category: mysql
+  severity: block
+  action: block
+  reason:
+    en: System databases contain sensitive privilege configurations
+    zh: 系统库包含敏感权限配置
+  selector:
+    binary: mysqldump
+    rawPattern: --all-databases|information_schema|performance_schema\b
+- id: mysql/unqualified-write
+  description: MySQL 无条件 DELETE/UPDATE
+  example: mysql -e "DELETE FROM users"
+  category: mysql
+  severity: error
+  action: review
+  reason:
+    en: DELETE/UPDATE without WHERE condition affects all rows
+    zh: 无 WHERE 条件的 DELETE/UPDATE 影响所有行
+  selector:
+    binary: mysql
+    arguments:
+    - pattern: delete\s+from|update\s+\S+\s+set
+- id: mysql/drop-column
+  description: MySQL ALTER TABLE DROP COLUMN
+  example: mysql -e "ALTER TABLE t DROP COLUMN col"
+  category: mysql
+  severity: error
+  action: review
+  reason:
+    en: Dropping columns is irreversible, data cannot be recovered
+    zh: 删除列操作不可逆，数据无法恢复
+  selector:
+    binary: mysql
+    arguments:
+    - pattern: alter\s+table.*drop\s+column
+- id: mysql/grant-all
+  description: MySQL GRANT ALL PRIVILEGES
+  example: mysql -e "GRANT ALL PRIVILEGES ON *.* TO 'user'@'%'"
+  category: mysql
+  severity: error
+  action: review
+  reason:
+    en: Granting all privileges poses security risks
+    zh: 授予全部权限存在安全风险
+  selector:
+    binary: mysql
+    arguments:
+    - pattern: grant\s+all\s+privileges
+- id: mysql/set-global
+  description: MySQL SET GLOBAL
+  example: mysql -e "SET GLOBAL max_connections=500"
+  category: mysql
+  severity: error
+  action: review
+  reason:
+    en: SET GLOBAL modifies server-wide configuration, affects all connections
+    zh: SET GLOBAL 修改服务器全局配置，影响所有连接
+  selector:
+    binary: mysql
+    arguments:
+    - pattern: set\s+global
+- id: mysql/outfile
+  description: MySQL SELECT INTO OUTFILE
+  example: mysql -e "SELECT * INTO OUTFILE '/tmp/data.csv' FROM t"
+  category: mysql
+  severity: warn
+  action: review
+  reason:
+    en: Writes query results to server local files
+    zh: 将查询结果写入服务器本地文件
+  selector:
+    binary: mysql
+    arguments:
+    - pattern: select.*into\s+outfile

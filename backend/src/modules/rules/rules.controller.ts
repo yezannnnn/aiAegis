@@ -20,6 +20,7 @@ interface EvaluateRequest {
   userPrompt?: string;
   userInput?: string;
   assistPrompt?: string;
+  lang?: string;
 }
 
 interface EvaluateResponse {
@@ -57,7 +58,7 @@ export class RulesController {
     const context = await this.astContext.collectContext(body.cwd);
 
     // 3. 规则匹配（传入 cwd 以支持项目级自定义规则）
-    const evaluation = this.ruleMatcher.evaluate(ast, context, body.cwd);
+    const evaluation = this.ruleMatcher.evaluate(ast, context, body.cwd, body.lang);
 
     // 所有命令都记录到事件列表
     // block   = 直接拒绝，不创建审批弹窗

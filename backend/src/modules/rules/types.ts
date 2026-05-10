@@ -94,7 +94,7 @@ export interface MatchResult {
   severity?: RuleSeverity;
   action?: RuleAction;
   description?: string;
-  reason?: string;
+  reason?: RuleReason;
   source?: string;
   metadata?: {
     riskLevel?: string;
@@ -107,6 +107,13 @@ export interface MatchResult {
   };
 }
 
+export interface LocalizedReason {
+  en: string;
+  zh: string;
+}
+
+export type RuleReason = string | LocalizedReason;
+
 export interface YAMLRule {
   id?: string;
   pattern?: string;
@@ -114,7 +121,7 @@ export interface YAMLRule {
   category?: string;
   severity?: RuleSeverity;
   action?: RuleAction;
-  reason?: string;
+  reason?: RuleReason;
   example?: string;
   _source?: 'built-in' | 'user' | 'project';
   selector?: Selector;    // v2.0 stable DSL — takes priority over conditions when present

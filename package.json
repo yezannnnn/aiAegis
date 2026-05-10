@@ -18,6 +18,8 @@
     "backend/package.json",
     "frontend/dist/",
     "hooks/claude-code/universal-hook-v2.js",
+    "hooks/hermes/plugin.py",
+    "hooks/hermes/README.md",
     "README.md"
   ],
   "keywords": [

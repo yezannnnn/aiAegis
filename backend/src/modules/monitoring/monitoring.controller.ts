@@ -1,5 +1,7 @@
-import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import * as fs from 'fs';
+import * as path from 'path';
 import { MonitoringService } from './monitoring.service';
 import { CreateEventDto, RiskLevel, EventStatus } from './dto';
 import { WebSocketGateway } from '../websocket/websocket.gateway';
@@ -16,7 +18,7 @@ export class MonitoringController {
 
   @Get('stats')
   @ApiOperation({ summary: '获取监控统计信息' })
-  getStats() {
+  async getStats() {
     return this.monitoringService.getStats();
   }
 
@@ -241,6 +243,25 @@ export class MonitoringController {
       status: isApproved ? 'approved' : 'denied',
       message: `命令已${isApproved ? '批准' : '拒绝'}`
     };
+  }
+
+  /** 保存前端语言偏好到 config.json，供 CLI Hook 读取 */
+  @Put('lang')
+  @ApiOperation({ summary: '保存语言偏好（供CLI Hook读取）' })
+  async setLang(@Body() body: { lang: string }) {
+    const lang = body.lang === 'en' ? 'en' : 'zh';
+    const configPath = path.join(process.env.HOME || process.env.USERPROFILE || '~', '.aegis', 'config.json');
+    try {
+      let config: any = {};
+      if (fs.existsSync(configPath)) {
+        config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      }
+      config.lang = lang;
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+      return { success: true, lang };
+    } catch (e) {
+      return { success: false, message: String(e) };
+    }
   }
 
   /** 根据命令查找审批ID */

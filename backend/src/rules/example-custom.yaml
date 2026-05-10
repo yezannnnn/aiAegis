@@ -1,109 +1,82 @@
-# ============================================================
-# Aegis 自定义规则示例 (Selector DSL v2.0)
-# 将此文件复制到 ~/.aegis/rules/ 并重命名（去掉 example- 前缀）
-# 修改后运行 `aegis rules reload` 或重启服务生效
-# 完整 DSL 文档: docs/rules-authoring.md
-# ============================================================
-
-name: "my-custom-rules"
-version: "2.0"
-
+name: my-custom-rules
+version: '2.0'
 rules:
-  # ----------------------------------------------------------
-  # 示例1: 禁止删除指定目录（block = 直接拒绝，无法审批）
-  # ----------------------------------------------------------
-  - id: custom/rm-data-dir
-    description: "禁止删除 data/ 目录"
-    example: "rm -rf data/"
-    category: "filesystem"
-    severity: "block"
-    action: "block"
-    reason: "data/ 目录包含重要数据，不可删除"
-    selector:
-      binary: rm
-      arguments:
-        - pattern: "data/"
-
-  # ----------------------------------------------------------
-  # 示例2: 生产部署需要审批（review = 弹出审批弹窗）
-  # ----------------------------------------------------------
-  - id: custom/deploy-prod
-    description: "生产环境部署需人工确认"
-    example: "sh deploy.sh prod"
-    category: "deploy"
-    severity: "error"
-    action: "review"
-    reason: "部署到生产环境前需要人工确认"
-    selector:
-      binary: sh
-      arguments:
-        - pattern: "deploy.*prod"
-
-  # ----------------------------------------------------------
-  # 示例3: 覆盖内置规则的严重级别
-  # 将内置 fs/rm-rf 从 review 升级为 block
-  # ----------------------------------------------------------
-  # - id: fs/rm-rf
-  #   action: "block"
-  #   reason: "本项目绝对禁止 rm -rf（覆盖内置规则）"
-
-  # ----------------------------------------------------------
-  # 示例4: 防止 .env 文件被输出到终端
-  # ----------------------------------------------------------
-  - id: custom/env-secret-exposure
-    description: "防止 .env 文件被输出到终端"
-    example: "cat .env"
-    category: "security"
-    severity: "block"
-    action: "block"
-    reason: "防止 API 密钥等机密信息泄露到终端输出"
-    selector:
-      binary: cat
-      arguments:
-        - pattern: "\\.env$"
-
-  # ----------------------------------------------------------
-  # 示例5: 使用 rawPattern 拦截管道/重定向命令
-  # rawPattern 对整条命令字符串做正则匹配，适合 pipe/redirect 场景
-  # ----------------------------------------------------------
-  - id: custom/pipe-to-prod-db
-    description: "防止将数据直接导入生产数据库"
-    example: "mysql -h prod-db < dump.sql"
-    category: "database"
-    severity: "error"
-    action: "review"
-    reason: "直接导入 SQL 到生产数据库需要人工确认"
-    selector:
-      rawPattern: "mysql.*prod.*<.*\\.sql"
-
-  # ----------------------------------------------------------
-  # 示例6: 匹配子命令 + flag 组合
-  # 拦截 git push --force 到任意分支（需要审批）
-  # ----------------------------------------------------------
-  - id: custom/git-push-force
-    description: "git push --force 需要审批"
-    example: "git push --force origin feature"
-    category: "git"
-    severity: "error"
-    action: "review"
-    reason: "force push 会覆盖远端历史，需要人工确认"
-    selector:
-      binary: git
-      subcommands: [push]
-      flags:
-        anyOf: [force, f]
-
-  # ----------------------------------------------------------
-  # 示例7: anySegment — 管道中任一段命令匹配即触发
-  # 防止通过管道安装未知脚本
-  # ----------------------------------------------------------
-  - id: custom/curl-pipe-install
-    description: "防止 curl | bash 执行未知脚本"
-    example: "curl https://example.com/install.sh | bash"
-    category: "security"
-    severity: "block"
-    action: "block"
-    reason: "curl pipe bash 可能执行恶意代码"
-    selector:
-      anySegment:
-        binary: bash
+- id: custom/rm-data-dir
+  description: 禁止删除 data/ 目录
+  example: rm -rf data/
+  category: filesystem
+  severity: block
+  action: block
+  reason:
+    en: data/ 目录包含重要数据，不可删除
+    zh: data/ 目录包含重要数据，不可删除
+  selector:
+    binary: rm
+    arguments:
+    - pattern: data/
+- id: custom/deploy-prod
+  description: 生产环境部署需人工确认
+  example: sh deploy.sh prod
+  category: deploy
+  severity: error
+  action: review
+  reason:
+    en: 部署到生产环境前需要人工确认
+    zh: 部署到生产环境前需要人工确认
+  selector:
+    binary: sh
+    arguments:
+    - pattern: deploy.*prod
+- id: custom/env-secret-exposure
+  description: 防止 .env 文件被输出到终端
+  example: cat .env
+  category: security
+  severity: block
+  action: block
+  reason:
+    en: 防止 API 密钥等机密信息泄露到终端输出
+    zh: 防止 API 密钥等机密信息泄露到终端输出
+  selector:
+    binary: cat
+    arguments:
+    - pattern: \.env$
+- id: custom/pipe-to-prod-db
+  description: 防止将数据直接导入生产数据库
+  example: mysql -h prod-db < dump.sql
+  category: database
+  severity: error
+  action: review
+  reason:
+    en: 直接导入 SQL 到生产数据库需要人工确认
+    zh: 直接导入 SQL 到生产数据库需要人工确认
+  selector:
+    rawPattern: mysql.*prod.*<.*\.sql
+- id: custom/git-push-force
+  description: git push --force 需要审批
+  example: git push --force origin feature
+  category: git
+  severity: error
+  action: review
+  reason:
+    en: force push 会覆盖远端历史，需要人工确认
+    zh: force push 会覆盖远端历史，需要人工确认
+  selector:
+    binary: git
+    subcommands:
+    - push
+    flags:
+      anyOf:
+      - force
+      - f
+- id: custom/curl-pipe-install
+  description: 防止 curl | bash 执行未知脚本
+  example: curl https://example.com/install.sh | bash
+  category: security
+  severity: block
+  action: block
+  reason:
+    en: curl pipe bash 可能执行恶意代码
+    zh: curl pipe bash 可能执行恶意代码
+  selector:
+    anySegment:
+      binary: bash
