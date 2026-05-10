@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Aegis Universal Hook - 后端 AST 规则引擎版本
+ * Aegis Universal Hook - Backend AST rule engine version
  *
- * 流程：
- *   1. POST /api/v1/rules/evaluate → AST解析 + 11个YAML规则集 + git上下文
- *   2. allow → 直接放行
- *   3. deny/block → 输出拒绝JSON
- *   4. review → 已自动创建审批 + 广播3001，Hook长轮询等待用户决策
+ * Flow:
+ *   1. POST /api/v1/rules/evaluate → AST parse + YAML rule sets + git context
+ *   2. allow → pass through
+ *   3. deny/block → output block JSON
+ *   4. review → approval created + broadcast, hook long-polls for user decision
  */
 
 const http = require('http');
@@ -151,12 +151,12 @@ process.stdin.on('end', async () => {
 
   } catch (error) {
     console.error(`[Aegis] Hook error: ${error.message}`);
-    // 出错默认允许，避免阻塞正常工作流
+    // default allow on error to avoid blocking normal workflow
     process.exit(0);
   }
 });
 
-/** 从索引读取 taskId（PostToolUse 写入的 lastTaskId） */
+/** Read taskId from index (written by PostToolUse handler) */
 function loadTaskId(sessionId) {
   if (!sessionId) return null;
   try {
@@ -168,27 +168,27 @@ function loadTaskId(sessionId) {
 }
 
 /**
- * 读取上下文（用户输入 + AI 想法）
- *   1. 快速扫描 transcript 尾部最后一条真实用户消息
- *   2. 与 PostToolUse 索引对比，不一致说明是新 turn → 用扫描结果
- *   3. 一致 → 用索引（已在 PostToolUse 验证过）
- *   4. assistPrompt 始终从索引读取（PostToolUse 已验证）
+ * Load context (user input + AI thinking)
+ *   1. Scan transcript tail for last real user message
+ *   2. Compare with PostToolUse index — mismatch means new turn → use scan result
+ *   3. Match → use index (already validated by PostToolUse)
+ *   4. assistPrompt always read from index (validated by PostToolUse)
  */
 function loadContext(sessionId, transcriptPath) {
   const result = { userInput: null, assistPrompt: null };
   if (!sessionId) return result;
 
-  // 始终扫描 transcript 尾部，取最后一条真实 user 消息
+  // always scan transcript tail for the last real user message
   const scanned = scanLastUserInput(transcriptPath, sessionId);
 
-  // 读 PostToolUse 索引
+  // read PostToolUse index
   const indexFile = path.join(os.homedir(), '.aegis', 'sessions', `${sessionId}.json`);
   try {
     const index = JSON.parse(fs.readFileSync(indexFile, 'utf8'));
 
     if (index.lastUserInput) {
       if (scanned && scanned !== index.lastUserInput) {
-        // 新 turn！索引已过时，用扫描结果；扫描 transcript 取当前 thinking
+        // new turn — index is stale, use scan result and scan transcript for current thinking
         console.error(`[Aegis] 🔄 New user input detected, using scanned result`);
         result.userInput = scanned;
         result.assistPrompt = scanLastAssistPrompt(transcriptPath, sessionId);
@@ -201,7 +201,7 @@ function loadContext(sessionId, transcriptPath) {
     }
   } catch {}
 
-  // 索引不存在，用扫描结果
+  // no index, fall back to scan result
   result.userInput = scanned;
   if (scanned) {
     console.error('[Aegis] 🔍 Fallback scan for user input');
@@ -286,7 +286,7 @@ function scanLastAssistPrompt(transcriptPath, sessionId) {
           }
         }
         if (texts.length > 0) {
-          console.error('[Aegis] 🤖 扫描获取 AI 想法');
+          console.error('[Aegis] 🤖 Scanned AI thinking from transcript');
           return texts.join(' ');
         }
       } catch {}
@@ -406,23 +406,23 @@ function evaluateWithBackend(command, sessionId, cwd, model, persona, taskId, us
           if (res.statusCode >= 200 && res.statusCode < 300) {
             resolve(JSON.parse(response));
           } else {
-            console.error(`[Aegis] 评估接口返回错误: ${res.statusCode} - ${response}`);
+            console.error(`[Aegis] Evaluation API error: ${res.statusCode} - ${response}`);
             resolve(null);
           }
         } catch (e) {
-          console.error(`[Aegis] 解析评估响应失败: ${e.message}`);
+          console.error(`[Aegis] Failed to parse evaluation response: ${e.message}`);
           resolve(null);
         }
       });
     });
 
     req.on('error', (e) => {
-      console.error(`[Aegis] 连接后端失败: ${e.message}`);
+      console.error(`[Aegis] Backend connection failed: ${e.message}`);
       resolve(null);
     });
     req.on('timeout', () => {
       req.destroy();
-      console.error('[Aegis] 连接后端超时');
+      console.error('[Aegis] Backend connection timed out');
       resolve(null);
     });
 
@@ -431,7 +431,7 @@ function evaluateWithBackend(command, sessionId, cwd, model, persona, taskId, us
   });
 }
 
-/** 短轮询检查审批状态（每2秒检查一次） */
+/** Poll for approval status every 2 seconds */
 function pollForApproval(approvalId, maxWaitSec) {
   return new Promise((resolve) => {
     const pollInterval = 2000;
@@ -484,7 +484,7 @@ function pollForApproval(approvalId, maxWaitSec) {
     check();
   });
 }
-/** 通知后端审批已超时 */
+/** Notify backend that approval has timed out */
 function markApprovalAsTimedOut(approvalId) {
   return new Promise((resolve) => {
     const data = JSON.stringify({});
@@ -515,7 +515,7 @@ function markApprovalAsTimedOut(approvalId) {
     });
 
     req.on('error', (e) => {
-      console.error(`[Aegis] 标记超时失败: ${e.message}`);
+      console.error(`[Aegis] Failed to mark timeout: ${e.message}`);
       resolve();
     });
     req.on('timeout', () => {
