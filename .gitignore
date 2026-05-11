@@ -130,6 +130,12 @@ backend/dist/
 frontend/dist/
 **/package-minimal.json
 
+# Lock files
+package-lock.json
+**/package-lock.json
+yarn.lock
+**/yarn.lock
+
 # Claude Code local settings
 .claude/
 
