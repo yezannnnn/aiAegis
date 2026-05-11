@@ -10,7 +10,8 @@
     "build": "node bin/aegis.js build",
     "start": "node bin/aegis.js start",
     "postinstall": "node bin/postinstall.js",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0"
   },
   "files": [
     "bin/",
@@ -53,5 +54,8 @@
   "bugs": {
     "url": "https://github.com/yezannnnn/aiAegis/issues"
   },
-  "homepage": "https://github.com/yezannnnn/aiAegis#readme"
+  "homepage": "https://github.com/yezannnnn/aiAegis#readme",
+  "devDependencies": {
+    "conventional-changelog-cli": "^4.1.0"
+  }
 }
