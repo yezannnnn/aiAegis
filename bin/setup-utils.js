@@ -91,11 +91,16 @@ class AegisSetupUtils {
       }
 
       const hookPath = path.join(this.aegisDir, 'universal-hook.js');
+      const postHookPath = path.join(this.aegisDir, 'post-tool-use-handler.js');
 
       settings.hooks = settings.hooks || {};
       settings.hooks.PreToolUse = settings.hooks.PreToolUse || [];
+      settings.hooks.PostToolUse = settings.hooks.PostToolUse || [];
 
       settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter(
+        h => !JSON.stringify(h).includes('.aegis')
+      );
+      settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter(
         h => !JSON.stringify(h).includes('.aegis')
       );
 
@@ -105,6 +110,15 @@ class AegisSetupUtils {
           type: 'command',
           command: `node "${hookPath}"`,
           timeout: 120
+        }]
+      });
+
+      settings.hooks.PostToolUse.push({
+        matcher: 'Bash',
+        hooks: [{
+          type: 'command',
+          command: `node "${postHookPath}"`,
+          timeout: 10
         }]
       });
 
