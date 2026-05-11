@@ -14,6 +14,9 @@
           <div class="command-label">{{ currentTexts.notifModalWhy }}</div>
           <div class="command-display">{{ currentTexts.notifModalBody }}</div>
         </div>
+        <div class="command-section" style="margin-top: 1rem;">
+          <div class="tip-display">{{ currentTexts.notifModalBodyTip }}</div>
+        </div>
       </div>
       <div class="modal-actions">
         <button class="action-btn action-deny" @click="$emit('skip')">
@@ -41,6 +44,7 @@
           <div class="command-label">{{ currentTexts.notifDeniedBrowserLabel }}</div>
           <div class="command-display">
             {{ currentTexts.notifDeniedChrome }}<br><br>
+            {{ currentTexts.notifDeniedEdge }}<br><br>
             {{ currentTexts.notifDeniedSafari }}
           </div>
         </div>
@@ -179,6 +183,18 @@ defineEmits(['grant', 'skip', 'close-guide', 'test-notif']);
   padding: 1rem;
   color: var(--accent-green);
   word-break: break-all;
+}
+
+.tip-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid var(--info);
+  border-left: 3px solid var(--info);
+  padding: 0.8rem;
+  color: var(--info);
+  border-radius: 0 4px 4px 0;
+  font-style: italic;
 }
 
 .details-grid {

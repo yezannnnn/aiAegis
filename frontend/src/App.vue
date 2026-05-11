@@ -110,10 +110,12 @@ const languages = {
     notifModalTitle: "ENABLE NOTIFICATIONS",
     notifModalWhy: "WHY",
     notifModalBody: "拦截到危险命令时，即使页面在后台也能第一时间收到系统通知提醒你前来审批",
+    notifModalBodyTip: "💡 如果点击后没有反应，请检查浏览器地址栏旁边是否有 🔔 图标，点击它来授权通知",
     notifSkip: "跳过",
     notifEnable: "开启通知",
     notifDeniedTitle: "⚠️ 需在浏览器设置中手动开启",
     notifDeniedChrome: "Chrome：地址栏左侧 🔒 → 通知 → 允许",
+    notifDeniedEdge: "Edge：地址栏左侧 🔒 → 通知 → 允许，或设置 → Cookie和站点权限 → 通知",
     notifDeniedSafari: "Safari：系统设置 → 通知 → 浏览器 → 开启",
     notifDeniedRefresh: "开启后刷新页面生效",
     notifDeniedBtn: "知道了",
@@ -164,10 +166,12 @@ const languages = {
     notifModalTitle: "ENABLE NOTIFICATIONS",
     notifModalWhy: "WHY",
     notifModalBody: "Get instantly notified when a risky command is intercepted, even when the page is in the background",
+    notifModalBodyTip: "💡 If nothing happens after clicking, check if there's a 🔔 icon near the address bar and click it to authorize notifications",
     notifSkip: "Skip",
     notifEnable: "Enable",
     notifDeniedTitle: "⚠️ Manual browser settings required",
     notifDeniedChrome: "Chrome: Click 🔒 in address bar → Notifications → Allow",
+    notifDeniedEdge: "Edge: Click 🔒 in address bar → Notifications → Allow, or Settings → Cookies and site permissions → Notifications",
     notifDeniedSafari: "Safari: System Settings → Notifications → Browser → Enable",
     notifDeniedRefresh: "Refresh page after enabling",
     notifDeniedBtn: "Got it",
@@ -230,44 +234,130 @@ const onEventsScroll = (e: Event) => {
 
 const grantNotifPermission = async () => {
   if (!("Notification" in window)) {
+    console.warn("⚠️ 此浏览器不支持通知功能");
     showNotifModal.value = false;
     return;
   }
+
+  console.log("🔔 尝试请求通知权限，当前状态:", Notification.permission);
+
+  // 如果已经被明确拒绝，直接显示设置指引
   if (Notification.permission === "denied") {
+    console.log("❌ 通知权限已被拒绝，显示设置指引");
     showNotifModal.value = false;
     showNotifGuide.value = true;
     return;
   }
-  const result = await Notification.requestPermission();
-  notifPermission.value = result;
-  showNotifModal.value = false;
-  if (result === "denied") showNotifGuide.value = true;
+
+  try {
+    // 尝试请求权限（无论当前状态如何）
+    const result = await Notification.requestPermission();
+    notifPermission.value = result;
+    showNotifModal.value = false;
+
+    console.log("📱 通知权限请求结果:", result);
+
+    if (result === "granted") {
+      console.log("✅ 通知权限已获取");
+      // 发送测试通知确认功能正常
+      try {
+        const testNotif = new Notification("🛡️ Aegis 通知已开启", {
+          body: "现在可以在后台收到安全警报了",
+          requireInteraction: false,
+        });
+        setTimeout(() => testNotif.close(), 3000);
+      } catch (e) {
+        console.warn("⚠️ 测试通知发送失败:", e);
+      }
+    } else if (result === "denied") {
+      console.log("❌ 用户拒绝了通知权限，显示设置指引");
+      showNotifGuide.value = true;
+    } else {
+      console.log("⏸️ 权限请求被忽略或取消");
+    }
+  } catch (error) {
+    console.error("❌ 请求通知权限时出错:", error);
+    // 如果API调用失败，显示设置指引
+    showNotifGuide.value = true;
+  }
 };
 
 const handleNotifClick = async () => {
-  if (!("Notification" in window)) return;
-  if (Notification.permission === "granted") return;
+  if (!("Notification" in window)) {
+    console.warn("⚠️ 此浏览器不支持通知功能");
+    return;
+  }
+
+  console.log("🔔 点击通知按钮，当前权限状态:", Notification.permission);
+
+  if (Notification.permission === "granted") {
+    console.log("✅ 通知权限已开启，无需操作");
+    return;
+  }
+
   if (Notification.permission === "denied") {
+    console.log("❌ 通知权限已被拒绝，直接显示设置指引");
+    // denied状态直接显示设置指引，不显示"开启通知"按钮
     showNotifGuide.value = true;
     return;
   }
+
+  // default状态，显示权限请求模态框（包含提示文案）
+  console.log("📋 显示通知权限请求模态框（包含地址栏图标提示）");
   showNotifModal.value = true;
 };
 
 const handleTestNotification = () => {
+  console.log("🧪 尝试发送测试通知，当前权限:", Notification.permission);
+
+  if (!("Notification" in window)) {
+    console.warn("⚠️ 此浏览器不支持通知功能");
+    alert("⚠️ 此浏览器不支持桌面通知功能");
+    return;
+  }
+
   if (Notification.permission !== "granted") {
+    console.log("❌ 通知权限未获取，显示权限请求模态框");
     showNotifModal.value = true;
     return;
   }
+
   try {
-    const n = new Notification("🧪 Aegis Test Notification", {
-      body: "If you can see this, browser notifications are working correctly.",
+    const n = new Notification("🧪 Aegis 测试通知", {
+      body: "如果你看到了这条消息，说明浏览器通知功能正常工作！",
+      icon: "/favicon.ico", // 添加图标
       requireInteraction: true,
     });
-    n.onclick = () => { window.focus(); n.close(); };
-    console.log("✅ 测试通知已发送，检查系统通知中心");
+
+    n.onclick = () => {
+      window.focus();
+      n.close();
+      console.log("👆 用户点击了测试通知");
+    };
+
+    // 5秒后自动关闭
+    setTimeout(() => {
+      n.close();
+    }, 5000);
+
+    console.log("✅ 测试通知已发送！请检查:");
+    console.log("   1. 屏幕右上角/右下角的通知弹窗");
+    console.log("   2. macOS通知中心");
+    console.log("   3. Windows操作中心");
+
+    // 给用户一个界面反馈
+    if (currentLang.value === 'zh') {
+      alert("✅ 测试通知已发送！\n请检查屏幕角落或系统通知中心");
+    } else {
+      alert("✅ Test notification sent!\nCheck screen corners or system notification center");
+    }
+
   } catch (e) {
     console.error("❌ 测试通知发送失败:", e);
+    const errorMsg = currentLang.value === 'zh'
+      ? "❌ 测试通知发送失败，请检查浏览器设置"
+      : "❌ Test notification failed, check browser settings";
+    alert(errorMsg);
   }
 };
 
@@ -779,6 +869,22 @@ const connectWebSocket = () => {
 // 生命周期
 onMounted(() => {
   connectWebSocket();
+
+  // 调试：输出详细的通知权限信息
+  console.log("🔍 === 通知权限调试信息 ===");
+  console.log("浏览器支持通知:", "Notification" in window);
+  if ("Notification" in window) {
+    console.log("原始权限状态:", Notification.permission);
+    console.log("权限状态类型:", typeof Notification.permission);
+    console.log("是否等于denied:", Notification.permission === "denied");
+    console.log("是否等于default:", Notification.permission === "default");
+    console.log("是否等于granted:", Notification.permission === "granted");
+  }
+  console.log("浏览器UA:", navigator.userAgent);
+  console.log("当前URL:", window.location.href);
+  console.log("notifPermission ref值:", notifPermission.value);
+  console.log("🔍 === 调试信息结束 ===");
+
   if ("Notification" in window && Notification.permission === "default") {
     showNotifModal.value = true;
   }

@@ -101,6 +101,9 @@ program
       const config = await fs.readJson(configFile);
       config.ports = config.ports || {};
       config.ports.webInterface = parseInt(options.port);
+      // Fix Bug 2: Also update backend.port for consistency
+      config.backend = config.backend || {};
+      config.backend.port = parseInt(options.port);
       await fs.writeJson(configFile, config, { spaces: 2 });
     }
 
@@ -213,8 +216,9 @@ rulesCmd
   .description('List all active rules (built-in + user)')
   .action(async () => {
     try {
-      const data = await apiGet('http://localhost:3001/api/v1/rules');
-      const info = await apiGet('http://localhost:3001/api/v1/rules/info');
+      const port = await getConfigPort();
+      const data = await apiGet(`http://localhost:${port}/api/v1/rules`);
+      const info = await apiGet(`http://localhost:${port}/api/v1/rules/info`);
 
       console.log(chalk.cyan('📋 Aegis Rule List'));
       console.log(chalk.gray(`Total: ${data.count} rules\n`));
@@ -336,7 +340,8 @@ rulesCmd
   .action(async () => {
     const spinner = ora('Reloading rules...').start();
     try {
-      const result = await apiPost('http://localhost:3001/api/v1/rules/reload', {});
+      const port = await getConfigPort();
+      const result = await apiPost(`http://localhost:${port}/api/v1/rules/reload`, {});
       spinner.succeed('Rules reloaded');
       if (result?.summary) {
         const s = result.summary;
@@ -357,10 +362,11 @@ program
     console.log(chalk.cyan('🔍 Aegis Service Status'));
     console.log(chalk.gray('======================='));
     try {
-      const info = await apiGet('http://localhost:3001/api/v1/rules/info');
+      const port = await getConfigPort();
+      const info = await apiGet(`http://localhost:${port}/api/v1/rules/info`);
       console.log(`Service: ${chalk.green('✅ Running')}`);
       console.log(`Rules:   ${info.total} rules (built-in ${info.bySource['built-in']} / user ${info.bySource['user']})`);
-      console.log(`Dashboard: ${chalk.cyan('http://localhost:3001')}`);
+      console.log(`Dashboard: ${chalk.cyan(`http://localhost:${port}`)}`);
     } catch {
       console.log(`Service: ${chalk.red('❌ Not running')}`);
       console.log('💡 Run ' + chalk.cyan('aegis start') + ' to start the service');
@@ -417,6 +423,21 @@ program
 // ============================================================
 // Helper: HTTP requests
 // ============================================================
+
+// Fix Bug 3: Read port from config instead of hardcoding
+async function getConfigPort() {
+  try {
+    const configFile = path.join(AEGIS_HOME, 'config.json');
+    if (await fs.pathExists(configFile)) {
+      const config = await fs.readJson(configFile);
+      return config.ports?.webInterface || config.backend?.port || 3001;
+    }
+  } catch (e) {
+    // Fall back to default port if config read fails
+  }
+  return 3001;
+}
+
 function apiGet(url) {
   return new Promise((resolve, reject) => {
     http.get(url, (res) => {
