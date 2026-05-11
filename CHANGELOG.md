@@ -1,154 +1,51 @@
-# Changelog / 更新日志
+## [0.3.2](https://github.com/yezannnnn/aiAegis/compare/25d43760c5006fa45bb24082fe0ff4ff0ec90b4c...v0.3.2) (2026-05-11)
 
-All notable changes to Aegis are documented here.  
-Aegis 所有重要变更均记录于此。
 
----
+### Bug Fixes
 
-## [0.3.2] - 2025-05-11
+* 多项 bug 修复 — 拦截数统计、Hermes 双触发、stats 查数据库、i18n ([fd47340](https://github.com/yezannnnn/aiAegis/commit/fd47340cf2e825eed9150867ce2e5d3261596872))
+* 提交最新代码 ([21a3d05](https://github.com/yezannnnn/aiAegis/commit/21a3d05aa40e8455cc6b486d4eb9167c62d1ec09))
+* 提交最新代码 ([3bb8d6a](https://github.com/yezannnnn/aiAegis/commit/3bb8d6a3ff90a62ef19557780f0d668768eca137))
+* 提交最新代码新增样式 ([6295dbf](https://github.com/yezannnnn/aiAegis/commit/6295dbf7c6608d30f5cb333f80a96b763c1b12e8))
+* 提交最新代码新增样式 ([e6362e8](https://github.com/yezannnnn/aiAegis/commit/e6362e8dc8be2ac4e93cda0ada0d4b3a24e6edbc))
+* 修复 SQL 规则 (?i) 无效导致所有规则静默失效，新增 SQLite 规则集 ([dfb7c10](https://github.com/yezannnnn/aiAegis/commit/dfb7c107b2e20c76532e6e748d9bf364f59f01c9))
+* 修复 SQL 规则 (?i) 无效导致所有规则静默失效，新增 SQLite 规则集 ([aa2f2ac](https://github.com/yezannnnn/aiAegis/commit/aa2f2accdd894f70c2e3e0f39f3b29698e238cf9))
+* 修复前端3001端口页面监控面板 ([25d4376](https://github.com/yezannnnn/aiAegis/commit/25d43760c5006fa45bb24082fe0ff4ff0ec90b4c))
+* 修复统一hook入库新web修改 ([df9a636](https://github.com/yezannnnn/aiAegis/commit/df9a636b91a84034110552d29fc228252b13d5d9))
+* 增加rules示例模板 ([0cd3398](https://github.com/yezannnnn/aiAegis/commit/0cd3398b351ddc75ed69c721ed97d53f2330f09d))
+* accept HTTP 201 status from backend evaluate API ([3ee69b5](https://github.com/yezannnnn/aiAegis/commit/3ee69b5066973e3e5d56468dc1477e05b7446a35))
+* add hooks/hermes files to npm package.json files field ([2b901dd](https://github.com/yezannnnn/aiAegis/commit/2b901dd19e2f82d560568f686bfaeb0727400ed1))
+* agent_update dedup by type+sessionId in App.vue (not just type) ([128eec4](https://github.com/yezannnnn/aiAegis/commit/128eec4f74126c65c5b4106c395a358e382b1c6a))
+* all hook console output strings in English ([5341b10](https://github.com/yezannnnn/aiAegis/commit/5341b1051fc4f77290c40e6c6cc4b544b21c3e00))
+* all runtime output in English (backend logs, hook messages, browser notifications) ([852330d](https://github.com/yezannnnn/aiAegis/commit/852330dcd974436817266a9bd68538645e587864))
+* approval reason strings from frontend now in English ([f0ba457](https://github.com/yezannnnn/aiAegis/commit/f0ba4570e13a85270d7a00f8ce46d2861993535b))
+* approvalId bug fix, README rewrite, screenshots, configurable timeout ([4c3555f](https://github.com/yezannnnn/aiAegis/commit/4c3555fe4a3a54ad323587cb2bd191d230cf2c0b))
+* browser notifications follow UI language, hook debug output in English ([137f08e](https://github.com/yezannnnn/aiAegis/commit/137f08eac527bcdfa9d67729c010958603549d9e))
+* CLI all output in English, fix [object Object] in rules list ([087ae61](https://github.com/yezannnnn/aiAegis/commit/087ae61eb1b0014e49b08973dd74d0a28d5d6620))
+* frontend listens for new_event not event_update for real-time push ([12ce0f0](https://github.com/yezannnnn/aiAegis/commit/12ce0f0a0af323fd57a231f68929e9d2a56d963c))
+* multi-session agent tracking, block/allow recording, WebSocket CORS ([117e84f](https://github.com/yezannnnn/aiAegis/commit/117e84f4158160ebc0285592adb50eef2e11384a))
+* publish version update 0.3.0 ([812fc4f](https://github.com/yezannnnn/aiAegis/commit/812fc4fdf8d0777c78c41a82bf9cbe23a3a4dfd6))
+* remove remaining Chinese strings from approval reason and event labels ([19c305a](https://github.com/yezannnnn/aiAegis/commit/19c305a75ca1f6293a9dfcaf37b6bcc84c36b57f))
+* resolve port configuration issues and enhance notification UX ([a2951d6](https://github.com/yezannnnn/aiAegis/commit/a2951d68ffc0bfb04b74a7b8a9dc44e3061cf6f5))
 
-### Features / 新功能
-- `aegis setup` now automatically registers the PostToolUse Bash hook, enabling user input context indexing for PreToolUse  
-  `aegis setup` 现在自动注册 PostToolUse Bash hook，支持 PreToolUse 读取用户输入上下文
 
-### Chores / 杂项
-- Remove `package-lock.json` files from version control and add to `.gitignore`  
-  从版本控制中移除 `package-lock.json`，加入 `.gitignore`
+### Features
 
----
+* 规则 reason 国际化 + Hermes 安装流程改进 ([a9d7c91](https://github.com/yezannnnn/aiAegis/commit/a9d7c91b9ae562ba35a05eb5606df0f0fe7ceae3))
+* 新增prdmd ([188ebac](https://github.com/yezannnnn/aiAegis/commit/188ebacec45e5d5a38b2eb628d5d09e6d41062bb))
+* 增加英文版本README ([1de9699](https://github.com/yezannnnn/aiAegis/commit/1de9699cc13a3d9801f68698892e01bb656f303b))
+* add Hermes Plugin Hook core script (plugin.py) ([0ef6560](https://github.com/yezannnnn/aiAegis/commit/0ef656080e1ae94346b675069f5d46ef16274a6a))
+* add Hermes Plugin Hook option to setup command (aegis.js) ([1aed6a3](https://github.com/yezannnnn/aiAegis/commit/1aed6a3676450b9555637efaabd6386aaa8d3038))
+* add Hermes Plugin Hook setup support (setup-utils.js) ([f22b984](https://github.com/yezannnnn/aiAegis/commit/f22b984cf3d523e3bda01e9c556755a18e9deffa))
+* add time filter (1H / 24H / TODAY / ALL TIME) to event list ([1581582](https://github.com/yezannnnn/aiAegis/commit/1581582ec7b72ab6fe05ce365ec1a886b2adada3))
+* capture model name from session transcript in agent card ([93ff42d](https://github.com/yezannnnn/aiAegis/commit/93ff42d9597afd72257e249bb31becc7548391df))
+* copy post-tool-use-handler.js during aegis setup ([e4797e8](https://github.com/yezannnnn/aiAegis/commit/e4797e8d75d46e67a5b62ca3a8bb911bc06c61bb))
+* detect agent persona from PERSONA.md or cwd dirname ([1062bce](https://github.com/yezannnnn/aiAegis/commit/1062bcea517767b6b2e6b848c303e0c71d71e1fb))
+* npm单包发布架构 - 编译后产物直接运行 ([cf6c12f](https://github.com/yezannnnn/aiAegis/commit/cf6c12fae96c90dd5e760800e3967da435cc479f))
+* PostToolUse user input indexing — capture and display user context in security events ([7289046](https://github.com/yezannnnn/aiAegis/commit/7289046519a232d9ed837d62cc471dcb8a8b77b3))
+* register PostToolUse hook during aegis setup ([fb17017](https://github.com/yezannnnn/aiAegis/commit/fb1701777f7fd9ebcd068a0ef025d0c184bc5a05))
+* **rules:** implement selector DSL v2 with BashAstService and full test suite ([d28644a](https://github.com/yezannnnn/aiAegis/commit/d28644ae9bd2c00b2dc691b4a68a318a5f50f425))
+* task ID tracking in event list (taskId from parentUuid chain) ([b945ad1](https://github.com/yezannnnn/aiAegis/commit/b945ad118adb38c26d301bb4f025aecf09b391ce))
 
-## [0.3.1] - 2025-05
 
-### Features / 新功能
-- Copy `post-tool-use-handler.js` to `~/.aegis/` during setup  
-  setup 时自动将 `post-tool-use-handler.js` 复制到 `~/.aegis/`
 
-### Fixes / 修复
-- Resolve port configuration sync issue (`ports.webInterface` + `backend.port`)  
-  修复端口配置不同步问题
-- Improve notification UX  
-  改善通知交互体验
-- All hook console output in English  
-  Hook 所有控制台输出改为英文
-- Remove remaining Chinese strings from approval reason and event labels  
-  移除审批原因和事件标签中剩余的中文字符串
-- Browser notifications follow UI language setting  
-  浏览器通知跟随界面语言设置
-
-### Docs / 文档
-- Add Supported Agents table (Claude Code + Hermes) in README (EN + CN)  
-  README 中新增支持的 Agent 对比表（Claude Code + Hermes）
-- Add OpenClaw, Codex, OpenCode as "coming soon" in agent table  
-  在 Agent 表中标注 OpenClaw、Codex、OpenCode 为 Coming Soon
-
----
-
-## [0.3.0] - 2025-04
-
-### Features / 新功能
-- **Hermes Plugin Hook** — `pre_llm_call` caches user input; `pre_tool_call` reads cache for context  
-  **Hermes 插件 Hook** — `pre_llm_call` 缓存用户输入，`pre_tool_call` 读取缓存获取上下文
-- Hermes auto-enable via `hermes plugins enable aegis` during setup  
-  setup 时自动执行 `hermes plugins enable aegis`
-- Rule `reason` field internationalization (en/zh)  
-  规则 `reason` 字段支持国际化（中/英）
-- PostToolUse user input indexing — display user context in security events  
-  PostToolUse 用户输入索引，在安全事件中展示用户上下文
-- Task ID tracking in event list (via `parentUuid` chain)  
-  事件列表支持 Task ID 追踪（通过 `parentUuid` 链）
-- Detect agent persona from `PERSONA.md` or cwd dirname  
-  从 `PERSONA.md` 或工作目录名自动识别 Agent 身份
-- Capture model name from session transcript  
-  从会话记录中自动读取模型名称
-- Time filter (1H / 24H / TODAY / ALL TIME) in event list  
-  事件列表新增时间筛选器（1H / 24H / TODAY / ALL TIME）
-
-### Fixes / 修复
-- Multi-session agent tracking, block/allow recording, WebSocket CORS  
-  多 session Agent 追踪、拦截/放行记录、WebSocket CORS 修复
-- `agent_update` dedup by `type+sessionId`  
-  `agent_update` 按 `type+sessionId` 去重
-- Frontend listens for `new_event` for real-time push  
-  前端监听 `new_event` 事件实现实时推送
-- Hermes double-trigger issue  
-  修复 Hermes 双重触发问题
-- Intercept count statistics  
-  修复拦截次数统计错误
-- Accept HTTP 201 from backend evaluate API  
-  后端 evaluate 接口接受 HTTP 201 响应
-- CLI output fully in English; fix `[object Object]` in rules list  
-  CLI 全面英文化；修复规则列表显示 `[object Object]`
-
-### Chores / 杂项
-- Bump version to 0.3.0; publish to npm  
-  版本升至 0.3.0，发布 npm
-
----
-
-## [0.2.0] - 2025-03
-
-### Features / 新功能
-- **Selector DSL v2** — BashAstService with full test suite  
-  **Selector DSL v2** — BashAstService，附完整测试套件
-- SQLite rule set (`sqlite.yaml`)  
-  新增 SQLite 规则集
-- User-defined rules: `aegis rules new`, `aegis rules reload`, `--project` flag  
-  用户自定义规则：`aegis rules new`、`aegis rules reload`、`--project` 标志
-- `aegis rules list` shows rules by source (built-in / user / project)  
-  `aegis rules list` 按来源分组展示规则
-- Event list scroll pagination  
-  事件列表滚动分页加载
-- TIMEOUT filter and smart time display in event list  
-  事件列表新增 TIMEOUT 筛选器和智能时间显示
-- Notification permission modal with i18n and denied guide  
-  通知权限模态框，支持 i18n 和权限被拒引导
-
-### Fixes / 修复
-- SQL rule `(?i)` flag was silently invalidating all rules  
-  修复 SQL 规则 `(?i)` 标志导致所有规则静默失效
-- WebSocket timeout events incorrectly handled as `deny`  
-  修复 WebSocket 超时事件被误处理为 deny
-- `approvalId` bug fix  
-  修复 approvalId 相关 bug
-
-### Refactor / 重构
-- npm single-package architecture — compiled artifacts run directly  
-  npm 单包架构，编译产物直接运行，无需分别启动前后端
-- Remove v1 legacy code and unused files  
-  清理旧版 v1 代码和无用文件
-- Reorganize `hooks/` for multi-AI-tool support  
-  重组 `hooks/` 目录，支持多 AI 工具（Claude Code、Hermes）
-- Configurable approval timeout  
-  审批超时时间可配置
-
-### Docs / 文档
-- Selector DSL v2.0 rule writing guide  
-  Selector DSL v2.0 规则编写指南
-- `example` field and `--project` flag documented  
-  `example` 字段和 `--project` 标志说明
-
----
-
-## [0.1.0] - 2025-02
-
-### Features / 新功能
-- Initial Aegis v2 — NestJS backend + Vue 3 frontend + CLI (`aegis setup / start / build`)  
-  Aegis v2 初始版本 — NestJS 后端 + Vue 3 前端 + CLI
-- PreToolUse hook intercepts Bash commands in Claude Code  
-  PreToolUse hook 拦截 Claude Code 中的 Bash 命令
-- YAML rule engine with `block` / `review` / `allow` actions  
-  YAML 规则引擎，支持 `block` / `review` / `allow` 三种动作
-- Real-time approval via WebSocket — approve or deny from dashboard  
-  WebSocket 实时审批，直接在 Dashboard 批准或拒绝
-- Built-in rule sets: filesystem, git, network, docker, mysql, prisma, development  
-  内置规则集：文件系统、git、网络、docker、mysql、prisma、开发环境
-- `aegis rules` CLI subcommands (list, new, path, reload)  
-  `aegis rules` CLI 子命令
-- `aegis status` and `aegis config` commands  
-  新增 `aegis status` 和 `aegis config` 命令
-- English + Chinese README  
-  中英双语 README
-
----
-
-*Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)*
