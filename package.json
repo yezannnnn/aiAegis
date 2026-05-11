@@ -19,6 +19,7 @@
     "backend/package.json",
     "frontend/dist/",
     "hooks/claude-code/universal-hook-v2.js",
+    "hooks/claude-code/post-tool-use-handler.js",
     "hooks/hermes/plugin.py",
     "hooks/hermes/README.md",
     "README.md"
