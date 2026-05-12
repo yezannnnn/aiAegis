@@ -1,0 +1,57 @@
+<h2>Aegis AI 评估层 — 第一个问题</h2>
+<p class="subtitle">我们聊了很多，先对齐：我们要解决的核心痛点是哪个？</p>
+
+<div class="section">
+  <h3>717GB 事故复盘</h3>
+  <div style="background:#1a1a2e;border-radius:8px;padding:16px;font-family:monospace;font-size:13px;line-height:1.8;">
+    <div style="color:#888;">用户说：</div>
+    <div style="color:#e2e8f0;">"删除桌面 WIP 文件夹"</div>
+    <div style="color:#888;margin-top:8px;">AI 生成：</div>
+    <div style="color:#68d391;">cmd /c "rd /S /Q \"C:\Users\ADMIN\Desktop\WIP\""</div>
+    <div style="color:#888;margin-top:8px;">经过 zsh → tmux → PowerShell → cmd 后变成：</div>
+    <div style="color:#fc8181;font-weight:bold;">rd /S /Q \　　← C盘根目录，717GB 没了</div>
+    <div style="color:#888;margin-top:8px;">Aegis 看到的命令：</div>
+    <div style="color:#fbd38d;">cmd /c "rd /S /Q \"C:\Users\ADMIN\Desktop\WIP\""　← 看起来合法，不会拦截</div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>这个故事里真正的痛是什么？选一个最准的：</h3>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>命令变质了，用户没察觉</h3>
+      <p>AI 生成的命令经过多层解析后面目全非，但执行时没有任何提示。用户以为在删文件夹，其实在删 C 盘。</p>
+      <p style="color:#68d391;font-size:12px;">→ 解法：执行前展示命令的真实效果</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>高危命令没有人工确认环节</h3>
+      <p>删 313GB 这种量级的操作，不应该 AI 说执行就执行。应该强制人工确认，让人看一眼再决定。</p>
+      <p style="color:#68d391;font-size:12px;">→ 解法：高危操作必须人工审批</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>用户看不懂命令，无法判断风险</h3>
+      <p>用户看到 rd /S /Q 根本不知道是干嘛的。就算弹了确认框，看不懂也还是会点"允许"。</p>
+      <p style="color:#68d391;font-size:12px;">→ 解法：AI 把命令翻译成人话</p>
+    </div>
+  </div>
+  <div class="option" data-choice="d" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>AI 的意图和命令不一致，没人发现</h3>
+      <p>用户说"删文件夹"，AI 生成了"删 C 盘"的命令。这个不一致应该被检测出来并拦截。</p>
+      <p style="color:#68d391;font-size:12px;">→ 解法：AI 比对用户意图 vs 实际命令</p>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:20px;color:#718096;font-size:13px;">可以多选。在浏览器点击后，在终端告诉我你的想法。</p>
