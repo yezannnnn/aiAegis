@@ -142,3 +142,7 @@ yarn.lock
 # PRD 产品需求文档（内部文档）
 PRD/
 *.prd
+
+# Superpowers brainstorming sessions
+.superpowers/
+docs/superpowers/
