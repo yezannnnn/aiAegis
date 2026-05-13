@@ -68,6 +68,19 @@ rules:
       anyOf:
       - force
       - f
+- id: custom/flow-skill-scripts
+  description: install
+  example: flow-skill/scripts/install.sh
+  category: security
+  severity: warning
+  action: allow
+  reason:
+    en: flow-skill scripts
+    zh: flow-skill scripts
+  selector:
+    binary: bash
+    arguments:
+    - pattern: '(flow-skill/)?scripts/.*\.sh'
 - id: custom/curl-pipe-install
   description: 防止 curl | bash 执行未知脚本
   example: curl https://example.com/install.sh | bash
@@ -78,5 +91,6 @@ rules:
     en: curl pipe bash 可能执行恶意代码
     zh: curl pipe bash 可能执行恶意代码
   selector:
+    hasPipes: true
     anySegment:
       binary: bash

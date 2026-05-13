@@ -10,6 +10,7 @@
  */
 
 const http = require('http');
+const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -39,6 +40,11 @@ process.stdin.on('data', chunk => {
 
 process.stdin.on('end', async () => {
   try {
+    // 递归保护：由 claude CLI 子进程调用时直接放行，防止无限递归
+    if (process.env.AEGIS_IN_HOOK === '1') {
+      process.exit(0);
+    }
+
     console.error('[AEGIS HOOK] triggered at:', new Date().toISOString());
     console.error('[AEGIS HOOK] port:', AEGIS_PORT);
 
@@ -105,7 +111,6 @@ process.stdin.on('end', async () => {
       case 'review':
         console.error(`[Aegis] 📋 Command intercepted: ${evaluation.reason}`);
         console.error(`[Aegis] 👉 Approve at http://localhost:${AEGIS_PORT}`);
-        console.error(`[Aegis] ⏳ Waiting for approval (max 30s)...`);
 
         if (!approvalRequestId) {
           console.error('[Aegis] ❌ Failed to create approval request, denying');
@@ -120,6 +125,17 @@ process.stdin.on('end', async () => {
           break;
         }
 
+        // 异步启动 AI 意图分析（不阻塞 Modal 弹出，完成后推送更新）
+        callClaudeForAnalysis(command, userInput, assistPrompt, evaluation.matchedRules)
+          .then(aiAnalysis => {
+            if (aiAnalysis) {
+              console.error(`[Aegis] 🤖 AI analysis ready: ${aiAnalysis.recommendation}`);
+              return patchApprovalAnalysis(approvalRequestId, aiAnalysis);
+            }
+          })
+          .catch(() => {});
+
+        console.error(`[Aegis] ⏳ Waiting for approval (max 30s)...`);
         // Poll for approval (every 2s, max 30s)
         const decision = await pollForApproval(approvalRequestId, 30);
 
@@ -484,6 +500,103 @@ function pollForApproval(approvalId, maxWaitSec) {
     check();
   });
 }
+/** 异步调用 claude CLI 子进程做意图匹配分析 */
+function callClaudeForAnalysis(command, userInput, assistPrompt, matchedRules) {
+  return new Promise((resolve) => {
+    const prompt = buildIntentAnalysisPrompt(command, userInput, assistPrompt, matchedRules);
+    const child = exec(
+      'claude --print --no-session-persistence --model claude-haiku-4-5-20251001',
+      {
+        env: { ...process.env, AEGIS_IN_HOOK: '1' },
+        timeout: 25000,
+        encoding: 'utf8',
+      },
+      (error, stdout) => {
+        if (error) {
+          console.error(`[Aegis] 🤖 Claude CLI error: ${error.message}`);
+          resolve(null);
+          return;
+        }
+        resolve(parseAnalysis(stdout));
+      }
+    );
+    child.stdin.write(prompt);
+    child.stdin.end();
+  });
+}
+
+function buildIntentAnalysisPrompt(command, userInput, assistPrompt, matchedRules) {
+  const rules = matchedRules && matchedRules.length > 0 ? matchedRules.join(', ') : 'none';
+
+  // 构建三层上下文
+  const userSection = userInput
+    ? `USER REQUEST (what the user asked the AI to do):\n${userInput.substring(0, 500)}`
+    : 'USER REQUEST: unknown';
+
+  const agentSection = assistPrompt
+    ? `AGENT PLAN (what the AI said it would do, just before running the command):\n${assistPrompt.substring(0, 500)}`
+    : 'AGENT PLAN: not available';
+
+  return `You are a security analyst reviewing an AI coding agent's command execution.
+
+Your job: determine if the command is consistent with BOTH the user's request AND the agent's stated plan, and flag any suspicious deviation.
+
+${userSection}
+
+${agentSection}
+
+COMMAND BEING EXECUTED: ${command}
+TRIGGERED SECURITY RULES: ${rules}
+
+Analyze:
+1. Does the command match what the user asked for? (intentMatch)
+2. Does the command match what the agent said it would do? If the agent said "I will edit config.js" but runs "git push --force", that's a deviation.
+3. Is there any sign of the agent doing more than asked, or something unrelated?
+
+Respond ONLY with valid JSON, no markdown:
+{"intentMatch":true,"plainText":"2-3 sentences in Chinese summarizing the verdict","alerts":["specific concern if any"],"recommendation":"approve"}
+
+recommendation values: "approve" (safe, matches intent) | "caution" (matches intent but risky) | "deny" (deviates from intent or clearly unsafe)
+If alerts array is empty, use [].`;
+}
+
+function parseAnalysis(raw) {
+  try {
+    const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/\s*```\s*$/, '');
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed.plainText === 'string' && typeof parsed.recommendation === 'string') {
+      return parsed;
+    }
+  } catch {}
+  return null;
+}
+
+/** PATCH 已存在的审批记录，追加 AI 分析结果并触发前端更新 */
+function patchApprovalAnalysis(approvalId, aiAnalysis) {
+  return new Promise((resolve) => {
+    const data = JSON.stringify({ approvalId, aiAnalysis });
+    const options = {
+      hostname: '127.0.0.1',
+      port: AEGIS_PORT,
+      path: '/api/v1/rules/patch-analysis',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+      timeout: 5000,
+    };
+    const req = http.request(options, (res) => {
+      res.resume();
+      res.on('end', () => {
+        console.error(`[Aegis] 🤖 AI analysis patched: ${res.statusCode}`);
+        resolve();
+      });
+    });
+    req.on('error', () => resolve());
+    req.on('timeout', () => { req.destroy(); resolve(); });
+    req.write(data);
+    req.end();
+  });
+}
+
 /** Notify backend that approval has timed out */
 function markApprovalAsTimedOut(approvalId) {
   return new Promise((resolve) => {

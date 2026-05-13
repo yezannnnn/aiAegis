@@ -127,6 +127,18 @@
           </div>
           <div class="event-user-context">{{ event.reason || event.description }}</div>
 
+          <!-- AI 意图分析结果 -->
+          <div v-if="event.aiAnalysis" class="event-ai-analysis">
+            <span class="ai-rec-badge" :class="`rec-${event.aiAnalysis.recommendation}`">
+              🤖 {{ event.aiAnalysis.recommendation.toUpperCase() }}
+            </span>
+            <span v-if="!event.aiAnalysis.intentMatch" class="ai-intent-mismatch">⚠ INTENT MISMATCH</span>
+            <div class="ai-plain-text">{{ event.aiAnalysis.plainText }}</div>
+            <div v-if="event.aiAnalysis.alerts?.length" class="ai-alerts-inline">
+              <span v-for="alert in event.aiAnalysis.alerts" :key="alert" class="ai-alert-tag">⚠ {{ alert }}</span>
+            </div>
+          </div>
+
           <!-- 审批操作区域 -->
           <div v-if="event.status === 'pending' && event.approvalId" class="event-approval-actions">
             <button class="approval-btn approve-btn" @click="$emit('approve-event', event)">
@@ -550,6 +562,66 @@ defineEmits(['set-filter', 'set-time-filter', 'scroll', 'approve-event', 'deny-e
   color: var(--text-secondary);
   margin-top: 0.25rem;
   font-style: italic;
+}
+
+.event-ai-analysis {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid rgba(129, 140, 248, 0.25);
+  background: rgba(129, 140, 248, 0.04);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.ai-rec-badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid;
+  margin-right: 0.5rem;
+}
+
+.ai-rec-badge.rec-approve {
+  color: var(--accent-green);
+  border-color: var(--accent-green);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.ai-rec-badge.rec-caution {
+  color: #f59e0b;
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.ai-rec-badge.rec-deny {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.ai-intent-mismatch {
+  font-size: 0.62rem;
+  color: #f59e0b;
+  margin-right: 0.5rem;
+}
+
+.ai-plain-text {
+  font-size: 0.72rem;
+  color: var(--text-primary);
+  margin-top: 0.35rem;
+  line-height: 1.4;
+}
+
+.ai-alerts-inline {
+  margin-top: 0.3rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.ai-alert-tag {
+  font-size: 0.62rem;
+  color: #f59e0b;
 }
 
 .event-meta {

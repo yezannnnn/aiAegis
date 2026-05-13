@@ -50,6 +50,10 @@ export class MonitoringService {
     };
   }
 
+  updateEventAiAnalysis(approvalId: string, aiAnalysis: any): boolean {
+    return this.eventManager.updateEventAiAnalysis(approvalId, aiAnalysis);
+  }
+
   getSessions() {
     return {
       success: true,

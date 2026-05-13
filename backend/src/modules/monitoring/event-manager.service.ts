@@ -118,6 +118,17 @@ export class EventManagerService extends EventEmitter implements OnApplicationBo
     return false;
   }
 
+  updateEventAiAnalysis(approvalId: string, aiAnalysis: any): boolean {
+    for (const [id, event] of this.events) {
+      if (event.approvalId === approvalId) {
+        (event as any).aiAnalysis = aiAnalysis;
+        this.events.set(id, event);
+        return true;
+      }
+    }
+    return false;
+  }
+
   getEvents(): SecurityEvent[] {
     return Array.from(this.events.values())
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
