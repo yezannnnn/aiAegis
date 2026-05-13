@@ -10,6 +10,8 @@
   <StatsGrid
     :stats="stats"
     :current-texts="currentTexts"
+    :active-filter="eventFilter"
+    @filter-by-status="setEventFilter"
   />
 
   <AgentGrid
@@ -45,7 +47,7 @@
     :show-notif-guide="showNotifGuide"
     :current-texts="currentTexts"
     @grant="grantNotifPermission"
-    @skip="showNotifModal = false"
+    @skip="skipNotifPermission"
     @close-guide="showNotifGuide = false"
     @test-notif="handleTestNotification"
   />
@@ -98,34 +100,30 @@ const languages = {
     events: "事件",
     firstSeen: "首次",
     lastActivity: "最后活动",
-    sessionCount: "会话数",
-    eventCount: "事件",
-    allowed: "允许",
-    blocked: "阻止",
+    total: "总计",
+    blocked: "已阻止",
+    allowed: "已允许",
     pending: "待审批",
     timed_out: "已超时",
-    notifGranted: "🔔 通知已开启",
-    notifDenied: "🔕 通知已关闭",
-    notifDefault: "🔔 开启通知",
-    notifModalTitle: "ENABLE NOTIFICATIONS",
-    notifModalWhy: "WHY",
-    notifModalBody: "拦截到危险命令时，即使页面在后台也能第一时间收到系统通知提醒你前来审批",
-    notifModalBodyTip: "💡 如果点击后没有反应，请检查浏览器地址栏旁边是否有 🔔 图标，点击它来授权通知",
+    unknown: "未知",
+    notifModalTitle: "启用浏览器通知",
+    notifModalWhy: "为什么需要通知？",
+    notifModalBody: "当 Aegis 拦截到危险命令时，即使您不在当前页面，也能立即收到警报并审批。",
+    notifModalBodyTip: "💡 如果点击后没有反应，请检查地址栏附近的 🔒 图标，点击授权通知",
     notifSkip: "跳过",
     notifEnable: "开启通知",
-    notifDeniedTitle: "⚠️ 需在浏览器设置中手动开启",
-    notifDeniedChrome: "Chrome：地址栏左侧 🔒 → 通知 → 允许",
-    notifDeniedEdge: "Edge：地址栏左侧 🔒 → 通知 → 允许，或设置 → Cookie和站点权限 → 通知",
-    notifDeniedSafari: "Safari：系统设置 → 通知 → 浏览器 → 开启",
-    notifDeniedRefresh: "开启后刷新页面生效",
-    notifDeniedBtn: "知道了",
+    notifDeniedTitle: "通知权限被拒绝",
     notifDeniedBrowserLabel: "浏览器设置",
+    notifDeniedChrome: "Chrome: 地址栏点击 🔒 → 网站设置 → 通知 → 允许",
+    notifDeniedEdge: "Edge: 地址栏点击 🔒 → 权限 → 通知 → 允许",
+    notifDeniedSafari: "Safari: 偏好设置 → 网站 → 通知 → 允许",
     notifDeniedMacLabel: "macOS 系统设置",
-    notifDeniedMac: "系统设置 → 通知 → Google Chrome → 允许通知",
+    notifDeniedMac: "系统设置 → 通知 → 浏览器 → 允许通知",
+    notifDeniedRefresh: "修改后请刷新页面",
+    notifDeniedBtn: "我知道了",
     notifTestBtn: "发送测试通知",
-    executing: "执行",
-    intercepted: "拦截",
-    unknown: "未知",
+    executing: "执行中",
+    intercepted: "已拦截",
   },
   en: {
     title: "AEGIS",
@@ -137,51 +135,47 @@ const languages = {
     timedOut: "Timed Out",
     activeAgents: "[ Active Agents ]",
     activeSessions: "[ Active Sessions ]",
-    securityEvents: "[ Real-time Security Events & Agent Context ]",
+    securityEvents: "[ Real-time Security Events ]",
     noActiveAgents: "No active agents",
     noActiveSessions: "No active sessions",
-    waitingForEvents: "Waiting for intercept events...",
-    realTimeMonitoring: "REAL-TIME MONITORING",
-    testSimulate: "TEST SIMULATE",
-    connected: "CONNECTED",
-    disconnected: "DISCONNECTED",
-    connecting: "CONNECTING...",
-    connectedActive: "CONNECTED - MONITORING ACTIVE",
-    disconnectedCheck: "DISCONNECTED - CHECK SERVICE",
-    langSwitch: "中文",
+    waitingForEvents: "Waiting for events...",
+    realTimeMonitoring: "Real-time Monitoring",
+    testSimulate: "Test Simulate",
+    connected: "Connected",
+    disconnected: "Disconnected",
+    connecting: "Connecting...",
+    connectedActive: "Connected - Monitoring Active",
+    disconnectedCheck: "Disconnected - Check Service",
+    langSwitch: "中",
     session: "Session",
     risk: "Risk",
     events: "Events",
     firstSeen: "First Seen",
     lastActivity: "Last Activity",
-    sessionCount: "Sessions",
-    eventCount: "Events",
-    allowed: "Allowed",
+    total: "Total",
     blocked: "Blocked",
+    allowed: "Allowed",
     pending: "Pending",
     timed_out: "Timed Out",
-    notifGranted: "🔔 Notifications On",
-    notifDenied: "🔕 Notifications Off",
-    notifDefault: "🔔 Enable Notifications",
-    notifModalTitle: "ENABLE NOTIFICATIONS",
-    notifModalWhy: "WHY",
-    notifModalBody: "Get instantly notified when a risky command is intercepted, even when the page is in the background",
-    notifModalBodyTip: "💡 If nothing happens after clicking, check if there's a 🔔 icon near the address bar and click it to authorize notifications",
+    unknown: "Unknown",
+    notifModalTitle: "Enable Browser Notifications",
+    notifModalWhy: "Why notifications?",
+    notifModalBody: "When Aegis intercepts a dangerous command, you'll get instant alerts even when not on this page.",
+    notifModalBodyTip: "💡 If nothing happens after clicking, check the 🔒 icon near the address bar",
     notifSkip: "Skip",
     notifEnable: "Enable",
-    notifDeniedTitle: "⚠️ Manual browser settings required",
-    notifDeniedChrome: "Chrome: Click 🔒 in address bar → Notifications → Allow",
-    notifDeniedEdge: "Edge: Click 🔒 in address bar → Notifications → Allow, or Settings → Cookies and site permissions → Notifications",
-    notifDeniedSafari: "Safari: System Settings → Notifications → Browser → Enable",
-    notifDeniedRefresh: "Refresh page after enabling",
+    notifDeniedTitle: "Notification Permission Denied",
+    notifDeniedBrowserLabel: "Browser Settings",
+    notifDeniedChrome: "Chrome: Click 🔒 in address bar → Site settings → Notifications → Allow",
+    notifDeniedEdge: "Edge: Click 🔒 in address bar → Permissions → Notifications → Allow",
+    notifDeniedSafari: "Safari: Preferences → Websites → Notifications → Allow",
+    notifDeniedMacLabel: "macOS System Settings",
+    notifDeniedMac: "System Settings → Notifications → Browser → Allow",
+    notifDeniedRefresh: "Refresh page after changing",
     notifDeniedBtn: "Got it",
-    notifDeniedBrowserLabel: "BROWSER SETTINGS",
-    notifDeniedMacLabel: "MACOS SYSTEM SETTINGS",
-    notifDeniedMac: "System Settings → Notifications → Google Chrome → Allow Notifications",
-    notifTestBtn: "SEND TEST NOTIFICATION",
-    executing: "Running",
-    intercepted: "Blocked",
-    unknown: "Unknown",
+    notifTestBtn: "Send Test Notification",
+    executing: "Executing",
+    intercepted: "Intercepted",
   },
 };
 
@@ -194,17 +188,29 @@ const notifPermission = ref<NotificationPermission>(
 );
 const showNotifGuide = ref(false);
 const showNotifModal = ref(false);
+const notifSkipped = ref(sessionStorage.getItem("aegis-notif-skipped") === "true");
 
 // 分页加载
-const eventsOffset = ref(50);
+const eventsOffset = ref(0);
 const hasMoreEvents = ref(true);
 const isLoadingMore = ref(false);
 
-const loadMoreEvents = async () => {
-  if (isLoadingMore.value || !hasMoreEvents.value) return;
+const loadEvents = async (reset = false) => {
+  if (isLoadingMore.value) return;
   isLoadingMore.value = true;
+  
   try {
-    const res = await fetch(`/api/monitoring/events?offset=${eventsOffset.value}&limit=50`);
+    const params = new URLSearchParams();
+    params.append('offset', String(reset ? 0 : eventsOffset.value));
+    params.append('limit', '50');
+    if (eventFilter.value !== 'all') {
+      params.append('status', eventFilter.value);
+    }
+    if (timeFilter.value !== 'all') {
+      params.append('timeFilter', timeFilter.value);
+    }
+    
+    const res = await fetch(`/api/monitoring/events?${params.toString()}`);
     const json = await res.json();
     const newEvents = (json.data || []).map((event: any) => ({
       ...event,
@@ -214,16 +220,25 @@ const loadMoreEvents = async () => {
       time: formatEventTime(new Date(event.timestamp)),
       isNew: false,
     }));
-    // 去重追加到末尾
-    const existingIds = new Set(events.value.map((e: any) => e.id));
-    const deduped = newEvents.filter((e: any) => !existingIds.has(e.id));
-    events.value = [...events.value, ...deduped];
-    eventsOffset.value += 50;
-    if (deduped.length < 50) hasMoreEvents.value = false;
+    
+    if (reset) {
+      events.value = newEvents;
+      eventsOffset.value = 50;
+    } else {
+      const existingIds = new Set(events.value.map((e: any) => e.id));
+      const deduped = newEvents.filter((e: any) => !existingIds.has(e.id));
+      events.value = [...events.value, ...deduped];
+      eventsOffset.value += 50;
+    }
+    
+    if (newEvents.length < 50) hasMoreEvents.value = false;
+    else hasMoreEvents.value = true;
   } finally {
     isLoadingMore.value = false;
   }
 };
+
+const loadMoreEvents = () => loadEvents(false);
 
 const onEventsScroll = (e: Event) => {
   const el = e.target as HTMLElement;
@@ -234,130 +249,76 @@ const onEventsScroll = (e: Event) => {
 
 const grantNotifPermission = async () => {
   if (!("Notification" in window)) {
-    console.warn("⚠️ 此浏览器不支持通知功能");
     showNotifModal.value = false;
     return;
   }
-
-  console.log("🔔 尝试请求通知权限，当前状态:", Notification.permission);
-
-  // 如果已经被明确拒绝，直接显示设置指引
+  
   if (Notification.permission === "denied") {
-    console.log("❌ 通知权限已被拒绝，显示设置指引");
     showNotifModal.value = false;
     showNotifGuide.value = true;
     return;
   }
-
+  
   try {
-    // 尝试请求权限（无论当前状态如何）
     const result = await Notification.requestPermission();
     notifPermission.value = result;
     showNotifModal.value = false;
-
-    console.log("📱 通知权限请求结果:", result);
-
+    
     if (result === "granted") {
-      console.log("✅ 通知权限已获取");
-      // 发送测试通知确认功能正常
-      try {
-        const testNotif = new Notification("🛡️ Aegis 通知已开启", {
-          body: "现在可以在后台收到安全警报了",
-          requireInteraction: false,
-        });
-        setTimeout(() => testNotif.close(), 3000);
-      } catch (e) {
-        console.warn("⚠️ 测试通知发送失败:", e);
-      }
+      const testNotif = new Notification("Aegis 通知已开启", {
+        body: "现在可以在后台收到安全警报了",
+        requireInteraction: false,
+      });
+      setTimeout(() => testNotif.close(), 3000);
     } else if (result === "denied") {
-      console.log("❌ 用户拒绝了通知权限，显示设置指引");
       showNotifGuide.value = true;
-    } else {
-      console.log("⏸️ 权限请求被忽略或取消");
     }
   } catch (error) {
-    console.error("❌ 请求通知权限时出错:", error);
-    // 如果API调用失败，显示设置指引
     showNotifGuide.value = true;
   }
 };
 
+const skipNotifPermission = () => {
+  notifSkipped.value = true;
+  sessionStorage.setItem("aegis-notif-skipped", "true");
+  showNotifModal.value = false;
+};
+
 const handleNotifClick = async () => {
-  if (!("Notification" in window)) {
-    console.warn("⚠️ 此浏览器不支持通知功能");
-    return;
-  }
-
-  console.log("🔔 点击通知按钮，当前权限状态:", Notification.permission);
-
-  if (Notification.permission === "granted") {
-    console.log("✅ 通知权限已开启，无需操作");
-    return;
-  }
-
+  if (!("Notification" in window)) return;
+  
+  if (Notification.permission === "granted") return;
+  
   if (Notification.permission === "denied") {
-    console.log("❌ 通知权限已被拒绝，直接显示设置指引");
-    // denied状态直接显示设置指引，不显示"开启通知"按钮
     showNotifGuide.value = true;
     return;
   }
-
-  // default状态，显示权限请求模态框（包含提示文案）
-  console.log("📋 显示通知权限请求模态框（包含地址栏图标提示）");
+  
   showNotifModal.value = true;
 };
 
 const handleTestNotification = () => {
-  console.log("🧪 尝试发送测试通知，当前权限:", Notification.permission);
-
   if (!("Notification" in window)) {
-    console.warn("⚠️ 此浏览器不支持通知功能");
-    alert("⚠️ 此浏览器不支持桌面通知功能");
+    alert("此浏览器不支持桌面通知功能");
     return;
   }
-
+  
   if (Notification.permission !== "granted") {
-    console.log("❌ 通知权限未获取，显示权限请求模态框");
     showNotifModal.value = true;
     return;
   }
-
+  
   try {
-    const n = new Notification("🧪 Aegis 测试通知", {
+    const n = new Notification("Aegis 测试通知", {
       body: "如果你看到了这条消息，说明浏览器通知功能正常工作！",
-      icon: "/favicon.ico", // 添加图标
+      icon: "/favicon.ico",
       requireInteraction: true,
     });
-
-    n.onclick = () => {
-      window.focus();
-      n.close();
-      console.log("👆 用户点击了测试通知");
-    };
-
-    // 5秒后自动关闭
-    setTimeout(() => {
-      n.close();
-    }, 5000);
-
-    console.log("✅ 测试通知已发送！请检查:");
-    console.log("   1. 屏幕右上角/右下角的通知弹窗");
-    console.log("   2. macOS通知中心");
-    console.log("   3. Windows操作中心");
-
-    // 给用户一个界面反馈
-    if (currentLang.value === 'zh') {
-      alert("✅ 测试通知已发送！\n请检查屏幕角落或系统通知中心");
-    } else {
-      alert("✅ Test notification sent!\nCheck screen corners or system notification center");
-    }
-
+    n.onclick = () => { window.focus(); n.close(); };
+    setTimeout(() => n.close(), 5000);
+    alert("测试通知已发送！请检查屏幕角落或系统通知中心");
   } catch (e) {
-    console.error("❌ 测试通知发送失败:", e);
-    const errorMsg = currentLang.value === 'zh'
-      ? "❌ 测试通知发送失败，请检查浏览器设置"
-      : "❌ Test notification failed, check browser settings";
-    alert(errorMsg);
+    alert("测试通知发送失败，请检查浏览器设置");
   }
 };
 
@@ -379,28 +340,8 @@ const timeFilter = ref('all');
 // 计算属性
 const currentTexts = computed(() => languages[currentLang.value]);
 
-// 筛选后的事件列表（状态 + 时间双重过滤）
-const filteredEvents = computed(() => {
-  let result = events.value;
-
-  // 时间过滤
-  if (timeFilter.value !== 'all') {
-    const now = Date.now();
-    const cutoff = {
-      '1h':   now - 60 * 60 * 1000,
-      '24h':  now - 24 * 60 * 60 * 1000,
-      'today': new Date().setHours(0, 0, 0, 0),
-    }[timeFilter.value] ?? 0;
-    result = result.filter(e => new Date(e.timestamp || e.time).getTime() >= cutoff);
-  }
-
-  // 状态过滤
-  if (eventFilter.value !== 'all') {
-    result = result.filter(e => e.status === eventFilter.value);
-  }
-
-  return result;
-});
+// 筛选后的事件列表（现在只是展示用，实际数据从接口来）
+const filteredEvents = computed(() => events.value);
 
 // 格式化事件时间：当天只显示时间，非当天显示日期+时间
 const formatEventTime = (date: Date): string => {
@@ -431,11 +372,13 @@ const toggleLanguage = () => {
 // 设置时间筛选
 const setTimeFilter = (filter: string) => {
   timeFilter.value = filter;
+  loadEvents(true);
 };
 
 // 设置事件筛选
 const setEventFilter = (filter: string) => {
   eventFilter.value = filter;
+  loadEvents(true);
 };
 
 const testSimulate = () => {
@@ -461,34 +404,26 @@ const testSimulate = () => {
 };
 
 const handleApprovalNotification = (data: any) => {
-  console.log("🔔 收到审批请求:", data);
-  console.log("🔍 审批ID:", data.approvalId);
-
   if (!data.approvalId) {
-    console.error("❌ 警告：审批请求缺少approvalId字段！", data);
+    console.error("警告：审批请求缺少approvalId字段！", data);
   }
-
-  // 只在用户没看着页面时才发系统通知（避免被 macOS/Chrome 静默吞掉）
+  
+  // 只在用户没看着页面时才发系统通知
   const pageFocused = document.hasFocus();
   if (Notification.permission === "granted" && !pageFocused) {
     try {
-      const notifTitle = currentLang.value === 'zh' ? '🛡️ Aegis 拦截请求，需要审批' : '🛡️ Aegis: Approval Required';
+      const notifTitle = currentLang.value === 'zh' ? 'Aegis 拦截请求，需要审批' : 'Aegis: Approval Required';
       const n = new Notification(notifTitle, {
         body: `[${data.risk || "UNKNOWN"}] ${data.command || "unknown command"}`,
         tag: data.approvalId,
         requireInteraction: true,
       });
       n.onclick = () => { window.focus(); n.close(); };
-      console.log("✅ Browser notification sent (page not focused)");
     } catch (e) {
-      console.error("❌ Browser notification failed:", e);
+      console.error("Browser notification failed:", e);
     }
-  } else if (Notification.permission === "granted") {
-    console.log("💡 Page focused, skipping system notification (in-page modal shown)");
-  } else {
-    console.warn("⚠️ Notification permission not granted, current state:", Notification.permission);
   }
-
+  
   currentApproval.value = {
     approvalId: data.approvalId,
     sessionId: data.sessionId || "unknown",
@@ -498,11 +433,8 @@ const handleApprovalNotification = (data: any) => {
     cwd: data.cwd || data.context?.cwd || "/unknown",
     reason: data.reason || data.description || `${data.risk || "UNKNOWN"} risk command`,
   };
-
-  // 更新待审批统计（事件本身由 new_event 统一处理）
+  
   stats.pending += 1;
-
-  console.log("💾 当前审批对象:", currentApproval.value);
 };
 
 const closeApprovalModal = () => {
@@ -511,151 +443,110 @@ const closeApprovalModal = () => {
 
 const handleApprovalDecision = async (approved: boolean) => {
   if (!currentApproval.value) return;
-
+  
   const approvalId = currentApproval.value.approvalId;
   const sessionId = currentApproval.value.sessionId;
-
+  
   if (!approvalId) {
-    console.error('❌ 无法处理审批：缺少审批ID');
+    console.error('无法处理审批：缺少审批ID');
     return;
   }
-
-  console.log(`📝 弹窗审批决定: ${sessionId} - ${approved ? "批准" : "拒绝"}`);
-
+  
+  console.log(`弹窗审批决定: ${sessionId} - ${approved ? "批准" : "拒绝"}`);
+  
   try {
-    // 发送审批决定到新的API
     const response = await fetch(`/api/monitoring/approval-decision/${approvalId}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: approved ? "approve" : "deny",
         reason: approved ? "Approved by user" : "Denied by user",
       }),
     });
-
+    
     const result = await response.json();
-
+    
     if (result.success) {
-      console.log("✅ 弹窗审批决定已发送:", result);
-
-      // 关闭模态框
       currentApproval.value = null;
-
-      // 更新统计
       stats.pending = Math.max(0, stats.pending - 1);
       if (approved) {
         stats.allowed += 1;
       } else {
         stats.blocked += 1;
       }
-
-      // 更新事件列表中对应的事件状态
+      
       const eventIndex = events.value.findIndex(e => e.approvalId === approvalId);
       if (eventIndex !== -1) {
         events.value[eventIndex].status = approved ? 'allowed' : 'blocked';
         events.value[eventIndex].action = approved ? 'allow' : 'deny';
       }
     } else {
-      console.error("❌ 发送审批决定失败:", result.message);
+      console.error("发送审批决定失败:", result.message);
     }
   } catch (error) {
-    console.error("❌ 发送审批决定出错:", error);
+    console.error("发送审批决定出错:", error);
   }
 };
 
 // 在事件列表中批准
 const approveEventInList = async (event: any) => {
-  console.log(`📝 列表审批 - 批准:`, event);
-
   if (!event.approvalId) {
-    console.error('❌ 无法批准：缺少审批ID');
+    console.error('无法批准：缺少审批ID');
     return;
   }
-
+  
   try {
-    // 发送审批决定到新的API
     const response = await fetch(`/api/monitoring/approval-decision/${event.approvalId}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        action: "approve",
-        reason: "Approved by user",
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "approve", reason: "Approved by user" }),
     });
-
+    
     const result = await response.json();
-
+    
     if (result.success) {
-      console.log(`✅ 批准成功:`, result);
-
-      // 更新事件状态
       event.status = 'allowed';
       event.action = 'allow';
-
-      // 更新统计
       stats.pending = Math.max(0, stats.pending - 1);
       stats.allowed += 1;
-
-      // 如果这是当前弹窗显示的事件，关闭弹窗
+      
       if (currentApproval.value?.approvalId === event.approvalId) {
         currentApproval.value = null;
       }
-    } else {
-      console.error('❌ 批准失败:', result.message);
     }
   } catch (error) {
-    console.error('❌ 批准请求错误:', error);
+    console.error("批准请求错误:", error);
   }
 };
 
 // 在事件列表中拒绝
 const denyEventInList = async (event: any) => {
-  console.log(`📝 列表审批 - 拒绝:`, event);
-
   if (!event.approvalId) {
-    console.error('❌ 无法拒绝：缺少审批ID');
+    console.error('无法拒绝：缺少审批ID');
     return;
   }
-
+  
   try {
-    // 发送审批决定到新的API
     const response = await fetch(`/api/monitoring/approval-decision/${event.approvalId}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        action: "deny",
-        reason: "Denied by user",
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "deny", reason: "Denied by user" }),
     });
-
+    
     const result = await response.json();
-
+    
     if (result.success) {
-      console.log(`✅ 拒绝成功:`, result);
-
-      // 更新事件状态
       event.status = 'blocked';
       event.action = 'deny';
-
-      // 更新统计
       stats.pending = Math.max(0, stats.pending - 1);
       stats.blocked += 1;
-
-      // 如果这是当前弹窗显示的事件，关闭弹窗
+      
       if (currentApproval.value?.approvalId === event.approvalId) {
         currentApproval.value = null;
       }
-    } else {
-      console.error('❌ 拒绝失败:', result.message);
     }
   } catch (error) {
-    console.error('❌ 拒绝请求错误:', error);
+    console.error("拒绝请求错误:", error);
   }
 };
 
@@ -664,34 +555,24 @@ const connectWebSocket = () => {
   const socketUrl = import.meta.env.VITE_API_URL ||
     (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001')
   socket.value = io(socketUrl);
-
+  
   socket.value.on("connect", () => {
-    console.log("✅ WebSocket已连接");
+    console.log("WebSocket已连接");
     wsConnected.value = true;
   });
-
-  // 🔔 监听初始状态
+  
   socket.value.on("initial_state", (initialData: any) => {
-    console.log("📊 收到初始状态:", initialData);
-
-    // 更新统计数据
     if (initialData.stats) {
       Object.assign(stats, initialData.stats);
     }
-
-    // 更新代理数据
     if (initialData.agents) {
       activeAgents.value = initialData.agents;
     }
-
-    // 更新会话数据
     if (initialData.sessions) {
       activeSessions.value = initialData.sessions;
     }
-
-    // 更新事件数据
     if (initialData.events) {
-      events.value = initialData.events.map((event) => ({
+      events.value = initialData.events.map((event: any) => ({
         ...event,
         approvalId: event.approvalId,
         action: event.action || event.status,
@@ -701,27 +582,20 @@ const connectWebSocket = () => {
       }));
     }
   });
-
+  
   socket.value.on("disconnect", () => {
-    console.log("❌ WebSocket已断开");
+    console.log("WebSocket已断开");
     wsConnected.value = false;
   });
-
-  // 监听审批通知
+  
   socket.value.on("approval_request", handleApprovalNotification);
   socket.value.on("dual_approval_request", handleApprovalNotification);
-
-  // 监听审批决定结果
+  
   socket.value.on("approval_decision", (data: any) => {
-    console.log("🎯 收到审批决定结果:", data);
-
-    // 如果当前弹窗显示的是这个审批，关闭弹窗
     if (currentApproval.value?.approvalId === data.approvalId) {
       currentApproval.value = null;
-      console.log("📴 关闭当前审批弹窗");
     }
-
-    // 更新事件列表中的对应事件
+    
     const eventIndex = events.value.findIndex(e => e.approvalId === data.approvalId);
     if (eventIndex !== -1) {
       if (data.status === 'approved') {
@@ -735,10 +609,8 @@ const connectWebSocket = () => {
         events.value[eventIndex].action = 'deny';
       }
       events.value[eventIndex].decidedBy = data.source || 'aegis_ui';
-      console.log(`📝 更新事件列表状态: ${data.approvalId} -> ${events.value[eventIndex].status} (来源: ${events.value[eventIndex].decidedBy})`);
     }
-
-    // 更新统计
+    
     if (data.status === 'approved') {
       stats.allowed += 1;
     } else if (data.status === 'timed_out') {
@@ -747,48 +619,33 @@ const connectWebSocket = () => {
       stats.blocked += 1;
     }
     stats.pending = Math.max(0, stats.pending - 1);
-
-    console.log("📊 统计更新完成:", stats);
   });
-
-  // 🔄 监听Claude Code决策同步（双向同步新增）
+  
   socket.value.on("claude_decision_sync", (data: any) => {
-    console.log("🔄 收到Claude Code决策同步:", data);
-
-    // 如果当前弹窗显示的是这个审批，关闭弹窗并显示同步消息
     if (currentApproval.value?.approvalId === data.approvalId) {
       currentApproval.value = null;
-      console.log("📴 Claude Code已决策，关闭3001审批弹窗");
     }
-
-    // 更新事件列表中的对应事件
+    
     const eventIndex = events.value.findIndex(e => e.approvalId === data.approvalId);
     if (eventIndex !== -1) {
       events.value[eventIndex].status = data.decision === 'approved' ? 'allowed' : 'blocked';
       events.value[eventIndex].action = data.decision === 'approved' ? 'allow' : 'deny';
       events.value[eventIndex].reason = `${data.reason} (from Claude Code)`;
       events.value[eventIndex].decidedBy = 'claude_code';
-      console.log(`🔄 Claude Code同步更新: ${data.approvalId} -> ${events.value[eventIndex].status}`);
     }
-
-    // 更新统计
+    
     if (data.decision === 'approved') {
       stats.allowed += 1;
     } else {
       stats.blocked += 1;
     }
     stats.pending = Math.max(0, stats.pending - 1);
-
-    // 显示同步通知
-    console.log("🔄 Claude Code决策已同步到3001界面");
   });
-
-  // 监听统计更新
+  
   socket.value.on("stats_update", (data: any) => {
     Object.assign(stats, data);
   });
-
-  // 🔔 监听代理更新
+  
   socket.value.on("agent_update", (response: any) => {
     const data = response.data || response;
     const agentIndex = activeAgents.value.findIndex(
@@ -800,8 +657,7 @@ const connectWebSocket = () => {
       activeAgents.value.push(data);
     }
   });
-
-  // 🔔 监听会话更新
+  
   socket.value.on("session_update", (response: any) => {
     const data = response.data || response;
     const sessionIndex = activeSessions.value.findIndex(
@@ -813,13 +669,9 @@ const connectWebSocket = () => {
       activeSessions.value.push(data);
     }
   });
-
-  // 监听事件更新
+  
   socket.value.on("new_event", (response: any) => {
     const data = response.data || response;
-    console.log("📝 收到新事件:", data);
-
-    // 按 id 去重：已存在则原地更新，否则新增
     const existingIdx = events.value.findIndex((e) => e.id === data.id);
     if (existingIdx >= 0) {
       const existing = events.value[existingIdx];
@@ -831,7 +683,6 @@ const connectWebSocket = () => {
       if (data.assistPrompt) existing.assistPrompt = data.assistPrompt;
       if (data.matchedRules) existing.matchedRules = data.matchedRules;
       if (data.taskId) existing.taskId = data.taskId;
-      console.log("🔄 更新已有事件:", data.id, "→", data.status);
     } else {
       events.value.unshift({
         id: data.id || Date.now(),
@@ -851,17 +702,15 @@ const connectWebSocket = () => {
         status: data.status,
         isNew: true,
       });
-
-      // 移除new标记
+      
       setTimeout(() => {
         const event = events.value.find((e) => e.id === data.id);
         if (event) event.isNew = false;
       }, 1000);
     }
-
-    // 限制事件数量
-    if (events.value.length > 100) {
-      events.value = events.value.slice(0, 100);
+    
+    if (events.value.length > 200) {
+      events.value = events.value.slice(0, 200);
     }
   });
 };
@@ -869,23 +718,8 @@ const connectWebSocket = () => {
 // 生命周期
 onMounted(() => {
   connectWebSocket();
-
-  // 调试：输出详细的通知权限信息
-  console.log("🔍 === 通知权限调试信息 ===");
-  console.log("浏览器支持通知:", "Notification" in window);
-  if ("Notification" in window) {
-    console.log("原始权限状态:", Notification.permission);
-    console.log("权限状态类型:", typeof Notification.permission);
-    console.log("是否等于denied:", Notification.permission === "denied");
-    console.log("是否等于default:", Notification.permission === "default");
-    console.log("是否等于granted:", Notification.permission === "granted");
-  }
-  console.log("浏览器UA:", navigator.userAgent);
-  console.log("当前URL:", window.location.href);
-  console.log("notifPermission ref值:", notifPermission.value);
-  console.log("🔍 === 调试信息结束 ===");
-
-  if ("Notification" in window && Notification.permission === "default") {
+  
+  if ("Notification" in window && Notification.permission === "default" && !notifSkipped.value) {
     showNotifModal.value = true;
   }
 });
@@ -899,7 +733,6 @@ onUnmounted(() => {
 
 <style>
 :root {
-  /* 暗夜线条简约配色 */
   --bg-primary: #0f172a;
   --bg-card: rgba(255, 255, 255, 0.02);
   --accent-green: #22c55e;
@@ -950,13 +783,7 @@ body {
 }
 
 @keyframes status-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.3;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
-
 </style>
