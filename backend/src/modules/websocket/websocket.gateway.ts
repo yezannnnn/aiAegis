@@ -79,6 +79,11 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     });
   }
 
+  // 广播 AI 意图分析结果（追加到已弹出的 Modal）
+  broadcastApprovalAnalysis(approvalId: string, aiAnalysis: any) {
+    this.server.emit('approval_analysis_update', { approvalId, aiAnalysis });
+  }
+
   // 广播事件到所有客户端
   private broadcastEvent(eventType: string, data: any) {
     this.server.emit(eventType, {

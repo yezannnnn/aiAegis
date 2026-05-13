@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get } from '@nestjs/common';
 import { AstParserService } from './ast-parser.service';
 import { AstContextService } from './ast-context.service';
 import { RuleMatcherService } from './rule-matcher.service';
@@ -6,6 +6,7 @@ import { CommandNode, RuleEvaluation, RuleSeverity } from './types';
 import { ApprovalService } from '../approval/approval.service';
 import { WebSocketGateway } from '../websocket/websocket.gateway';
 import { MonitoringService } from '../monitoring/monitoring.service';
+import { SqliteStorageService } from '../storage/sqlite-storage.service';
 import { RiskLevel, EventStatus } from '../monitoring/dto';
 
 interface EvaluateRequest {
@@ -21,6 +22,13 @@ interface EvaluateRequest {
   userInput?: string;
   assistPrompt?: string;
   lang?: string;
+}
+
+interface AiAnalysis {
+  intentMatch: boolean;
+  plainText: string;
+  alerts: string[];
+  recommendation: 'approve' | 'caution' | 'deny';
 }
 
 interface EvaluateResponse {
@@ -41,6 +49,7 @@ export class RulesController {
     private readonly approvalService: ApprovalService,
     private readonly webSocketGateway: WebSocketGateway,
     private readonly monitoringService: MonitoringService,
+    private readonly sqliteStorage: SqliteStorageService,
   ) {}
 
   /**
@@ -148,6 +157,24 @@ export class RulesController {
       block: RiskLevel.CRITICAL,
     };
     return map[severity] || RiskLevel.MEDIUM;
+  }
+
+  /**
+   * POST /api/v1/rules/patch-analysis
+   * Hook 完成 AI 分析后追加到已存在的审批，广播给前端更新 Modal
+   */
+  @Post('patch-analysis')
+  async patchAnalysis(@Body() body: { approvalId: string; aiAnalysis: AiAnalysis }) {
+    if (!body.approvalId || !body.aiAnalysis) {
+      return { success: false };
+    }
+    // 持久化到 SQLite
+    await this.sqliteStorage.updateEventAiAnalysis(body.approvalId, body.aiAnalysis);
+    // 更新内存事件（供列表展示）
+    this.monitoringService.updateEventAiAnalysis(body.approvalId, body.aiAnalysis);
+    // 广播给前端更新 Modal + 列表
+    this.webSocketGateway.broadcastApprovalAnalysis(body.approvalId, body.aiAnalysis);
+    return { success: true };
   }
 
   /**

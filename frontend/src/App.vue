@@ -711,6 +711,19 @@ const connectWebSocket = () => {
   socket.value.on("approval_request", handleApprovalNotification);
   socket.value.on("dual_approval_request", handleApprovalNotification);
 
+  // 监听 AI 意图分析结果（异步追加到已弹出的 Modal）
+  socket.value.on("approval_analysis_update", (data: any) => {
+    // 更新 Modal
+    if (currentApproval.value?.approvalId === data.approvalId) {
+      currentApproval.value = { ...currentApproval.value, aiAnalysis: data.aiAnalysis };
+    }
+    // 同步更新事件列表
+    const eventIdx = events.value.findIndex(e => e.approvalId === data.approvalId);
+    if (eventIdx !== -1) {
+      events.value[eventIdx].aiAnalysis = data.aiAnalysis;
+    }
+  });
+
   // 监听审批决定结果
   socket.value.on("approval_decision", (data: any) => {
     console.log("🎯 收到审批决定结果:", data);
@@ -831,6 +844,7 @@ const connectWebSocket = () => {
       if (data.assistPrompt) existing.assistPrompt = data.assistPrompt;
       if (data.matchedRules) existing.matchedRules = data.matchedRules;
       if (data.taskId) existing.taskId = data.taskId;
+      if (data.aiAnalysis) existing.aiAnalysis = data.aiAnalysis;
       console.log("🔄 更新已有事件:", data.id, "→", data.status);
     } else {
       events.value.unshift({
@@ -845,6 +859,7 @@ const connectWebSocket = () => {
         userInput: data.userInput,
         assistPrompt: data.assistPrompt,
         matchedRules: data.matchedRules || [],
+        aiAnalysis: data.aiAnalysis || null,
         reason: data.description || data.reason,
         time: formatEventTime(new Date(data.timestamp || Date.now())),
         action: data.action || data.status,

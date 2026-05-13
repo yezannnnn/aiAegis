@@ -72,6 +72,8 @@ export class SqliteStorageService implements OnModuleInit {
     try { await run(`ALTER TABLE events ADD COLUMN user_input TEXT`); } catch {}
     try { await run(`ALTER TABLE events ADD COLUMN assist_prompt TEXT`); } catch {}
     try { await run(`ALTER TABLE events ADD COLUMN matched_rules TEXT`); } catch {}
+    try { await run(`ALTER TABLE events ADD COLUMN approval_id TEXT`); } catch {}
+    try { await run(`ALTER TABLE events ADD COLUMN ai_analysis TEXT`); } catch {}
 
     await run(`
       CREATE TABLE IF NOT EXISTS approvals (
@@ -108,9 +110,20 @@ export class SqliteStorageService implements OnModuleInit {
     if (!this.db) return;
     return new Promise((resolve, reject) => {
       this.db.run(
-        `INSERT OR REPLACE INTO events (id, command, agent, session_id, risk, status, description, timestamp, task_id, user_input, assist_prompt, matched_rules)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [event.id, event.command, event.agent, event.sessionId, event.risk, event.status, event.description || '', event.timestamp, event.taskId || null, event.userInput || null, event.assistPrompt || null, JSON.stringify(event.matchedRules || [])],
+        `INSERT OR REPLACE INTO events (id, command, agent, session_id, risk, status, description, timestamp, task_id, user_input, assist_prompt, matched_rules, approval_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [event.id, event.command, event.agent, event.sessionId, event.risk, event.status, event.description || '', event.timestamp, event.taskId || null, event.userInput || null, event.assistPrompt || null, JSON.stringify(event.matchedRules || []), event.approvalId || null],
+        (err) => err ? reject(err) : resolve(undefined)
+      );
+    });
+  }
+
+  async updateEventAiAnalysis(approvalId: string, aiAnalysis: any) {
+    if (!this.db) return;
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'UPDATE events SET ai_analysis = ? WHERE approval_id = ?',
+        [JSON.stringify(aiAnalysis), approvalId],
         (err) => err ? reject(err) : resolve(undefined)
       );
     });
@@ -131,7 +144,7 @@ export class SqliteStorageService implements OnModuleInit {
     if (!this.db) return [];
     return new Promise((resolve, reject) => {
       this.db.all(
-        `SELECT id, command, agent, session_id as sessionId, risk, status, description, timestamp, task_id as taskId, user_input as userInput, assist_prompt as assistPrompt, matched_rules as matchedRules
+        `SELECT id, command, agent, session_id as sessionId, risk, status, description, timestamp, task_id as taskId, user_input as userInput, assist_prompt as assistPrompt, matched_rules as matchedRules, approval_id as approvalId, ai_analysis as aiAnalysis
          FROM events ORDER BY timestamp DESC LIMIT ?`,
         [limit],
         (err, rows) => {
@@ -142,6 +155,9 @@ export class SqliteStorageService implements OnModuleInit {
               try { r.matchedRules = JSON.parse(r.matchedRules); } catch { r.matchedRules = []; }
             }
             if (!r.matchedRules) r.matchedRules = [];
+            if (typeof r.aiAnalysis === 'string') {
+              try { r.aiAnalysis = JSON.parse(r.aiAnalysis); } catch { r.aiAnalysis = null; }
+            }
             return r;
           });
           resolve(parsed);

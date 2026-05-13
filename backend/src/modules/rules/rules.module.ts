@@ -7,12 +7,14 @@ import { RuleMatcherService } from './rule-matcher.service';
 import { ApprovalModule } from '../approval/approval.module';
 import { WebSocketGatewayModule } from '../websocket/websocket.module';
 import { MonitoringModule } from '../monitoring/monitoring.module';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
   imports: [
     ApprovalModule,
     forwardRef(() => WebSocketGatewayModule),
     forwardRef(() => MonitoringModule),
+    StorageModule,
   ],
   controllers: [RulesController],
   providers: [AstParserService, AstContextService, BashAstService, RuleMatcherService],

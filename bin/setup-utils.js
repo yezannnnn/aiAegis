@@ -5,6 +5,14 @@ const chalk = require('chalk');
 const ora = require('ora');
 const os = require('os');
 
+const AEGIS_PROMPT_HOOK = `Check if this bash command is safe to run: $ARGUMENTS
+
+If SAFE (ls, cat, git read ops, npm install, echo, grep, find, mkdir, build tools, test runners), respond with: {"ok": true}
+
+If DANGEROUS (rm -rf, shutil.rmtree, DROP TABLE, git push --force to main/master, format disk, shred, dd, truncate), respond with: {"ok": false, "reason": "brief reason"}
+
+Respond with ONLY the JSON. No other text.`;
+
 class AegisSetupUtils {
   constructor() {
     this.homeDir = os.homedir();
@@ -119,6 +127,20 @@ class AegisSetupUtils {
           type: 'command',
           command: `node "${postHookPath}"`,
           timeout: 10
+        }]
+      });
+
+      settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter(
+        h => !(JSON.stringify(h).includes('"type":"prompt"') && JSON.stringify(h).includes('Aegis'))
+      );
+      settings.hooks.PreToolUse.push({
+        matcher: 'Bash',
+        hooks: [{
+          type: 'prompt',
+          prompt: AEGIS_PROMPT_HOOK,
+          model: 'claude-haiku-4-5-20251001',
+          timeout: 8,
+          statusMessage: '🛡️ Aegis AI analyzing...',
         }]
       });
 

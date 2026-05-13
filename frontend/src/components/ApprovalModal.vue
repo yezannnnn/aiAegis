@@ -18,6 +18,24 @@
           <div class="command-display">{{ currentApproval.command }}</div>
         </div>
 
+        <!-- AI 意图分析区块（异步追加，15s 内出现） -->
+        <div v-if="currentApproval.aiAnalysis" class="ai-analysis-section">
+          <div class="ai-analysis-header">
+            <span class="ai-analysis-label">🤖 AI ANALYSIS</span>
+            <span class="ai-rec-badge" :class="`rec-${currentApproval.aiAnalysis.recommendation}`">
+              {{ currentApproval.aiAnalysis.recommendation.toUpperCase() }}
+            </span>
+            <span v-if="!currentApproval.aiAnalysis.intentMatch" class="intent-mismatch">⚠ INTENT MISMATCH</span>
+          </div>
+          <div class="ai-plain-text">{{ currentApproval.aiAnalysis.plainText }}</div>
+          <div v-if="currentApproval.aiAnalysis.alerts?.length" class="ai-alerts">
+            <div v-for="alert in currentApproval.aiAnalysis.alerts" :key="alert" class="ai-alert-item">
+              ⚠ {{ alert }}
+            </div>
+          </div>
+        </div>
+        <div v-else class="ai-analysis-pending">🤖 AI analyzing intent...</div>
+
         <div class="details-grid">
           <div class="detail-item">
             <span class="detail-label">DIRECTORY</span>
@@ -152,6 +170,91 @@ defineEmits(['approve', 'deny', 'close']);
 
 .modal-body {
   padding: 1.5rem;
+}
+
+.ai-analysis-pending {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: rgba(129, 140, 248, 0.5);
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(129, 140, 248, 0.2);
+  margin-bottom: 1.5rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.ai-analysis-section {
+  border: 1px solid rgba(129, 140, 248, 0.3);
+  background: rgba(129, 140, 248, 0.05);
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.ai-analysis-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.ai-analysis-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #818cf8;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.ai-rec-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid;
+}
+
+.ai-rec-badge.rec-approve {
+  color: var(--accent-green);
+  border-color: var(--accent-green);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.ai-rec-badge.rec-caution {
+  color: #f59e0b;
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.ai-rec-badge.rec-deny {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.intent-mismatch {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: #f59e0b;
+}
+
+.ai-plain-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.ai-alert-item {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: #f59e0b;
+  margin-top: 0.25rem;
 }
 
 .command-section {
