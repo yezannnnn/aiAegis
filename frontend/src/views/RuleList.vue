@@ -1,33 +1,45 @@
 <template>
   <div class="rule-page">
+    <AppHeader
+      :ws-connected="false"
+      :notif-permission="'default'"
+      :current-texts="headerTexts"
+      @toggle-language="lang = lang === 'en' ? 'zh' : 'en'"
+    />
     <!-- Stats -->
     <div class="stats-bar">
-      <div class="stat-card">
+      <div class="stat-card stat-clickable" :class="{ 'stat-active': currentFilter === 'all' }" @click="filterRules('all')">
         <div class="stat-number">{{ stats.total }}</div>
-        <div class="stat-label">TOTAL RULES</div>
+        <div class="stat-label">{{ texts.totalRules }}</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-number">{{ stats.active }}</div>
-        <div class="stat-label">ACTIVE</div>
+      <div class="stat-card stat-clickable" :class="{ 'stat-active': currentFilter === 'off' }" @click="filterRules('off')">
+        <div class="stat-number" style="color:var(--text-secondary)">{{ stats.total - stats.active }}</div>
+        <div class="stat-label">{{ texts.filterOff }}</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card stat-clickable" :class="{ 'stat-active-danger': currentFilter === 'block' }" @click="filterRules('block')">
         <div class="stat-number" style="color:var(--danger)">{{ stats.block }}</div>
-        <div class="stat-label" style="--accent-green:var(--danger)">BLOCK</div>
+        <div class="stat-label" style="--accent-green:var(--danger)">{{ texts.blockStat }}</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card stat-clickable" :class="{ 'stat-active-warning': currentFilter === 'review' }" @click="filterRules('review')">
         <div class="stat-number" style="color:var(--warning)">{{ stats.review }}</div>
-        <div class="stat-label" style="--accent-green:var(--warning)">REVIEW</div>
+        <div class="stat-label" style="--accent-green:var(--warning)">{{ texts.reviewStat }}</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card stat-clickable" :class="{ 'stat-active-info': currentFilter === 'allow' }" @click="filterRules('allow')">
         <div class="stat-number" style="color:var(--info)">{{ stats.allow }}</div>
-        <div class="stat-label" style="--accent-green:var(--info)">ALLOW</div>
+        <div class="stat-label" style="--accent-green:var(--info)">{{ texts.allowStat }}</div>
       </div>
     </div>
 
     <!-- Toolbar -->
     <div class="toolbar">
-      <span class="toolbar-title">CONFIGURED RULES</span>
-      <button class="btn btn-primary" @click="openModal()">+ NEW RULE</button>
+      <span class="toolbar-title">{{ texts.configuredRules }}</span>
+      <div style="display:flex;gap:0.75rem">
+        <button class="btn btn-secondary btn-reload" @click="loadRules" :disabled="loading">
+          <span :class="{ spinning: loading }">↺</span>
+          <span>{{ texts.reload.slice(2) }}</span>
+        </button>
+        <button class="btn btn-primary" @click="openModal()">{{ texts.newRule }}</button>
+      </div>
     </div>
 
     <!-- Filter tabs -->
@@ -45,7 +57,7 @@
 
     <!-- Rule List -->
     <div class="rule-list">
-      <div v-if="filteredRules.length === 0" class="empty-state">NO RULES FOUND</div>
+      <div v-if="filteredRules.length === 0" class="empty-state">{{ texts.noRulesFound }}</div>
       <div
         v-for="rule in filteredRules"
         :key="rule.id"
@@ -73,13 +85,13 @@
             class="btn btn-secondary btn-sm"
             @click.stop="toggleRule(rule)"
           >
-            {{ isDisabled(rule) ? 'ENABLE' : 'DISABLE' }}
+            {{ isDisabled(rule) ? texts.enable : texts.disable }}
           </button>
           <button
             class="btn btn-danger btn-sm"
             @click.stop="deleteRule(rule)"
           >
-            DELETE
+            {{ texts.delete }}
           </button>
         </div>
       </div>
@@ -89,31 +101,31 @@
     <div class="modal-overlay" :class="{ active: showModal }" @click.self="closeModal">
       <div class="modal">
         <div class="modal-header">
-          <span class="modal-title">{{ editingRule ? 'EDIT RULE' : 'NEW RULE' }}</span>
+          <span class="modal-title">{{ editingRule ? texts.editRuleTitle : texts.newRuleTitle }}</span>
           <button class="modal-close" @click="closeModal">×</button>
         </div>
 
         <div class="modal-body">
           <!-- Step 1: Parse -->
           <div class="form-section">
-            <div class="section-title-sm">STEP 1 — COMMAND PARSE</div>
+            <div class="section-title-sm">{{ texts.step1 }}</div>
             <div class="parse-box">
               <div class="parse-input-wrap">
                 <input
                   type="text"
                   class="parse-input"
                   v-model="form.commandInput"
-                  placeholder="ENTER COMMAND TO INTERCEPT..."
+                  :placeholder="texts.parseInput"
                   @keyup.enter="parseCommand"
                 />
-                <button class="btn btn-primary btn-sm" @click="parseCommand">PARSE</button>
+                <button class="btn btn-primary btn-sm" @click="parseCommand">{{ texts.parse }}</button>
               </div>
               <div v-if="parseResult" class="ast-tree">
                 <div v-if="parseResult.hasPipes" class="pipe-warning">
-                  ⚠️ PIPELINE DETECTED — {{ parseResult.segments.length }} SEGMENTS
+                  {{ texts.pipelineDetected }}{{ parseResult.segments.length }}{{ texts.pipelineSegments }}
                 </div>
                 <template v-for="seg in parseResult.segments" :key="seg.index">
-                  <div v-if="parseResult.hasPipes" class="segment-label">SEGMENT {{ seg.index }}</div>
+                  <div v-if="parseResult.hasPipes" class="segment-label">{{ texts.segmentLabel }}{{ seg.index }}</div>
                   <AstItem
                     v-for="item in buildAstItems(seg, parseResult.hasPipes)"
                     :key="item.id"
@@ -122,17 +134,17 @@
                     @toggle="toggleCondition(item)"
                   />
                 </template>
-                <div class="parse-hint">↑ CLICK FIELDS TO ADD CONDITIONS</div>
+                <div class="parse-hint">{{ texts.clickHint }}</div>
               </div>
             </div>
           </div>
 
           <!-- Step 2: Conditions -->
           <div class="form-section">
-            <div class="section-title-sm">STEP 2 — MATCHING CONDITIONS</div>
+            <div class="section-title-sm">{{ texts.step2 }}</div>
             <div class="conditions-area" :class="{ 'has-items': selectedConditions.length > 0 }">
               <span v-if="selectedConditions.length === 0" class="empty-hint">
-                NO CONDITIONS — PARSE A COMMAND AND CLICK FIELDS
+                {{ texts.noConditions }}
               </span>
               <span
                 v-for="cond in selectedConditions"
@@ -143,32 +155,40 @@
                 <span class="remove" @click="removeCondition(cond)">✕</span>
               </span>
             </div>
+            <div class="match-hint">{{ texts.step2Hint }}</div>
 
-            <div class="context-section">
-              <div class="field">
-                <span class="field-label">CONTEXT</span>
-                <div class="radio-group">
-                  <label>
-                    <input type="checkbox" v-model="form.ctxGitBranch" @change="updateYamlPreview" />
-                    GIT BRANCH
-                  </label>
-                  <input
-                    v-if="form.ctxGitBranch"
-                    type="text"
-                    v-model="form.ctxGitBranchValue"
-                    placeholder="main, master"
-                    class="context-input"
-                    @input="updateYamlPreview"
-                  />
+            <div class="context-accordion">
+              <button class="context-toggle" @click="showContext = !showContext" type="button">
+                <span class="ctx-arrow" :class="{ open: showContext }">▶</span>
+                {{ texts.advancedContext }}
+                <span v-if="form.ctxGitBranch || form.ctxProduction" class="ctx-active-dot">●</span>
+              </button>
+              <div v-if="showContext" class="context-section">
+                <div class="field">
+                  <span class="field-label">{{ texts.gitBranch }}</span>
+                  <div class="radio-group">
+                    <label>
+                      <input type="checkbox" v-model="form.ctxGitBranch" @change="updateYamlPreview" />
+                      {{ texts.gitBranch }}
+                    </label>
+                    <input
+                      v-if="form.ctxGitBranch"
+                      type="text"
+                      v-model="form.ctxGitBranchValue"
+                      :placeholder="texts.gitBranchPlaceholder"
+                      class="context-input"
+                      @input="updateYamlPreview"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div class="field">
-                <span class="field-label"></span>
-                <div class="radio-group">
-                  <label>
-                    <input type="checkbox" v-model="form.ctxProduction" @change="updateYamlPreview" />
-                    PRODUCTION ONLY
-                  </label>
+                <div class="field">
+                  <span class="field-label"></span>
+                  <div class="radio-group">
+                    <label>
+                      <input type="checkbox" v-model="form.ctxProduction" @change="updateYamlPreview" />
+                      {{ texts.productionOnly }}
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -176,33 +196,44 @@
 
           <!-- Step 3: Properties -->
           <div class="form-section">
-            <div class="section-title-sm">STEP 3 — RULE PROPERTIES</div>
+            <div class="section-title-sm">{{ texts.step3 }}</div>
 
             <div class="field">
-              <span class="field-label">RULE ID *</span>
-              <div class="field-input">
-                <input type="text" v-model="form.ruleId" @input="updateYamlPreview" />
+              <span class="field-label">{{ texts.ruleId }} <span class="required-star">*</span></span>
+              <div class="field-input" :class="{ 'field-error': fieldErrors.ruleId }">
+                <input type="text" v-model="form.ruleId" @input="fieldErrors.ruleId = false; updateYamlPreview()" />
+                <span v-if="fieldErrors.ruleId" class="field-error-msg">{{ texts.ruleIdRequired }}</span>
               </div>
             </div>
 
             <div class="field">
-              <span class="field-label">DESCRIPTION</span>
+              <span class="field-label">{{ texts.description }}</span>
               <div class="field-input">
                 <input type="text" v-model="form.ruleDesc" @input="updateYamlPreview" />
               </div>
             </div>
 
             <div class="field">
-              <span class="field-label">CATEGORY</span>
+              <span class="field-label">{{ texts.category }}</span>
               <div class="field-input">
-                <select v-model="form.ruleCategory" @change="updateYamlPreview">
-                  <option v-for="cat in categories" :key="cat" :value="cat">{{ cat.toUpperCase() }}</option>
-                </select>
+                <el-select
+                  v-model="form.ruleCategory"
+                  @change="updateYamlPreview"
+                  class="aegis-select"
+                  :teleported="false"
+                >
+                  <el-option
+                    v-for="cat in categories"
+                    :key="cat"
+                    :value="cat"
+                    :label="cat.toUpperCase()"
+                  />
+                </el-select>
               </div>
             </div>
 
             <div class="field">
-              <span class="field-label">SEVERITY</span>
+              <span class="field-label">{{ texts.severity }}</span>
               <div class="radio-group">
                 <label v-for="sev in severities" :key="sev">
                   <input type="radio" name="severity" :value="sev" v-model="form.severity" @change="updateYamlPreview" />
@@ -212,7 +243,7 @@
             </div>
 
             <div class="field">
-              <span class="field-label">ACTION</span>
+              <span class="field-label">{{ texts.action }}</span>
               <div class="radio-group">
                 <label v-for="act in actions" :key="act">
                   <input type="radio" name="action" :value="act" v-model="form.action" @change="updateYamlPreview" />
@@ -222,56 +253,77 @@
             </div>
 
             <div class="field">
-              <span class="field-label">REASON (ZH)</span>
+              <span class="field-label">{{ texts.reasonZhLabel }}</span>
               <div class="field-input">
                 <textarea v-model="form.reasonZh" @input="updateYamlPreview"></textarea>
               </div>
             </div>
 
             <div class="field">
-              <span class="field-label">REASON (EN)</span>
+              <span class="field-label">{{ texts.reasonEnLabel }}</span>
               <div class="field-input">
                 <textarea v-model="form.reasonEn" @input="updateYamlPreview"></textarea>
               </div>
             </div>
 
             <div class="field">
-              <span class="field-label">EXAMPLE</span>
+              <span class="field-label">{{ texts.example }}</span>
               <div class="field-input">
                 <input type="text" v-model="form.exampleCmd" @input="updateYamlPreview" />
               </div>
             </div>
           </div>
 
-          <!-- YAML Preview -->
+          <!-- YAML Preview / Advanced Edit -->
           <div class="form-section">
-            <div class="section-title-sm">GENERATED YAML</div>
-            <div class="yaml-preview" v-html="yamlPreview"></div>
+            <div class="yaml-header">
+              <div class="section-title-sm">{{ texts.generatedYaml }}</div>
+              <button
+                class="btn-yaml-toggle"
+                :class="{ active: advancedYamlMode }"
+                @click="toggleAdvancedYaml"
+                type="button"
+              >{{ advancedYamlMode ? texts.yamlAdvancedOn : texts.yamlAdvancedOff }}</button>
+            </div>
+            <div v-if="!advancedYamlMode" class="yaml-preview" v-html="yamlPreview"></div>
+            <textarea
+              v-else
+              class="yaml-edit"
+              v-model="rawYamlEdit"
+              @input="syncFromYaml"
+              spellcheck="false"
+            ></textarea>
           </div>
 
           <!-- Step 4: Test -->
           <div class="form-section">
-            <div class="section-title-sm">STEP 4 — TEST RULE</div>
+            <div class="section-title-sm">{{ texts.step4 }}</div>
             <div class="test-box">
               <div class="parse-input-wrap">
                 <input
                   type="text"
                   class="parse-input"
                   v-model="form.testCommand"
-                  placeholder="ENTER TEST COMMAND..."
+                  :placeholder="texts.testInput"
                   @keyup.enter="testRule"
                 />
-                <button class="btn btn-secondary btn-sm" @click="testRule">TEST</button>
+                <button class="btn btn-secondary btn-sm" @click="testRule">{{ texts.test }}</button>
               </div>
               <div v-if="testResult" class="test-result" :class="{ fail: !testResult.matched }">
                 <div :class="testResult.matched ? 'test-match' : 'test-nomatch'">
-                  {{ testResult.matched ? '✓ MATCHED' : '✗ NOT MATCHED' }}
+                  {{ testResult.matched ? texts.matched : texts.notMatched }}
                 </div>
                 <div class="test-detail">
-                  <strong>CMD:</strong> <code>{{ testResult.command }}</code><br>
-                  <strong>ACTION:</strong> <code>{{ testResult.action }}</code> |
-                  <strong>SEV:</strong> <code>{{ testResult.severity }}</code><br>
-                  <div v-for="(detail, i) in testResult.details" :key="i" v-html="detail"></div>
+                  <div v-if="testResult.error" class="test-error">{{ testResult.error }}</div>
+                  <template v-else>
+                    <strong>CMD:</strong> <code>{{ testResult.command }}</code><br>
+                    <strong>ACTION:</strong> <code>{{ testResult.action }}</code> |
+                    <strong>SEV:</strong> <code>{{ testResult.severity }}</code>
+                    <div v-if="testResult.triggeredConditions && testResult.triggeredConditions.length" class="triggered-list">
+                      <strong>{{ texts.triggeredLabel }}:</strong>
+                      <code v-for="(cond, i) in testResult.triggeredConditions" :key="i" class="triggered-tag">{{ cond }}</code>
+                    </div>
+                  </template>
                 </div>
               </div>
             </div>
@@ -279,8 +331,8 @@
         </div>
 
         <div class="modal-actions">
-          <button class="btn btn-secondary" @click="closeModal">CANCEL</button>
-          <button class="btn btn-primary" @click="saveRule">SAVE RULE</button>
+          <button class="btn btn-secondary" @click="closeModal">{{ texts.cancel }}</button>
+          <button class="btn btn-primary" @click="saveRule">{{ texts.save }}</button>
         </div>
       </div>
     </div>
@@ -288,8 +340,110 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, nextTick } from 'vue';
+import { ref, computed, reactive, nextTick, onMounted } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import AstItem from '../components/AstItem.vue';
+import AppHeader from '../components/AppHeader.vue';
+import { useLang } from '../composables/useLang';
+
+// ==================== I18N ====================
+
+const lang = useLang();
+
+const texts = computed(() => {
+  const z = lang.value === 'zh';
+  return {
+    // header
+    subtitle: z ? '规则管理' : 'Rule Management',
+    langSwitch: z ? 'EN' : '中文',
+    notifGranted: '🔔',
+    notifDenied: '🔕',
+    notifDefault: '🔔',
+    connected: z ? '已连接' : 'CONNECTED',
+    disconnected: z ? '断开连接' : 'DISCONNECTED',
+    // stats
+    totalRules: z ? '全部规则' : 'TOTAL RULES',
+    activeStat: z ? '已启用' : 'ACTIVE',
+    blockStat: z ? '拦截' : 'BLOCK',
+    reviewStat: z ? '审批' : 'REVIEW',
+    allowStat: z ? '放行' : 'ALLOW',
+    // toolbar
+    configuredRules: z ? '已配置规则' : 'CONFIGURED RULES',
+    reload: z ? '↺ 重载' : '↺ RELOAD',
+    newRule: z ? '+ 新建规则' : '+ NEW RULE',
+    // filter tabs
+    filterAll: z ? '全部' : 'ALL',
+    filterBlock: z ? '拦截' : 'BLOCK',
+    filterReview: z ? '审批' : 'REVIEW',
+    filterAllow: z ? '放行' : 'ALLOW',
+    filterOff: z ? '已禁用' : 'OFF',
+    // rule list
+    noRulesFound: z ? '暂无规则' : 'NO RULES FOUND',
+    enable: z ? '启用' : 'ENABLE',
+    disable: z ? '禁用' : 'DISABLE',
+    delete: z ? '删除' : 'DELETE',
+    // modal
+    editRuleTitle: z ? '编辑规则' : 'EDIT RULE',
+    newRuleTitle: z ? '新建规则' : 'NEW RULE',
+    // step 1
+    step1: z ? 'STEP 1 — 命令解析' : 'STEP 1 — COMMAND PARSE',
+    parseInput: z ? '输入要拦截的命令...' : 'ENTER COMMAND TO INTERCEPT...',
+    parse: z ? '解析' : 'PARSE',
+    pipelineDetected: z ? '⚠️ 检测到管道 — ' : '⚠️ PIPELINE DETECTED — ',
+    pipelineSegments: z ? ' 段' : ' SEGMENTS',
+    segmentLabel: z ? '段 ' : 'SEGMENT ',
+    clickHint: z ? '↑ 点击字段添加条件' : '↑ CLICK FIELDS TO ADD CONDITIONS',
+    // step 2
+    step2: z ? 'STEP 2 — 匹配条件' : 'STEP 2 — MATCHING CONDITIONS',
+    noConditions: z ? '无条件 — 解析命令后点击字段添加' : 'NO CONDITIONS — PARSE A COMMAND AND CLICK FIELDS',
+    step2Hint: z
+      ? '💡 额外 flags 不影响参数/子命令匹配 — 例如 rm -rf / 同样会被仅匹配 rm / 的规则拦截'
+      : '💡 Extra flags do not affect argument matching — e.g. a rule targeting rm / also catches rm -rf /',
+    advancedContext: z ? '▶ 高级上下文条件' : '▶ ADVANCED CONTEXT',
+    context: z ? '上下文' : 'CONTEXT',
+    gitBranch: z ? 'GIT 分支' : 'GIT BRANCH',
+    gitBranchPlaceholder: 'main, master',
+    productionOnly: z ? '仅生产环境' : 'PRODUCTION ONLY',
+    // step 3
+    step3: z ? 'STEP 3 — 规则属性' : 'STEP 3 — RULE PROPERTIES',
+    ruleId: z ? '规则 ID *' : 'RULE ID *',
+    description: z ? '描述' : 'DESCRIPTION',
+    category: z ? '分类' : 'CATEGORY',
+    severity: z ? '严重级别' : 'SEVERITY',
+    action: z ? '动作' : 'ACTION',
+    reasonZhLabel: z ? '原因（中文）' : 'REASON (ZH)',
+    reasonEnLabel: z ? '原因（英文）' : 'REASON (EN)',
+    example: z ? '示例命令' : 'EXAMPLE',
+    // yaml + step 4
+    generatedYaml: z ? '生成的 YAML' : 'GENERATED YAML',
+    yamlAdvancedOff: z ? '高级编辑' : 'ADVANCED EDIT',
+    yamlAdvancedOn: z ? '✓ 高级模式' : '✓ ADVANCED',
+    step4: z ? 'STEP 4 — 测试规则' : 'STEP 4 — TEST RULE',
+    testInput: z ? '输入测试命令...' : 'ENTER TEST COMMAND...',
+    test: z ? '测试' : 'TEST',
+    matched: z ? '✓ 已匹配' : '✓ MATCHED',
+    notMatched: z ? '✗ 未匹配' : '✗ NOT MATCHED',
+    triggeredLabel: z ? '触发条件' : 'TRIGGERED',
+    testError: z ? '测试请求失败' : 'Test request failed',
+    // actions
+    cancel: z ? '取消' : 'CANCEL',
+    save: z ? '保存规则' : 'SAVE RULE',
+    // confirm dialogs
+    confirmDelete: (id: string) => z ? `确认删除规则 "${id}"？` : `Delete rule "${id}"?`,
+    ruleIdRequired: z ? '规则 ID 为必填项' : 'RULE ID is required',
+    saveFailed: z ? '保存失败' : 'Save failed',
+  };
+});
+
+const headerTexts = computed(() => ({
+  subtitle: texts.value.subtitle,
+  langSwitch: texts.value.langSwitch,
+  notifGranted: texts.value.notifGranted,
+  notifDenied: texts.value.notifDenied,
+  notifDefault: texts.value.notifDefault,
+  connected: texts.value.connected,
+  disconnected: texts.value.disconnected,
+}));
 
 // ==================== TYPES ====================
 
@@ -343,13 +497,13 @@ const categories = ['git', 'docker', 'database', 'filesystem', 'network', 'packa
 const severities = ['off', 'warn', 'error', 'block'];
 const actions = ['allow', 'review', 'block'];
 
-const filterTabs = [
-  { label: 'ALL', value: 'all' },
-  { label: 'BLOCK', value: 'block' },
-  { label: 'REVIEW', value: 'review' },
-  { label: 'ALLOW', value: 'allow' },
-  { label: 'OFF', value: 'off' },
-];
+const filterTabs = computed(() => [
+  { label: texts.value.filterAll, value: 'all' },
+  { label: texts.value.filterBlock, value: 'block' },
+  { label: texts.value.filterReview, value: 'review' },
+  { label: texts.value.filterAllow, value: 'allow' },
+  { label: texts.value.filterOff, value: 'off' },
+]);
 
 const commonSubcommands: Record<string, string[]> = {
   git: ['push', 'pull', 'clone', 'commit', 'checkout', 'reset', 'rebase', 'merge', 'clean', 'status', 'log', 'branch'],
@@ -368,130 +522,14 @@ const parseResult = ref<ParseResult | null>(null);
 const selectedConditions = ref<Condition[]>([]);
 const yamlPreview = ref('<span class="yaml-comment"># PARSE A COMMAND AND ADD CONDITIONS</span>');
 const testResult = ref<any>(null);
+const showContext = ref(false);
+const advancedYamlMode = ref(false);
+const rawYamlEdit = ref('');
+const fieldErrors = reactive({ ruleId: false });
 
-const rules = ref<Rule[]>([
-  {
-    id: 'git/force-push',
-    description: '禁止强制推送到远程分支',
-    category: 'git',
-    severity: 'block',
-    action: 'block',
-    reason: { zh: '强制推送会覆盖他人提交', en: 'Force push overwrites commits' },
-    selector: { binary: 'git', subcommands: ['push'], flags: { anyOf: ['force', 'f'] } },
-    enabled: true,
-  },
-  {
-    id: 'git/reset-hard',
-    description: '禁止 hard reset 丢弃提交',
-    category: 'git',
-    severity: 'error',
-    action: 'review',
-    reason: { zh: 'hard reset 会丢失提交历史', en: 'Hard reset discards commit history' },
-    selector: { binary: 'git', subcommands: ['reset'], flags: { anyOf: ['hard'] } },
-    enabled: true,
-  },
-  {
-    id: 'docker/exec-root',
-    description: 'docker exec 以 root 身份进入容器需审批',
-    category: 'docker',
-    severity: 'error',
-    action: 'review',
-    reason: { zh: '以 root 身份进入容器存在安全风险', en: 'Running as root in container is risky' },
-    selector: { binary: 'docker', subcommands: ['exec'], flags: { anyOf: ['user', 'u'] }, arguments: [{ pattern: '^root$', anyPosition: true }] },
-    enabled: true,
-  },
-  {
-    id: 'filesystem/rm-rf',
-    description: '禁止递归删除目录',
-    category: 'filesystem',
-    severity: 'block',
-    action: 'block',
-    reason: { zh: 'rm -rf 极危险，可能误删重要数据', en: 'rm -rf is extremely dangerous' },
-    selector: { binary: 'rm', flags: { anyOf: ['r', 'recursive'] } },
-    enabled: true,
-  },
-  {
-    id: 'database/drop-table',
-    description: '禁止删除数据库表',
-    category: 'database',
-    severity: 'block',
-    action: 'block',
-    reason: { zh: 'DROP TABLE 会永久删除数据', en: 'DROP TABLE permanently deletes data' },
-    selector: { binary: 'mysql', arguments: [{ pattern: 'DROP TABLE', anyPosition: true }] },
-    contextChecks: { isProduction: true },
-    enabled: true,
-  },
-  {
-    id: 'network/curl-pipe',
-    description: 'curl 管道到 bash 需审批',
-    category: 'network',
-    severity: 'warn',
-    action: 'review',
-    reason: { zh: '直接执行远程脚本存在安全风险', en: 'Executing remote scripts is risky' },
-    selector: { binary: 'curl', rawPattern: '|.*bash' },
-    enabled: true,
-  },
-  {
-    id: 'system/reboot',
-    description: '禁止重启系统',
-    category: 'system',
-    severity: 'block',
-    action: 'block',
-    reason: { zh: '重启会影响正在运行的服务', en: 'Reboot affects running services' },
-    selector: { binary: 'reboot' },
-    enabled: false,
-  },
-  {
-    id: 'package/npm-force',
-    description: 'npm audit fix --force 需审批',
-    category: 'package',
-    severity: 'warn',
-    action: 'review',
-    reason: { zh: '--force 可能引入不兼容更新', en: '--force may introduce breaking changes' },
-    selector: { binary: 'npm', subcommands: ['audit'], flags: { anyOf: ['force'] } },
-    enabled: true,
-  },
-  {
-    id: 'security/cat-env',
-    description: '防止 .env 文件泄露',
-    category: 'security',
-    severity: 'error',
-    action: 'review',
-    reason: { zh: '.env 包含敏感信息', en: '.env contains sensitive data' },
-    selector: { binary: 'cat', arguments: [{ pattern: '\\.env', anyPosition: true }] },
-    enabled: true,
-  },
-  {
-    id: 'git/clean-force',
-    description: 'git clean -fd 需审批',
-    category: 'git',
-    severity: 'warn',
-    action: 'allow',
-    reason: { zh: '会删除未跟踪文件', en: 'Removes untracked files' },
-    selector: { binary: 'git', subcommands: ['clean'], flags: { anyOf: ['f', 'force'] } },
-    enabled: true,
-  },
-  {
-    id: 'docker/system-prune',
-    description: 'docker system prune 需审批',
-    category: 'docker',
-    severity: 'error',
-    action: 'review',
-    reason: { zh: '会删除所有未使用数据', en: 'Removes all unused data' },
-    selector: { binary: 'docker', subcommands: ['system'], arguments: [{ pattern: 'prune', anyPosition: true }] },
-    enabled: true,
-  },
-  {
-    id: 'filesystem/dd-disk',
-    description: '禁止 dd 操作磁盘',
-    category: 'filesystem',
-    severity: 'block',
-    action: 'block',
-    reason: { zh: 'dd 可覆盖整个磁盘', en: 'dd can overwrite entire disk' },
-    selector: { binary: 'dd' },
-    enabled: true,
-  },
-]);
+const loading = ref(false);
+
+const rules = ref<Rule[]>([]);
 
 const stats = computed(() => {
   const total = rules.value.length;
@@ -562,6 +600,54 @@ const openModal = () => {
   showModal.value = true;
 };
 
+const reconstructCommand = (selector: any): string => {
+  if (!selector) return '';
+  const parts: string[] = [];
+  if (selector.binary) {
+    parts.push(Array.isArray(selector.binary) ? selector.binary[0] : selector.binary);
+  }
+  if (selector.subcommands?.length) parts.push(...selector.subcommands);
+  const flags = selector.flags?.anyOf || selector.flags?.allOf || [];
+  if (flags[0]) parts.push(flags[0].length === 1 ? `-${flags[0]}` : `--${flags[0]}`);
+  if (selector.arguments?.[0]) {
+    const lit = selector.arguments[0].pattern
+      .replace(/^\^/, '').replace(/\$$/, '')
+      .replace(/\(([^)]+)\)/g, (_: any, g: string) => g.split('|')[0])
+      .replace(/[\\.*+?[\]{}|]/g, '').trim();
+    if (lit) parts.push(lit);
+  }
+  return parts.join(' ');
+};
+
+const autoSelectFromSelector = (selector: any) => {
+  if (!selector || !parseResult.value) return;
+  selectedConditions.value = [];
+  const seg = parseResult.value.segments[0];
+  const items = buildAstItems(seg, parseResult.value.hasPipes);
+
+  if (selector.binary) {
+    const item = items.find(i => i.type === 'binary');
+    if (item) toggleCondition(item);
+  }
+  if (selector.subcommands?.[0]) {
+    const item = items.find(i => i.type === 'subcommands' && i.value === selector.subcommands[0]);
+    if (item) toggleCondition(item);
+  }
+  const allFlags = [...(selector.flags?.anyOf || []), ...(selector.flags?.allOf || [])];
+  for (const flagName of allFlags) {
+    const item = items.find(i => i.type === 'flags' && i.value === flagName);
+    if (item && !isConditionSelected(item)) toggleCondition(item);
+  }
+  if (selector.arguments?.length) {
+    for (const argSel of selector.arguments) {
+      const lit = argSel.pattern.replace(/^\^/, '').replace(/\$$/, '')
+        .replace(/[\\.*+?[\]{}|]/g, '').trim();
+      const item = items.find(i => i.type === 'arguments' && i.value.includes(lit));
+      if (item && !isConditionSelected(item)) toggleCondition(item);
+    }
+  }
+};
+
 const editRule = (rule: Rule) => {
   editingRule.value = rule;
   form.ruleId = rule.id;
@@ -571,19 +657,38 @@ const editRule = (rule: Rule) => {
   form.action = rule.action;
   form.reasonZh = rule.reason?.zh || '';
   form.reasonEn = rule.reason?.en || '';
-  form.exampleCmd = '';
-  form.ctxGitBranch = !!rule.contextChecks?.gitBranch;
-  form.ctxGitBranchValue = rule.contextChecks?.gitBranch?.join(', ') || '';
-  form.ctxProduction = !!rule.contextChecks?.isProduction;
-  selectedConditions.value = [];
-  parseResult.value = null;
-  yamlPreview.value = generateYaml();
+  form.exampleCmd = rule.selector ? reconstructCommand(rule.selector) : '';
+  form.ctxGitBranch = !!(rule.contextChecks?.gitBranch || rule.selector?.contextChecks?.gitBranch);
+  form.ctxGitBranchValue = (rule.contextChecks?.gitBranch || rule.selector?.contextChecks?.gitBranch)?.join(', ') || '';
+  form.ctxProduction = !!(rule.contextChecks?.isProduction || rule.selector?.contextChecks?.isProduction);
+  testResult.value = null;
+
+  // Reconstruct command from selector and parse it
+  const cmd = reconstructCommand(rule.selector);
+  form.commandInput = cmd || 'git push --force origin main';
+
+  if (cmd) {
+    const segments = cmd.split(/\s*\|\s*/).map((s, i) => parseSegment(s.trim(), i));
+    parseResult.value = { raw: cmd, hasPipes: segments.length > 1, segments, primary: segments[0] };
+    nextTick(() => {
+      autoSelectFromSelector(rule.selector);
+      updateYamlPreview();
+    });
+  } else {
+    parseResult.value = null;
+    selectedConditions.value = [];
+    yamlPreview.value = generateYaml();
+  }
+
   showModal.value = true;
 };
 
 const closeModal = () => {
   showModal.value = false;
   editingRule.value = null;
+  advancedYamlMode.value = false;
+  fieldErrors.ruleId = false;
+  showContext.value = false;
 };
 
 const resetForm = () => {
@@ -603,16 +708,66 @@ const resetForm = () => {
   selectedConditions.value = [];
   parseResult.value = null;
   testResult.value = null;
+  advancedYamlMode.value = false;
+  fieldErrors.ruleId = false;
+  showContext.value = false;
   yamlPreview.value = '<span class="yaml-comment"># PARSE A COMMAND AND ADD CONDITIONS</span>';
 };
 
-const toggleRule = (rule: Rule) => {
-  rule.enabled = !rule.enabled;
+const API = '/api/v1/rules';
+
+const loadRules = async () => {
+  loading.value = true;
+  try {
+    const res = await fetch(API);
+    const data = await res.json();
+    rules.value = data.rules || [];
+  } catch (e) {
+    console.error('Failed to load rules:', e);
+  } finally {
+    loading.value = false;
+  }
 };
 
-const deleteRule = (rule: Rule) => {
-  if (confirm(`Delete rule "${rule.id}"?`)) {
-    rules.value = rules.value.filter(r => r.id !== rule.id);
+onMounted(loadRules);
+
+const toggleRule = async (rule: Rule) => {
+  try {
+    const res = await fetch(`${API}/toggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: rule.id }),
+    });
+    const data = await res.json();
+    if (data.success) rule.enabled = data.enabled;
+  } catch (e) {
+    console.error('Toggle failed:', e);
+  }
+};
+
+const deleteRule = async (rule: Rule) => {
+  try {
+    await ElMessageBox.confirm(texts.value.confirmDelete(rule.id), '', {
+      confirmButtonText: texts.value.delete,
+      cancelButtonText: texts.value.cancel,
+      type: 'warning',
+      customClass: 'aegis-msgbox',
+    });
+  } catch {
+    return; // user cancelled
+  }
+  try {
+    const res = await fetch(`${API}?id=${encodeURIComponent(rule.id)}`, { method: 'DELETE' });
+    if (res.ok) {
+      rules.value = rules.value.filter(r => r.id !== rule.id);
+      ElMessage({ message: `Deleted: ${rule.id}`, type: 'success' });
+    } else {
+      const data = await res.json();
+      ElMessage({ message: data.message || 'Delete failed', type: 'error' });
+    }
+  } catch (e) {
+    console.error('Delete failed:', e);
+    ElMessage({ message: 'Delete failed', type: 'error' });
   }
 };
 
@@ -812,73 +967,120 @@ const generateYaml = (): string => {
 
 const updateYamlPreview = () => {
   yamlPreview.value = generateYaml();
+  if (advancedYamlMode.value) {
+    rawYamlEdit.value = yamlPreview.value.replace(/<[^>]+>/g, '');
+  }
+};
+
+// ==================== YAML ADVANCED MODE ====================
+
+const generateRawYaml = (): string =>
+  generateYaml().replace(/<[^>]+>/g, '');
+
+const toggleAdvancedYaml = () => {
+  advancedYamlMode.value = !advancedYamlMode.value;
+  if (advancedYamlMode.value) {
+    rawYamlEdit.value = generateRawYaml();
+  }
+};
+
+const syncFromYaml = () => {
+  const text = rawYamlEdit.value;
+  const get = (key: string) => {
+    const m = text.match(new RegExp(`^${key}:\\s*"?([^"\\n]+)"?`, 'm'));
+    return m ? m[1].trim() : null;
+  };
+  const v = get('id'); if (v) form.ruleId = v;
+  const d = get('description'); if (d) form.ruleDesc = d;
+  const sev = get('severity'); if (sev && ['off','warn','error','block'].includes(sev)) form.severity = sev;
+  const act = get('action'); if (act && ['allow','review','block'].includes(act)) form.action = act;
+  const zh = get('  zh'); if (zh) form.reasonZh = zh;
+  const en = get('  en'); if (en) form.reasonEn = en;
+  const ex = get('example'); if (ex) form.exampleCmd = ex;
+
+  // sync selector → selectedConditions
+  const binM = text.match(/^  binary:\s*"?([^"\n]+)"?/m);
+  const subM = text.match(/^  subcommands:\s*\["?([^"\]]+)"?\]/m);
+  const flagM = [...text.matchAll(/anyOf:\s*\[([^\]]+)\]/gm)];
+  const argM = [...text.matchAll(/- pattern:\s*"?([^"\n]+)"?/gm)];
+
+  selectedConditions.value = [];
+  if (binM) {
+    const val = binM[1].trim().replace(/"/g, '');
+    selectedConditions.value.push({ key: 'binary', type: 'binary', value: val, label: `binary = "${val}"`, elementId: 'binary' });
+  }
+  if (subM) {
+    const val = subM[1].trim().replace(/"/g, '');
+    selectedConditions.value.push({ key: 'subcommands', type: 'subcommands', value: val, label: `subcommand = "${val}"`, elementId: `sub_${val}` });
+  }
+  flagM.forEach((m, i) => {
+    const flags = m[1].split(',').map(f => f.trim().replace(/"/g, '')).filter(Boolean);
+    flags.forEach((f, j) => {
+      const raw = f.length === 1 ? `-${f}` : `--${f}`;
+      selectedConditions.value.push({ key: 'flags', type: 'flags', value: f, label: `flag = "${raw}"`, elementId: `flag_${i}_${j}` });
+    });
+  });
+  argM.forEach((m, i) => {
+    const val = m[1].trim().replace(/"/g, '');
+    selectedConditions.value.push({ key: 'arguments', type: 'arguments', value: val, label: `arg matches "${val}"`, elementId: `arg_${i}` });
+  });
+  // regenerate highlighted preview from parsed form
+  yamlPreview.value = generateYaml();
 };
 
 // ==================== TEST ====================
 
-const testRule = () => {
+const testRule = async () => {
   const cmd = form.testCommand.trim();
   if (!cmd) return;
 
-  const seg = parseSegment(cmd, 0);
-  const binaryCond = selectedConditions.value.find(c => c.type === 'binary');
-  const subCond = selectedConditions.value.find(c => c.type === 'subcommands');
-  const flagConds = selectedConditions.value.filter(c => c.type === 'flags');
-  const argConds = selectedConditions.value.filter(c => c.type === 'arguments');
-
-  let matched = true;
-  const details: string[] = [];
-
-  if (binaryCond) {
-    const m = seg.binary === binaryCond.value;
-    details.push(`binary: ${m ? '✓' : '✗'} "${seg.binary}" ${m ? '==' : '!='} "${binaryCond.value}"`);
-    if (!m) matched = false;
-  }
-
-  if (subCond && matched) {
-    const subcommands = commonSubcommands[seg.binary] || [];
-    const foundSub = subcommands.find(s => seg.positionalArgs.includes(s));
-    const m = foundSub === subCond.value;
-    details.push(`subcommand: ${m ? '✓' : '✗'} "${foundSub || 'none'}" ${m ? '==' : '!='} "${subCond.value}"`);
-    if (!m) matched = false;
-  }
-
-  if (flagConds.length && matched) {
-    const flagNames = seg.flags.map(f => f.name);
-    flagConds.forEach(c => {
-      const target = c.value.replace(/^-+/, '');
-      const m = flagNames.includes(target);
-      details.push(`flag "${target}": ${m ? '✓' : '✗'}`);
-      if (!m) matched = false;
-    });
-  }
-
-  if (argConds.length && matched) {
-    argConds.forEach(c => {
-      const m = seg.positionalArgs.some(a => a.includes(c.value));
-      details.push(`arg "${c.value}": ${m ? '✓' : '✗'}`);
-      if (!m) matched = false;
-    });
-  }
-
-  testResult.value = {
-    matched,
-    command: cmd,
-    action: matched ? form.action : 'allow',
-    severity: matched ? form.severity : 'off',
-    details,
+  const draftRule = {
+    id: form.ruleId || '__draft__',
+    description: form.ruleDesc,
+    severity: form.severity,
+    action: form.action,
+    selector: buildSelector(),
+    contextChecks: buildContext(),
   };
+
+  try {
+    const res = await fetch(`${API}/test-draft`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rule: draftRule, command: cmd, lang: lang.value }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    testResult.value = {
+      matched: data.matched,
+      command: cmd,
+      action: data.action,
+      severity: data.severity,
+      triggeredConditions: data.triggeredConditions || [],
+    };
+  } catch (e) {
+    console.error('Test failed:', e);
+    testResult.value = {
+      matched: false,
+      command: cmd,
+      action: 'allow',
+      severity: 'off',
+      triggeredConditions: [],
+      error: texts.value.testError,
+    };
+  }
 };
 
 // ==================== SAVE ====================
 
-const saveRule = () => {
+const saveRule = async () => {
   if (!form.ruleId) {
-    alert('RULE ID is required');
+    fieldErrors.ruleId = true;
+    ElMessage({ message: texts.value.ruleIdRequired, type: 'error' });
     return;
   }
 
-  const rule: Rule = {
+  const rule = {
     id: form.ruleId,
     description: form.ruleDesc,
     category: form.ruleCategory,
@@ -887,17 +1089,32 @@ const saveRule = () => {
     reason: { zh: form.reasonZh, en: form.reasonEn },
     selector: buildSelector(),
     contextChecks: buildContext(),
-    enabled: true,
   };
 
-  if (editingRule.value) {
-    const idx = rules.value.findIndex(r => r.id === editingRule.value!.id);
-    if (idx >= 0) rules.value[idx] = rule;
-  } else {
-    rules.value.push(rule);
-  }
+  try {
+    const isEdit = !!editingRule.value;
+    const url = isEdit ? `${API}?id=${encodeURIComponent(editingRule.value!.id)}` : API;
+    const method = isEdit ? 'PUT' : 'POST';
 
-  closeModal();
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rule),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      ElMessage({ message: data.message || texts.value.saveFailed, type: 'error' });
+      return;
+    }
+
+    ElMessage({ message: `${isEdit ? 'Updated' : 'Created'}: ${form.ruleId}`, type: 'success' });
+    await loadRules();
+    closeModal();
+  } catch (e) {
+    console.error('Save failed:', e);
+    ElMessage({ message: texts.value.saveFailed, type: 'error' });
+  }
 };
 
 const buildSelector = (): any => {
@@ -947,6 +1164,30 @@ const buildContext = (): any => {
 .stat-card:hover {
   border-color: var(--border-accent);
 }
+.stat-clickable {
+  cursor: pointer;
+  user-select: none;
+}
+.stat-clickable:hover {
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+}
+.stat-active {
+  border-color: var(--accent-green) !important;
+  background: var(--accent-green-dim) !important;
+}
+.stat-active-danger {
+  border-color: var(--danger) !important;
+  background: rgba(220, 38, 38, 0.08) !important;
+}
+.stat-active-warning {
+  border-color: var(--warning) !important;
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+.stat-active-info {
+  border-color: var(--info) !important;
+  background: rgba(59, 130, 246, 0.08) !important;
+}
 .stat-number {
   font-family: 'Orbitron', monospace;
   font-size: 2rem;
@@ -959,6 +1200,23 @@ const buildContext = (): any => {
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.15em;
+}
+
+/* Reload spinning animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.spinning {
+  display: inline-block;
+  animation: spin 0.7s linear infinite;
+}
+.btn-reload {
+  min-width: 5.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-content: center;
 }
 
 /* Toolbar */
@@ -1495,6 +1753,135 @@ const buildContext = (): any => {
   color: var(--accent-green);
   background: rgba(34, 197, 94, 0.05);
   padding: 0.1rem 0.3rem;
+}
+.triggered-list {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.triggered-tag {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 2px;
+  color: var(--accent-green);
+  background: rgba(34, 197, 94, 0.05);
+}
+.test-error {
+  color: var(--danger);
+  font-size: 0.8rem;
+}
+.match-hint {
+  margin-top: 0.6rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding: 0.5rem 0.75rem;
+  border-left: 2px solid rgba(96, 165, 250, 0.4);
+  background: rgba(96, 165, 250, 0.04);
+  line-height: 1.5;
+}
+
+/* Required field */
+.required-star {
+  color: var(--danger);
+  margin-left: 0.2rem;
+}
+.field-error input,
+.field-error textarea {
+  border-color: var(--danger) !important;
+}
+.field-error-msg {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--danger);
+  margin-top: 0.25rem;
+}
+
+/* Context accordion */
+.context-accordion {
+  margin-top: 0.75rem;
+}
+.context-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  padding: 0.4rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  transition: all 0.2s;
+}
+.context-toggle:hover {
+  border-color: var(--border-accent);
+  color: var(--text-secondary);
+}
+.ctx-arrow {
+  font-size: 0.6rem;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+.ctx-arrow.open { transform: rotate(90deg); }
+.ctx-active-dot {
+  color: var(--accent-green);
+  font-size: 0.6rem;
+  margin-left: auto;
+}
+
+/* YAML advanced edit */
+.yaml-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.btn-yaml-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  padding: 0.3rem 0.7rem;
+  transition: all 0.2s;
+}
+.btn-yaml-toggle:hover { border-color: var(--border-accent); color: var(--text-secondary); }
+.btn-yaml-toggle.active {
+  border-color: var(--accent-green-border);
+  color: var(--accent-green);
+  background: var(--accent-green-dim);
+}
+.yaml-edit {
+  width: 100%;
+  min-height: 200px;
+  background: #0a0a0a;
+  border: 1px solid var(--accent-green-border);
+  padding: 1.25rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  line-height: 1.8;
+  color: #d4d4d4;
+  resize: vertical;
+  outline: none;
+}
+.yaml-edit:focus { border-color: var(--accent-green); }
+
+/* ElMessageBox override */
+:deep(.aegis-msgbox),
+.aegis-msgbox {
+  background: #1a2540 !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 0 !important;
+  font-family: 'JetBrains Mono', monospace !important;
 }
 
 /* Responsive */

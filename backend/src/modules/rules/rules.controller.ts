@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Put, Delete, Query, HttpException, HttpStatus } from '@nestjs/common';
 import { AstParserService } from './ast-parser.service';
 import { AstContextService } from './ast-context.service';
 import { RuleMatcherService } from './rule-matcher.service';
@@ -152,14 +152,77 @@ export class RulesController {
 
   /**
    * GET /api/v1/rules
-   * 查看所有规则
+   * 查看所有规则（自动从 YAML 重载内存）
    */
   @Get()
   getAllRules() {
-    return {
-      rules: this.ruleMatcher.getAllRules(),
-      count: this.ruleMatcher.getAllRules().length,
-    };
+    this.ruleMatcher.reloadRules();
+    const rules = this.ruleMatcher.getAllRules();
+    return { rules, count: rules.length };
+  }
+
+  /**
+   * POST /api/v1/rules/test-draft
+   * 用 draft 规则测试命令，不写入任何文件
+   */
+  @Post('test-draft')
+  async testDraftRule(@Body() body: { rule: any; command: string; cwd?: string; lang?: string }) {
+    if (!body.rule || !body.command) {
+      throw new HttpException('rule and command are required', HttpStatus.BAD_REQUEST);
+    }
+    const ast = this.astParser.parse(body.command);
+    const context = await this.astContext.collectContext(body.cwd);
+    return this.ruleMatcher.testDraftRule(body.rule, body.command, ast, context);
+  }
+
+  /**
+   * POST /api/v1/rules
+   * 创建新规则，写入 ~/.aegis/rules/custom.yaml
+   */
+  @Post()
+  createRule(@Body() body: any) {
+    try {
+      const rule = this.ruleMatcher.createRule(body);
+      return { success: true, rule };
+    } catch (e: any) {
+      throw new HttpException(e.message, HttpStatus.CONFLICT);
+    }
+  }
+
+  /**
+   * PUT /api/v1/rules?id=git/force-push
+   * 更新规则（body 含完整规则数据，id 通过 query 传入以避免路径歧义）
+   */
+  @Put()
+  updateRule(@Query('id') id: string, @Body() body: any) {
+    if (!id) throw new HttpException('id query param required', HttpStatus.BAD_REQUEST);
+    const rule = this.ruleMatcher.updateRule(id, { ...body, id });
+    if (!rule) throw new HttpException(`Rule "${id}" not found after update`, HttpStatus.NOT_FOUND);
+    return { success: true, rule };
+  }
+
+  /**
+   * DELETE /api/v1/rules?id=git/force-push
+   * 删除规则（仅从 custom.yaml 删除）
+   */
+  @Delete()
+  deleteRule(@Query('id') id: string) {
+    if (!id) throw new HttpException('id query param required', HttpStatus.BAD_REQUEST);
+    const deleted = this.ruleMatcher.deleteRule(id);
+    if (!deleted) throw new HttpException(`Rule "${id}" not found in custom rules`, HttpStatus.NOT_FOUND);
+    return { success: true };
+  }
+
+  /**
+   * POST /api/v1/rules/toggle  body: { id }
+   * 启用/禁用规则（写入 .disabled.json）
+   */
+  @Post('toggle')
+  toggleRule(@Body('id') id: string) {
+    if (!id) throw new HttpException('id required', HttpStatus.BAD_REQUEST);
+    const result = this.ruleMatcher.toggleRule(id);
+    if (!result) throw new HttpException(`Rule "${id}" not found`, HttpStatus.NOT_FOUND);
+    return { success: true, ...result };
   }
 
   /**

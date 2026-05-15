@@ -11,6 +11,8 @@ declare module 'vue' {
     AppHeader: typeof import('./src/components/AppHeader.vue')['default']
     ApprovalModal: typeof import('./src/components/ApprovalModal.vue')['default']
     AstItem: typeof import('./src/components/AstItem.vue')['default']
+    ElOption: typeof import('element-plus/es')['ElOption']
+    ElSelect: typeof import('element-plus/es')['ElSelect']
     EventList: typeof import('./src/components/EventList.vue')['default']
     NotifModal: typeof import('./src/components/NotifModal.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

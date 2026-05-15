@@ -68,6 +68,7 @@ import AgentGrid from "../components/AgentGrid.vue";
 import EventList from "../components/EventList.vue";
 import ApprovalModal from "../components/ApprovalModal.vue";
 import NotifModal from "../components/NotifModal.vue";
+import { useLang } from "../composables/useLang";
 
 // 语言配置
 const languages = {
@@ -186,7 +187,7 @@ const languages = {
 };
 
 // 响应式数据
-const currentLang = ref(localStorage.getItem("aegis-lang") || "zh");
+const currentLang = useLang();
 const wsConnected = ref(false);
 const socket = ref<Socket | null>(null);
 const notifPermission = ref<NotificationPermission>(
@@ -420,7 +421,6 @@ const formatEventTime = (date: Date): string => {
 // 方法
 const toggleLanguage = () => {
   currentLang.value = currentLang.value === "zh" ? "en" : "zh";
-  localStorage.setItem("aegis-lang", currentLang.value);
   fetch("/api/monitoring/lang", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },

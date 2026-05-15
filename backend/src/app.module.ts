@@ -21,9 +21,11 @@ const hasFrontendDist = existsSync(join(frontendDistPath, 'index.html'));
     }),
 
     // 生产模式：frontend/dist 存在时由 NestJS 直接托管前端静态文件
+    // renderPath:'*' 让所有非文件路径返回 index.html（SPA history 模式必需）
+    // exclude 已移除：path-to-regexp v8 不支持 (.*)，且静态中间件遇到 /api/* 自动 next()
     ...(hasFrontendDist ? [ServeStaticModule.forRoot({
       rootPath: frontendDistPath,
-      exclude: ['/api/(.*)'],
+      renderPath: '*',
     })] : []),
 
     MonitoringModule,

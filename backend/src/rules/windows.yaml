@@ -93,7 +93,7 @@ rules:
 
 - id: windows/format-drive
   description: format command on any drive
-  example: format C: /Q
+  example: "format C: /Q"
   category: filesystem
   severity: block
   action: block
