@@ -150,6 +150,72 @@ export class SqliteStorageService implements OnModuleInit {
     });
   }
 
+  async getEventsByStatus(status: string, limit = 100, offset = 0): Promise<SecurityEvent[]> {
+    if (!this.db) return [];
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT id, command, agent, session_id as sessionId, risk, status, description, timestamp, task_id as taskId, user_input as userInput, assist_prompt as assistPrompt, matched_rules as matchedRules
+         FROM events WHERE status = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+        [status, limit, offset],
+        (err, rows) => {
+          if (err) return reject(err);
+          const parsed = (rows || []).map((r: any) => {
+            if (typeof r.matchedRules === 'string') {
+              try { r.matchedRules = JSON.parse(r.matchedRules); } catch { r.matchedRules = []; }
+            }
+            if (!r.matchedRules) r.matchedRules = [];
+            return r;
+          });
+          resolve(parsed);
+        }
+      );
+    });
+  }
+
+  async getEventsByTimeRange(startTime: string, endTime: string, limit = 100, offset = 0): Promise<SecurityEvent[]> {
+    if (!this.db) return [];
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT id, command, agent, session_id as sessionId, risk, status, description, timestamp, task_id as taskId, user_input as userInput, assist_prompt as assistPrompt, matched_rules as matchedRules
+         FROM events WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+        [startTime, endTime, limit, offset],
+        (err, rows) => {
+          if (err) return reject(err);
+          const parsed = (rows || []).map((r: any) => {
+            if (typeof r.matchedRules === 'string') {
+              try { r.matchedRules = JSON.parse(r.matchedRules); } catch { r.matchedRules = []; }
+            }
+            if (!r.matchedRules) r.matchedRules = [];
+            return r;
+          });
+          resolve(parsed);
+        }
+      );
+    });
+  }
+
+  async getEventsByStatusAndTimeRange(status: string, startTime: string, endTime: string, limit = 100, offset = 0): Promise<SecurityEvent[]> {
+    if (!this.db) return [];
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT id, command, agent, session_id as sessionId, risk, status, description, timestamp, task_id as taskId, user_input as userInput, assist_prompt as assistPrompt, matched_rules as matchedRules
+         FROM events WHERE status = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+        [status, startTime, endTime, limit, offset],
+        (err, rows) => {
+          if (err) return reject(err);
+          const parsed = (rows || []).map((r: any) => {
+            if (typeof r.matchedRules === 'string') {
+              try { r.matchedRules = JSON.parse(r.matchedRules); } catch { r.matchedRules = []; }
+            }
+            if (!r.matchedRules) r.matchedRules = [];
+            return r;
+          });
+          resolve(parsed);
+        }
+      );
+    });
+  }
+
   async getEventStats() {
     if (!this.db) return { total: 0, blocked: 0, allowed: 0, warning: 0, pending: 0, timed_out: 0 };
     return new Promise((resolve, reject) => {

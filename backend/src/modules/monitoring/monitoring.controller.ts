@@ -24,12 +24,55 @@ export class MonitoringController {
 
   @Get('events')
   @ApiOperation({ summary: '获取所有安全事件' })
-  getEvents(
+  async getEvents(
     @Query('offset') offset?: string,
     @Query('limit') limit?: string,
+    @Query('status') status?: string,
+    @Query('timeFilter') timeFilter?: string,
   ) {
     const o = offset !== undefined ? parseInt(offset, 10) : 0;
-    const l = limit !== undefined ? parseInt(limit, 10) : undefined;
+    const l = limit !== undefined ? parseInt(limit, 10) : 50;
+
+    // 如果有 status 或 timeFilter，走数据库筛选
+    if (status || timeFilter) {
+      const storage = (this.monitoringService as any).eventManager?.storage;
+      if (storage?.isReady()) {
+        let events: any[] = [];
+        const now = new Date();
+        let startTime: string | null = null;
+        let endTime = now.toISOString();
+
+        if (timeFilter) {
+          const cutoff = new Date();
+          switch (timeFilter) {
+            case '1h': cutoff.setHours(cutoff.getHours() - 1); break;
+            case '24h': cutoff.setHours(cutoff.getHours() - 24); break;
+            case 'today': cutoff.setHours(0, 0, 0, 0); break;
+            default: cutoff.setTime(0);
+          }
+          startTime = cutoff.toISOString();
+        }
+
+        if (status && startTime) {
+          events = await storage.getEventsByStatusAndTimeRange(status, startTime, endTime, l, o);
+        } else if (status) {
+          events = await storage.getEventsByStatus(status, l, o);
+        } else if (startTime) {
+          events = await storage.getEventsByTimeRange(startTime, endTime, l, o);
+        }
+
+        return {
+          success: true,
+          data: events.map(e => ({ ...e, reason: e.description })),
+          total: events.length,
+          offset: o,
+          limit: l,
+          timestamp: new Date().toISOString(),
+        };
+      }
+    }
+
+    // 默认走原有逻辑
     return this.monitoringService.getEvents(o, l);
   }
 

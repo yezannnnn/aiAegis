@@ -9,6 +9,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { EventManagerService } from '../monitoring/event-manager.service';
+import { SqliteStorageService } from '../storage/sqlite-storage.service';
 
 @WSGateway({
   cors: {
@@ -20,7 +21,10 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly eventManager: EventManagerService) {
+  constructor(
+    private readonly eventManager: EventManagerService,
+    private readonly storage: SqliteStorageService,
+  ) {
     // 监听事件管理器的事件
     this.eventManager.on('new_event', (event) => {
       this.broadcastEvent('new_event', event);
@@ -38,10 +42,14 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   async handleConnection(client: Socket) {
     console.log('📡 WebSocket client connected:', client.id);
 
-    // 发送初始状态
+    // 发送初始状态 —— events 直接查数据库
+    const dbEvents = this.storage.isReady()
+      ? await this.storage.getEvents(50)
+      : this.eventManager.getInitialEvents(50);
+
     client.emit('initial_state', {
       stats: await this.eventManager.getStats(),
-      events: this.eventManager.getInitialEvents(50).map(e => ({ ...e, reason: e.description })),
+      events: dbEvents.map(e => ({ ...e, reason: e.description })),
       sessions: this.eventManager.getSessions(),
       agents: this.eventManager.getAgents(),
     });
