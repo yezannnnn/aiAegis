@@ -7,32 +7,7 @@
     @notif-click="handleNotifClick"
   />
 
-  <StatsGrid
-    :stats="stats"
-    :current-texts="currentTexts"
-  />
-
-  <AgentGrid
-    :active-agents="activeAgents"
-    :active-sessions="activeSessions"
-    :current-texts="currentTexts"
-  />
-
-  <EventList
-    :events="events"
-    :filtered-events="filteredEvents"
-    :event-filter="eventFilter"
-    :time-filter="timeFilter"
-    :is-loading-more="isLoadingMore"
-    :has-more-events="hasMoreEvents"
-    :ws-connected="wsConnected"
-    :current-texts="currentTexts"
-    @set-filter="setEventFilter"
-    @set-time-filter="setTimeFilter"
-    @scroll="onEventsScroll"
-    @approve-event="approveEventInList"
-    @deny-event="denyEventInList"
-  />
+  <router-view />
 
   <!-- 状态指示器 -->
   <div class="status-bar">
@@ -63,9 +38,6 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from "vue";
 import { io, Socket } from "socket.io-client";
 import AppHeader from "./components/AppHeader.vue";
-import StatsGrid from "./components/StatsGrid.vue";
-import AgentGrid from "./components/AgentGrid.vue";
-import EventList from "./components/EventList.vue";
 import ApprovalModal from "./components/ApprovalModal.vue";
 import NotifModal from "./components/NotifModal.vue";
 

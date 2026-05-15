@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Dashboard from '@/views/Dashboard.vue'
+import RuleList from '@/views/RuleList.vue'
 
 const routes = [
   {
@@ -8,6 +9,14 @@ const routes = [
     component: Dashboard,
     meta: {
       title: 'Aegis 安全监控'
+    }
+  },
+  {
+    path: '/rules',
+    name: 'Rules',
+    component: RuleList,
+    meta: {
+      title: 'Aegis 规则管理'
     }
   }
 ]

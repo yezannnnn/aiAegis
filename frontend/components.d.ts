@@ -10,6 +10,7 @@ declare module 'vue' {
     AgentGrid: typeof import('./src/components/AgentGrid.vue')['default']
     AppHeader: typeof import('./src/components/AppHeader.vue')['default']
     ApprovalModal: typeof import('./src/components/ApprovalModal.vue')['default']
+    AstItem: typeof import('./src/components/AstItem.vue')['default']
     EventList: typeof import('./src/components/EventList.vue')['default']
     NotifModal: typeof import('./src/components/NotifModal.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
