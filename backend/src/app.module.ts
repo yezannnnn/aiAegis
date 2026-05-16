@@ -8,6 +8,7 @@ import { SecurityModule } from './modules/security/security.module';
 import { ApprovalModule } from './modules/approval/approval.module';
 import { WebSocketGatewayModule } from './modules/websocket/websocket.module';
 import { RulesModule } from './modules/rules/rules.module';
+import { LlmModule } from './modules/llm/llm.module';
 
 // 前端 dist 目录（相对于编译后的 backend/dist/）
 const frontendDistPath = join(__dirname, '..', '..', 'frontend', 'dist');
@@ -33,6 +34,7 @@ const hasFrontendDist = existsSync(join(frontendDistPath, 'index.html'));
     ApprovalModule,
     WebSocketGatewayModule,
     RulesModule,
+    LlmModule,
   ],
 })
 export class AppModule {}

@@ -50,13 +50,7 @@
     @test-notif="handleTestNotification"
   />
 
-  <ApprovalModal
-    :current-approval="currentApproval"
-    :current-texts="currentTexts"
-    @approve="handleApprovalDecision(true)"
-    @deny="handleApprovalDecision(false)"
-    @close="closeApprovalModal"
-  />
+  <!-- 审批模态框已移至全局App.vue -->
 </template>
 
 <script setup lang="ts">
@@ -66,7 +60,7 @@ import AppHeader from "../components/AppHeader.vue";
 import StatsGrid from "../components/StatsGrid.vue";
 import AgentGrid from "../components/AgentGrid.vue";
 import EventList from "../components/EventList.vue";
-import ApprovalModal from "../components/ApprovalModal.vue";
+// ApprovalModal现在是全局组件
 import NotifModal from "../components/NotifModal.vue";
 import { useLang } from "../composables/useLang";
 
@@ -373,7 +367,7 @@ const stats = reactive({
 const activeAgents = ref([]);
 const activeSessions = ref([]);
 const events = ref([]);
-const currentApproval = ref(null);
+// 审批状态现在由全局组件管理
 const eventFilter = ref('all');
 const timeFilter = ref('all');
 
@@ -461,12 +455,15 @@ const testSimulate = () => {
 };
 
 const handleApprovalNotification = (data: any) => {
-  console.log("🔔 收到审批请求:", data);
+  console.log("🔔 Dashboard收到审批请求:", data);
   console.log("🔍 审批ID:", data.approvalId);
 
   if (!data.approvalId) {
     console.error("❌ 警告：审批请求缺少approvalId字段！", data);
   }
+
+  // 通过全局事件传递给App.vue处理
+  window.dispatchEvent(new CustomEvent('global-approval-request', { detail: data }))
 
   // 只在用户没看着页面时才发系统通知（避免被 macOS/Chrome 静默吞掉）
   const pageFocused = document.hasFocus();
@@ -489,81 +486,13 @@ const handleApprovalNotification = (data: any) => {
     console.warn("⚠️ Notification permission not granted, current state:", Notification.permission);
   }
 
-  currentApproval.value = {
-    approvalId: data.approvalId,
-    sessionId: data.sessionId || "unknown",
-    command: data.command || data.payload?.command || "unknown",
-    agent: data.agent || data.agentType || "Claude Code",
-    risk: data.risk || "UNKNOWN",
-    cwd: data.cwd || data.context?.cwd || "/unknown",
-    reason: data.reason || data.description || `${data.risk || "UNKNOWN"} risk command`,
-  };
-
   // 更新待审批统计（事件本身由 new_event 统一处理）
   stats.pending += 1;
-
-  console.log("💾 当前审批对象:", currentApproval.value);
 };
 
-const closeApprovalModal = () => {
-  currentApproval.value = null;
-};
+// 审批处理已移至全局组件
 
-const handleApprovalDecision = async (approved: boolean) => {
-  if (!currentApproval.value) return;
-
-  const approvalId = currentApproval.value.approvalId;
-  const sessionId = currentApproval.value.sessionId;
-
-  if (!approvalId) {
-    console.error('❌ 无法处理审批：缺少审批ID');
-    return;
-  }
-
-  console.log(`📝 弹窗审批决定: ${sessionId} - ${approved ? "批准" : "拒绝"}`);
-
-  try {
-    // 发送审批决定到新的API
-    const response = await fetch(`/api/monitoring/approval-decision/${approvalId}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        action: approved ? "approve" : "deny",
-        reason: approved ? "Approved by user" : "Denied by user",
-      }),
-    });
-
-    const result = await response.json();
-
-    if (result.success) {
-      console.log("✅ 弹窗审批决定已发送:", result);
-
-      // 关闭模态框
-      currentApproval.value = null;
-
-      // 更新统计
-      stats.pending = Math.max(0, stats.pending - 1);
-      if (approved) {
-        stats.allowed += 1;
-      } else {
-        stats.blocked += 1;
-      }
-
-      // 更新事件列表中对应的事件状态
-      const eventIndex = events.value.findIndex(e => e.approvalId === approvalId);
-      if (eventIndex !== -1) {
-        events.value[eventIndex].status = approved ? 'allowed' : 'blocked';
-        events.value[eventIndex].action = approved ? 'allow' : 'deny';
-      }
-    } else {
-      console.error("❌ 发送审批决定失败:", result.message);
-    }
-  } catch (error) {
-    console.error("❌ 发送审批决定出错:", error);
-  }
-};
+// 移除重复的函数，保留approveEventInList
 
 // 在事件列表中批准
 const approveEventInList = async (event: any) => {
@@ -600,10 +529,7 @@ const approveEventInList = async (event: any) => {
       stats.pending = Math.max(0, stats.pending - 1);
       stats.allowed += 1;
 
-      // 如果这是当前弹窗显示的事件，关闭弹窗
-      if (currentApproval.value?.approvalId === event.approvalId) {
-        currentApproval.value = null;
-      }
+      // 事件已在全局处理
     } else {
       console.error('❌ 批准失败:', result.message);
     }
@@ -647,10 +573,7 @@ const denyEventInList = async (event: any) => {
       stats.pending = Math.max(0, stats.pending - 1);
       stats.blocked += 1;
 
-      // 如果这是当前弹窗显示的事件，关闭弹窗
-      if (currentApproval.value?.approvalId === event.approvalId) {
-        currentApproval.value = null;
-      }
+      // 事件已在全局处理
     } else {
       console.error('❌ 拒绝失败:', result.message);
     }
@@ -715,11 +638,7 @@ const connectWebSocket = () => {
   socket.value.on("approval_decision", (data: any) => {
     console.log("🎯 收到审批决定结果:", data);
 
-    // 如果当前弹窗显示的是这个审批，关闭弹窗
-    if (currentApproval.value?.approvalId === data.approvalId) {
-      currentApproval.value = null;
-      console.log("📴 关闭当前审批弹窗");
-    }
+    // 审批弹窗由全局组件管理
 
     // 更新事件列表中的对应事件
     const eventIndex = events.value.findIndex(e => e.approvalId === data.approvalId);
@@ -755,11 +674,7 @@ const connectWebSocket = () => {
   socket.value.on("claude_decision_sync", (data: any) => {
     console.log("🔄 收到Claude Code决策同步:", data);
 
-    // 如果当前弹窗显示的是这个审批，关闭弹窗并显示同步消息
-    if (currentApproval.value?.approvalId === data.approvalId) {
-      currentApproval.value = null;
-      console.log("📴 Claude Code已决策，关闭3001审批弹窗");
-    }
+    // 审批弹窗由全局组件管理
 
     // 更新事件列表中的对应事件
     const eventIndex = events.value.findIndex(e => e.approvalId === data.approvalId);

@@ -101,6 +101,48 @@ export class SqliteStorageService implements OnModuleInit {
     await run(`CREATE INDEX IF NOT EXISTS idx_events_status ON events(status)`);
     await run(`CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp)`);
     await run(`CREATE INDEX IF NOT EXISTS idx_approvals_status ON approvals(status)`);
+
+    await run(`
+      CREATE TABLE IF NOT EXISTS llm_config (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        provider TEXT NOT NULL DEFAULT 'deepseek',
+        base_url TEXT NOT NULL DEFAULT 'https://api.deepseek.com/v1',
+        api_key TEXT NOT NULL DEFAULT '',
+        model TEXT NOT NULL DEFAULT 'deepseek-chat',
+        enabled INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+  }
+
+  // ===== LLM 配置 =====
+
+  async getLlmConfig(): Promise<{ provider: string; baseUrl: string; apiKey: string; model: string; enabled: boolean } | null> {
+    if (!this.db) return null;
+    return new Promise((resolve) => {
+      this.db.get('SELECT * FROM llm_config WHERE id = 1', (err, row: any) => {
+        if (err || !row) return resolve(null);
+        resolve({
+          provider: row.provider,
+          baseUrl: row.base_url,
+          apiKey: row.api_key,
+          model: row.model,
+          enabled: row.enabled === 1,
+        });
+      });
+    });
+  }
+
+  async saveLlmConfig(config: { provider: string; baseUrl: string; apiKey: string; model: string; enabled: boolean }) {
+    if (!this.db) return;
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `INSERT OR REPLACE INTO llm_config (id, provider, base_url, api_key, model, enabled, updated_at)
+         VALUES (1, ?, ?, ?, ?, ?, datetime('now'))`,
+        [config.provider, config.baseUrl, config.apiKey, config.model, config.enabled ? 1 : 0],
+        (err) => err ? reject(err) : resolve(undefined),
+      );
+    });
   }
 
   // ===== 事件操作 =====

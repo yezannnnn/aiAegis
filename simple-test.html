@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Connection Test</title>
+    <script src="https://unpkg.com/socket.io-client@4/dist/socket.io.js"></script>
+</head>
+<body>
+    <h1>WebSocket连接测试结果</h1>
+    <div id="status">测试中...</div>
+    <div id="log"></div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const logDiv = document.getElementById('log');
+
+        function log(message) {
+            logDiv.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+            console.log(message);
+        }
+
+        log('开始WebSocket连接测试');
+
+        const socket = io('http://localhost:3001', {
+            transports: ['websocket'],
+            autoConnect: true,
+        });
+
+        let connected = false;
+
+        socket.on('connect', () => {
+            connected = true;
+            statusDiv.innerHTML = '<span style="color: green">✅ 已连接</span>';
+            log('✅ WebSocket连接成功，ID: ' + socket.id);
+        });
+
+        socket.on('disconnect', () => {
+            connected = false;
+            statusDiv.innerHTML = '<span style="color: red">❌ 已断开</span>';
+            log('📡 WebSocket连接断开');
+        });
+
+        socket.on('connect_error', (error) => {
+            statusDiv.innerHTML = '<span style="color: red">❌ 连接失败</span>';
+            log('❌ 连接错误: ' + error.message);
+        });
+
+        socket.on('initial_state', (data) => {
+            log('📊 收到初始状态，事件数量: ' + data.events.length);
+        });
+
+        // 5秒后检查连接状态
+        setTimeout(() => {
+            if (connected) {
+                log('🎉 连接测试成功！前端应该能正常显示连接状态');
+            } else {
+                log('⚠️ 连接测试失败，前端无法显示正确状态');
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

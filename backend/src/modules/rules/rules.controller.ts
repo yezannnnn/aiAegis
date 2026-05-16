@@ -7,6 +7,7 @@ import { ApprovalService } from '../approval/approval.service';
 import { WebSocketGateway } from '../websocket/websocket.gateway';
 import { MonitoringService } from '../monitoring/monitoring.service';
 import { RiskLevel, EventStatus } from '../monitoring/dto';
+import { LlmService } from '../llm/llm.service';
 
 interface EvaluateRequest {
   command: string;
@@ -41,6 +42,7 @@ export class RulesController {
     private readonly approvalService: ApprovalService,
     private readonly webSocketGateway: WebSocketGateway,
     private readonly monitoringService: MonitoringService,
+    private readonly llmService: LlmService,
   ) {}
 
   /**
@@ -211,6 +213,40 @@ export class RulesController {
     const deleted = this.ruleMatcher.deleteRule(id);
     if (!deleted) throw new HttpException(`Rule "${id}" not found in custom rules`, HttpStatus.NOT_FOUND);
     return { success: true };
+  }
+
+  /**
+   * POST /api/v1/rules/suggest-variants
+   * 用 LLM 生成规则变体命令列表
+   */
+  @Post('suggest-variants')
+  async suggestVariants(@Body() body: {
+    description?: string;
+    action?: string;
+    binary?: string;
+    subcommands?: string[];
+    args?: string[];
+    flags?: string[];
+    example?: string;
+  }) {
+    const configured = await this.llmService.isConfigured();
+    if (!configured) {
+      return { variants: [], configured: false };
+    }
+    try {
+      const variants = await this.llmService.suggestVariants({
+        description: body.description || '',
+        action: body.action || 'block',
+        binary: body.binary || '',
+        subcommands: body.subcommands || [],
+        args: body.args || [],
+        flags: body.flags || [],
+        example: body.example || '',
+      });
+      return { variants, configured: true };
+    } catch (e: any) {
+      return { variants: [], configured: true, error: e.message };
+    }
   }
 
   /**

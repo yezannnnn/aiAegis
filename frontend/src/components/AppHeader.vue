@@ -7,6 +7,7 @@
     <div class="header-controls">
       <router-link to="/" class="nav-link" :class="{ active: $route.path === '/' }">DASHBOARD</router-link>
       <router-link to="/rules" class="nav-link" :class="{ active: $route.path === '/rules' }">RULES</router-link>
+      <router-link to="/settings" class="nav-link" :class="{ active: $route.path === '/settings' }">SETTINGS</router-link>
       <button class="lang-switch" @click="$emit('toggle-language')">
         {{ currentTexts.langSwitch }}
       </button>

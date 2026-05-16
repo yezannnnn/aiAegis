@@ -46,7 +46,8 @@
     "cross-spawn": "^7.0.3",
     "fs-extra": "^11.0.0",
     "inquirer": "^8.2.4",
-    "ora": "^5.4.1"
+    "ora": "^5.4.1",
+    "socket.io-client": "^4.8.3"
   },
   "repository": {
     "type": "git",

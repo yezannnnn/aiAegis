@@ -37,7 +37,7 @@ rules:
       - rd
       - rmdir
     arguments:
-      - pattern: '(?i)^[a-zA-Z]?:?[/\\](Windows|System32|SysWOW64|Program Files|Program Files \(x86\)|Users|ProgramData)[/\\]?$'
+      - pattern: '^[a-zA-Z]?:?[/\\](Windows|System32|SysWOW64|Program Files|Program Files \(x86\)|Users|ProgramData)[/\\]?$'
 
 - id: windows/rd-recursive
   description: rd /S /Q on arbitrary paths requires review
@@ -117,7 +117,7 @@ rules:
   selector:
     binary: diskpart
     arguments:
-      - pattern: '(?i)\b(clean|delete\s+(partition|volume|disk))\b'
+      - pattern: '\b(clean|delete\s+(partition|volume|disk))\b'
 
 - id: windows/cipher-wipe
   description: cipher /W wiping free space on a volume
@@ -150,7 +150,7 @@ rules:
   selector:
     binary: bcdedit
     arguments:
-      - pattern: '(?i)/delete'
+      - pattern: '/delete'
 
 - id: windows/taskkill-critical
   description: taskkill targeting critical system processes
@@ -164,7 +164,7 @@ rules:
   selector:
     binary: taskkill
     arguments:
-      - pattern: '(?i)\b(lsass|csrss|winlogon|smss|wininit|services)\.exe\b'
+      - pattern: '\b(lsass|csrss|winlogon|smss|wininit|services)\.exe\b'
 
 - id: windows/icacls-root-everyone
   description: icacls granting Everyone full access to root or system dirs
@@ -178,7 +178,7 @@ rules:
   selector:
     binary: icacls
     arguments:
-      - pattern: '(?i)Everyone:(F|M)'
+      - pattern: 'Everyone:(F|M)'
       - pattern: '^[a-zA-Z]?:?[/\\]?(Windows|System32|Users|Program Files)?[/\\]?$'
 
 - id: windows/reg-delete
@@ -223,7 +223,7 @@ rules:
     subcommands:
       - user
     arguments:
-      - pattern: '(?i)\*|/add|/delete'
+      - pattern: '\*|/add|/delete'
 
 # ════════════════════════════════════════════════════════════════
 # PowerShell — 删除类
@@ -241,7 +241,7 @@ rules:
   selector:
     binary: Remove-Item
     arguments:
-      - pattern: '(?i)(^[a-zA-Z]:\\?$|[/\\](Windows|System32|SysWOW64|Users|Program Files)[/\\]?[''"]?$)'
+      - pattern: '(^[a-zA-Z]:\\?$|[/\\](Windows|System32|SysWOW64|Users|Program Files)[/\\]?[''"]?$)'
 
 - id: windows/ps-remove-item-recurse
   description: Remove-Item -Recurse -Force on arbitrary paths
@@ -285,7 +285,7 @@ rules:
   selector:
     binary: powershell
     arguments:
-      - pattern: '(?i)\[System\.IO\.(Directory|File)\]::(Delete|Move)\s*\(\s*[''"]?[a-zA-Z]:\\?[''"]?'
+      - pattern: '\[System\.IO\.(Directory|File)\]::(Delete|Move)\s*\(\s*[''"]?[a-zA-Z]:\\?[''"]?'
 
 # ════════════════════════════════════════════════════════════════
 # PowerShell — 磁盘/分区
@@ -355,7 +355,7 @@ rules:
   selector:
     binary: Set-ExecutionPolicy
     arguments:
-      - pattern: '(?i)(Unrestricted|Bypass|RemoteSigned)'
+      - pattern: '(Unrestricted|Bypass|RemoteSigned)'
 
 - id: windows/ps-disable-defender
   description: Disabling Windows Defender real-time protection
@@ -369,7 +369,7 @@ rules:
   selector:
     binary: Set-MpPreference
     arguments:
-      - pattern: '(?i)-DisableRealtimeMonitoring\s+\$true'
+      - pattern: '-DisableRealtimeMonitoring\s+\$true'
 
 - id: windows/ps-defender-exclusion-root
   description: Add-MpPreference adding root or wide exclusion paths
@@ -383,7 +383,7 @@ rules:
   selector:
     binary: Add-MpPreference
     arguments:
-      - pattern: '(?i)-ExclusionPath\s+[''"]?[a-zA-Z]:\\?[''"]?$'
+      - pattern: '-ExclusionPath\s+[''"]?[a-zA-Z]:\\?[''"]?$'
 
 - id: windows/ps-disable-firewall
   description: Disabling Windows Firewall via netsh
@@ -397,7 +397,7 @@ rules:
   selector:
     binary: netsh
     arguments:
-      - pattern: '(?i)advfirewall\s+set\s+.+\s+state\s+off'
+      - pattern: 'advfirewall\s+set\s+.+\s+state\s+off'
 
 - id: windows/ps-overwrite-sam
   description: Writing to Windows credential database (SAM, SYSTEM, SECURITY hives)
@@ -414,7 +414,7 @@ rules:
       - Set-Content
       - Add-Content
     arguments:
-      - pattern: '(?i)[/\\]config[/\\](SAM|SYSTEM|SECURITY|DEFAULT)'
+      - pattern: '[/\\]config[/\\](SAM|SYSTEM|SECURITY|DEFAULT)'
 
 # ════════════════════════════════════════════════════════════════
 # PowerShell — 远程代码执行 (LOLBins)
@@ -434,7 +434,7 @@ rules:
       - iex
       - Invoke-Expression
     arguments:
-      - pattern: '(?i)(iwr|Invoke-WebRequest|DownloadString|DownloadFile|WebClient)'
+      - pattern: '(iwr|Invoke-WebRequest|DownloadString|DownloadFile|WebClient)'
 
 # ════════════════════════════════════════════════════════════════
 # 跨解析器风险 — cmd /c 包裹破坏性命令
@@ -452,4 +452,4 @@ rules:
   selector:
     binary: cmd
     arguments:
-      - pattern: '(?i)/c.+\b(rd|rmdir|del|format|diskpart|cipher)\b'
+      - pattern: '/c.+\b(rd|rmdir|del|format|diskpart|cipher)\b'

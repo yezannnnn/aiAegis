@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Vue WebSocket Store</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/socket.io-client@4/dist/socket.io.js"></script>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .debug { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .connected { color: green; }
+        .disconnected { color: red; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>WebSocket Debug Test</h1>
+        <div class="debug">
+            <strong>Store Connected:</strong>
+            <span :class="store?.connected ? 'connected' : 'disconnected'">
+                {{ store?.connected ?? 'undefined' }}
+            </span>
+        </div>
+        <div class="debug">
+            <strong>Socket Object:</strong> {{ store?.socket ? 'exists' : 'null' }}
+        </div>
+        <div class="debug">
+            <strong>Events Count:</strong> {{ store?.events?.length ?? 0 }}
+        </div>
+        <div class="debug">
+            <strong>Connection Status Text:</strong>
+            <span :class="store?.connected ? 'connected' : 'disconnected'">
+                {{ store?.connected ? '已连接' : '断开连接' }}
+            </span>
+        </div>
+        <button @click="connect">手动连接</button>
+        <button @click="disconnect">断开连接</button>
+        <button @click="refreshStore">刷新Store状态</button>
+    </div>
+
+    <script>
+        const { createApp, reactive, ref, onMounted } = Vue;
+
+        // 简化版 WebSocket store
+        const useWebSocketStore = () => {
+            const state = reactive({
+                socket: null,
+                connected: false,
+                stats: {
+                    total: 0,
+                    blocked: 0,
+                    allowed: 0,
+                    warning: 0,
+                    pending: 0,
+                },
+                events: [],
+                sessions: [],
+                agents: [],
+            });
+
+            const connect = () => {
+                if (state.socket) return;
+
+                console.log('🔌 尝试连接 WebSocket');
+
+                const socketUrl = 'http://localhost:3001';
+                state.socket = io(socketUrl, {
+                    transports: ['websocket'],
+                    autoConnect: true,
+                });
+
+                state.socket.on('connect', () => {
+                    console.log('✅ WebSocket 连接成功');
+                    state.connected = true;
+                });
+
+                state.socket.on('disconnect', () => {
+                    console.log('📡 WebSocket 连接断开');
+                    state.connected = false;
+                });
+
+                state.socket.on('initial_state', (data) => {
+                    console.log('📊 收到初始状态:', data);
+                    state.stats = data.stats;
+                    state.events = data.events;
+                    state.sessions = data.sessions;
+                    state.agents = data.agents;
+                });
+
+                state.socket.on('new_event', (data) => {
+                    console.log('🚨 新安全事件:', data.data);
+                    state.events.unshift(data.data);
+                    if (state.events.length > 200) {
+                        state.events = state.events.slice(0, 200);
+                    }
+                });
+            };
+
+            const disconnect = () => {
+                if (state.socket) {
+                    state.socket.disconnect();
+                    state.socket = null;
+                    state.connected = false;
+                }
+            };
+
+            return { state, connect, disconnect };
+        };
+
+        createApp({
+            setup() {
+                const { state: store, connect, disconnect } = useWebSocketStore();
+
+                const refreshStore = () => {
+                    console.log('Store state:', store);
+                };
+
+                onMounted(() => {
+                    // 自动连接
+                    setTimeout(connect, 1000);
+                });
+
+                return {
+                    store,
+                    connect,
+                    disconnect,
+                    refreshStore
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

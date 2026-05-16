@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket审批测试</title>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+</head>
+<body>
+    <h2>WebSocket审批通信测试</h2>
+
+    <div>
+        <p>连接状态: <span id="status">未连接</span></p>
+        <button onclick="testApprovalResponse()">测试审批拒绝</button>
+        <button onclick="testApprovalApprove()">测试审批批准</button>
+    </div>
+
+    <div id="logs" style="margin-top:20px; padding:10px; background:#f5f5f5; height:300px; overflow-y:scroll;"></div>
+
+    <script>
+        const socket = io('http://localhost:3001');
+        const logs = document.getElementById('logs');
+        const status = document.getElementById('status');
+
+        function addLog(message) {
+            const time = new Date().toLocaleTimeString();
+            logs.innerHTML += `[${time}] ${message}<br>`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        socket.on('connect', () => {
+            status.textContent = '已连接';
+            status.style.color = 'green';
+            addLog('✅ WebSocket连接成功');
+        });
+
+        socket.on('disconnect', () => {
+            status.textContent = '已断开';
+            status.style.color = 'red';
+            addLog('❌ WebSocket连接断开');
+        });
+
+        // 监听所有事件
+        socket.onAny((event, data) => {
+            addLog(`🔄 收到事件: ${event} - ${JSON.stringify(data)}`);
+        });
+
+        function testApprovalResponse() {
+            const data = {
+                approvalId: 'req_1778948796121_oed6y3',
+                sessionId: '7b2e75db-48fb-44aa-af65-3e464b836e6e',
+                approved: false,
+                reason: '用户拒绝 - 测试'
+            };
+
+            addLog(`📤 发送审批拒绝: ${JSON.stringify(data)}`);
+            socket.emit('approval_response', data);
+        }
+
+        function testApprovalApprove() {
+            const data = {
+                approvalId: 'req_1778948796121_oed6y3',
+                sessionId: '7b2e75db-48fb-44aa-af65-3e464b836e6e',
+                approved: true,
+                reason: '用户批准 - 测试'
+            };
+
+            addLog(`📤 发送审批批准: ${JSON.stringify(data)}`);
+            socket.emit('approval_response', data);
+        }
+    </script>
+</body>
+</html>

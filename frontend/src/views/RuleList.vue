@@ -82,36 +82,37 @@
       </div>
     </div>
 
-    <!-- Filter tabs -->
-    <div class="filter-tabs">
-      <button
-        v-for="tab in filterTabs"
-        :key="tab.value"
-        class="filter-tab"
-        :class="{
-          active: currentFilter === tab.value,
-          off: tab.value === 'off',
-        }"
-        @click="filterRules(tab.value)"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
-
-    <!-- Search Box -->
-    <div class="search-section">
-      <div class="search-box">
-        <input
-          v-model="searchQuery"
-          type="text"
-          class="search-input"
-          :placeholder="texts.searchPlaceholder"
-          @input="onSearchInput"
-        />
-        <div class="search-icon">🔍</div>
+    <!-- Filter tabs and Search Box (same row) -->
+    <div class="filter-search-section">
+      <div class="filter-tabs">
+        <button
+          v-for="tab in filterTabs"
+          :key="tab.value"
+          class="filter-tab"
+          :class="{
+            active: currentFilter === tab.value,
+            off: tab.value === 'off',
+          }"
+          @click="filterRules(tab.value)"
+        >
+          {{ tab.label }}
+        </button>
       </div>
-      <div v-if="searchQuery" class="search-results">
-        {{ texts.searchResults.replace('{count}', filteredRules.length) }}
+
+      <div class="search-container">
+        <div class="search-box">
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="search-input"
+            :placeholder="texts.searchPlaceholder"
+            @input="onSearchInput"
+          />
+          <div class="search-icon">🔍</div>
+        </div>
+        <div v-if="searchQuery" class="search-results">
+          {{ texts.searchResults.replace('{count}', filteredRules.length) }}
+        </div>
       </div>
     </div>
 
@@ -1110,21 +1111,19 @@ const resetForm = () => {
 
 const API = "/api/v1/rules";
 
+// 一次性加载所有规则
+const allRules = ref<Rule[]>([]);
+
 const loadRules = async () => {
   loading.value = true;
-  rulesOffset.value = 0;
-  hasMoreRules.value = true;
-
   try {
-    const res = await fetch(`${API}?offset=0&limit=${pageSize}`);
+    const res = await fetch(API);
     const data = await res.json();
-    rules.value = data.rules || [];
+    allRules.value = data.rules || [];
+    // 初始显示前50条
+    rules.value = allRules.value.slice(0, pageSize);
     rulesOffset.value = pageSize;
-
-    // 如果返回的数据少于pageSize，说明没有更多了
-    if ((data.rules || []).length < pageSize) {
-      hasMoreRules.value = false;
-    }
+    hasMoreRules.value = allRules.value.length > pageSize;
   } catch (e) {
     console.error("Failed to load rules:", e);
   } finally {
@@ -1132,31 +1131,41 @@ const loadRules = async () => {
   }
 };
 
-const loadMoreRules = async () => {
+const loadMoreRules = () => {
   if (isLoadingMore.value || !hasMoreRules.value) return;
 
   isLoadingMore.value = true;
-  try {
-    const res = await fetch(`${API}?offset=${rulesOffset.value}&limit=${pageSize}`);
-    const data = await res.json();
-    const newRules = data.rules || [];
 
-    // 去重追加到末尾
-    const existingIds = new Set(rules.value.map(r => r.id));
-    const deduped = newRules.filter((r: Rule) => !existingIds.has(r.id));
-    rules.value = [...rules.value, ...deduped];
+  // 模拟异步加载
+  setTimeout(() => {
+    // 加载更多数据直到我们有足够的可见结果或没有更多数据
+    let nextBatch;
+    let shouldContinueLoading = true;
 
-    rulesOffset.value += pageSize;
+    while (shouldContinueLoading && rulesOffset.value < allRules.value.length) {
+      nextBatch = allRules.value.slice(rulesOffset.value, rulesOffset.value + pageSize);
+      rules.value = [...rules.value, ...nextBatch];
+      rulesOffset.value += pageSize;
 
-    // 如果返回的数据少于pageSize，说明没有更多了
-    if (newRules.length < pageSize) {
+      // 如果没有搜索和过滤，或者加载了足够的数据，就停止
+      if (!searchQuery.value.trim() && currentFilter.value === 'all') {
+        shouldContinueLoading = false;
+      } else {
+        // 检查过滤后的结果是否足够显示
+        const currentFiltered = filteredRules.value.length;
+        const previousBatchSize = nextBatch.length;
+
+        // 如果这批数据没有增加过滤结果，继续加载
+        shouldContinueLoading = previousBatchSize > 0 && currentFiltered < (Math.floor(rulesOffset.value / pageSize) * 20);
+      }
+    }
+
+    if (rulesOffset.value >= allRules.value.length) {
       hasMoreRules.value = false;
     }
-  } catch (e) {
-    console.error("Failed to load more rules:", e);
-  } finally {
+
     isLoadingMore.value = false;
-  }
+  }, 300); // 添加短暂延迟模拟加载效果
 };
 
 onMounted(() => {
@@ -1917,11 +1926,33 @@ const buildContext = (): any => {
 }
 
 /* Filter tabs */
+.filter-search-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .filter-search-section {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
 .filter-tabs {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 1.5rem;
   flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.search-container {
+  flex: 0 0 auto;
+  min-width: 300px;
 }
 .filter-tab {
   background: var(--bg-card);
@@ -1950,9 +1981,6 @@ const buildContext = (): any => {
 }
 
 /* Search */
-.search-section {
-  margin-bottom: 1.5rem;
-}
 
 .search-box {
   position: relative;
