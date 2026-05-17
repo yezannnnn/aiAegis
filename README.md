@@ -174,6 +174,21 @@ aegis rules path         # Show rules directory path
 aegis rules reload       # Hot reload (no restart needed)
 ```
 
+### Web-Based Rule Management
+
+In addition to CLI commands, you can manage rules through the web dashboard:
+
+| Rules Management | Rule Editor |
+| :-------------------------------------------------: | :-------------------------------------------------: |
+| ![Rules Management](./docs/images/rules-list.png) | ![Rule Editor](./docs/images/rule-editor.png) |
+
+**Features:**
+- **Search & Filter**: Find rules by ID, description, category, action, or severity
+- **Real-time Editing**: Create, edit, and delete rules through the web interface  
+- **YAML Validation**: Built-in syntax validation with error highlighting
+- **Live Preview**: Test rule matching against sample commands
+- **Hot Reload**: Changes take effect immediately without service restart
+
 ### Rule File Format
 
 ```yaml
