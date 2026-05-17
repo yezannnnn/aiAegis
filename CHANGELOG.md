@@ -3,7 +3,7 @@
 
 ### Bug Fixes
 
-* 版本好累加 ([acad27d](https://github.com/yezannnnn/aiAegis/commit/acad27d3247b40d415a64a3aaa9f9ef86012bc12))
+* 版本号累加 ([acad27d](https://github.com/yezannnnn/aiAegis/commit/acad27d3247b40d415a64a3aaa9f9ef86012bc12))
 * 提交最新变动 ([ea04c83](https://github.com/yezannnnn/aiAegis/commit/ea04c838f3e82691438b048c3fb74725cd65afe5))
 * add post-tool-use-handler.js to npm package files field ([4ecaef8](https://github.com/yezannnnn/aiAegis/commit/4ecaef8606bfa3202426beb70efe23b375628be8))
 * **issue#6:** 状态筛选 + 通知skip持久化 + initial_state走数据库 ([525d388](https://github.com/yezannnnn/aiAegis/commit/525d3881c08f7cb25306e98f9affd3e59c8ddc98)), closes [issue#6](https://github.com/issue/issues/6)
