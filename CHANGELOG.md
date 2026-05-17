@@ -1,3 +1,21 @@
+## [0.3.3](https://github.com/yezannnnn/aiAegis/compare/v0.3.2...v0.3.3) (2026-05-17)
+
+
+### Bug Fixes
+
+* 版本好累加 ([acad27d](https://github.com/yezannnnn/aiAegis/commit/acad27d3247b40d415a64a3aaa9f9ef86012bc12))
+* 提交最新变动 ([ea04c83](https://github.com/yezannnnn/aiAegis/commit/ea04c838f3e82691438b048c3fb74725cd65afe5))
+* add post-tool-use-handler.js to npm package files field ([4ecaef8](https://github.com/yezannnnn/aiAegis/commit/4ecaef8606bfa3202426beb70efe23b375628be8))
+* **issue#6:** 状态筛选 + 通知skip持久化 + initial_state走数据库 ([525d388](https://github.com/yezannnnn/aiAegis/commit/525d3881c08f7cb25306e98f9affd3e59c8ddc98)), closes [issue#6](https://github.com/issue/issues/6)
+
+
+### Features
+
+* **frontend:** add /rules page with routing ([14a360b](https://github.com/yezannnnn/aiAegis/commit/14a360b085f037257537a6fb751f50a36da9de56))
+* **rules:** YAML-only CRUD, i18n, Element Plus UI, SPA routing fix ([fba5cb2](https://github.com/yezannnnn/aiAegis/commit/fba5cb211adfbd7ca59835f2b105796e3da3f0a4))
+
+
+
 ## [0.3.2](https://github.com/yezannnnn/aiAegis/compare/25d43760c5006fa45bb24082fe0ff4ff0ec90b4c...v0.3.2) (2026-05-11)
 
 
