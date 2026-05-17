@@ -407,6 +407,10 @@ Aegis merges by priority: **Project rules > User custom rules > Built-in rules**
 
 ---
 
+## Changelog
+
+View detailed release notes and version history: [CHANGELOG.md](./CHANGELOG.md)
+
 ## License
 
 MIT © [yezannnnn](https://github.com/yezannnnn)

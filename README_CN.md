@@ -408,6 +408,10 @@ Aegis 按优先级合并：**项目规则 > 用户自定义规则 > 内置规则
 
 ---
 
+## 更新日志
+
+查看详细的发布说明和版本历史：[CHANGELOG.md](./CHANGELOG.md)
+
 ## License
 
 MIT © [yezannnnn](https://github.com/yezannnnn)
