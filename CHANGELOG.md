@@ -1,4 +1,4 @@
-## [0.3.3](https://github.com/yezannnnn/aiAegis/compare/v0.3.2...v0.3.3) (2026-05-17)
+# [0.4.0](https://github.com/yezannnnn/aiAegis/compare/v0.3.2...v0.4.0) (2026-05-17)
 
 
 ### Bug Fixes
