@@ -101,6 +101,32 @@ export class SqliteStorageService implements OnModuleInit {
     await run(`CREATE INDEX IF NOT EXISTS idx_events_status ON events(status)`);
     await run(`CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp)`);
     await run(`CREATE INDEX IF NOT EXISTS idx_approvals_status ON approvals(status)`);
+
+    await run(`
+      CREATE TABLE IF NOT EXISTS file_baselines (
+        id          TEXT PRIMARY KEY,
+        file_path   TEXT NOT NULL,
+        git_branch  TEXT NOT NULL,
+        git_head    TEXT NOT NULL,
+        content     TEXT NOT NULL,
+        created_at  INTEGER NOT NULL,
+        UNIQUE(file_path, git_branch)
+      )
+    `);
+
+    await run(`
+      CREATE TABLE IF NOT EXISTS code_diffs (
+        id              TEXT PRIMARY KEY,
+        session_id      TEXT NOT NULL,
+        file_path       TEXT NOT NULL,
+        git_branch      TEXT NOT NULL,
+        patch           TEXT NOT NULL,
+        command_summary TEXT NOT NULL,
+        timestamp       INTEGER NOT NULL
+      )
+    `);
+
+    await run(`CREATE INDEX IF NOT EXISTS idx_diffs_file_branch ON code_diffs(file_path, git_branch, timestamp)`);
   }
 
   // ===== 事件操作 =====
@@ -294,6 +320,133 @@ export class SqliteStorageService implements OnModuleInit {
          FROM sessions ORDER BY last_activity DESC`,
         (err, rows) => err ? reject(err) : resolve(rows || [])
       );
+    });
+  }
+
+  // ===== 代码备份操作 =====
+
+  async saveBaseline(baseline: {
+    id: string;
+    filePath: string;
+    gitBranch: string;
+    gitHead: string;
+    content: string;
+    createdAt: number;
+  }) {
+    if (!this.db) return;
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `INSERT OR REPLACE INTO file_baselines (id, file_path, git_branch, git_head, content, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [baseline.id, baseline.filePath, baseline.gitBranch, baseline.gitHead, baseline.content, baseline.createdAt],
+        (err) => err ? reject(err) : resolve(undefined)
+      );
+    });
+  }
+
+  async getBaseline(filePath: string, gitBranch: string): Promise<any | null> {
+    if (!this.db) return null;
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        `SELECT id, file_path as filePath, git_branch as gitBranch, git_head as gitHead, content, created_at as createdAt
+         FROM file_baselines WHERE file_path = ? AND git_branch = ?`,
+        [filePath, gitBranch],
+        (err, row) => err ? reject(err) : resolve(row || null)
+      );
+    });
+  }
+
+  async saveDiff(diff: {
+    id: string;
+    sessionId: string;
+    filePath: string;
+    gitBranch: string;
+    patch: string;
+    commandSummary: string;
+    timestamp: number;
+  }) {
+    if (!this.db) return;
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        `INSERT INTO code_diffs (id, session_id, file_path, git_branch, patch, command_summary, timestamp)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [diff.id, diff.sessionId, diff.filePath, diff.gitBranch, diff.patch, diff.commandSummary, diff.timestamp],
+        (err) => err ? reject(err) : resolve(undefined)
+      );
+    });
+  }
+
+  async getDiffChain(filePath: string, gitBranch: string, upToTimestamp?: number): Promise<any[]> {
+    if (!this.db) return [];
+    return new Promise((resolve, reject) => {
+      const query = upToTimestamp
+        ? `SELECT id, session_id as sessionId, file_path as filePath, git_branch as gitBranch, patch, command_summary as commandSummary, timestamp
+           FROM code_diffs WHERE file_path = ? AND git_branch = ? AND timestamp <= ?
+           ORDER BY timestamp ASC`
+        : `SELECT id, session_id as sessionId, file_path as filePath, git_branch as gitBranch, patch, command_summary as commandSummary, timestamp
+           FROM code_diffs WHERE file_path = ? AND git_branch = ?
+           ORDER BY timestamp ASC`;
+      const params = upToTimestamp ? [filePath, gitBranch, upToTimestamp] : [filePath, gitBranch];
+      this.db.all(query, params, (err, rows) => err ? reject(err) : resolve(rows || []));
+    });
+  }
+
+  async getDiffChainPage(filePath: string, gitBranch: string, page: number, pageSize = 20): Promise<{ diffs: any[], total: number }> {
+    if (!this.db) return { diffs: [], total: 0 };
+    const offset = page * pageSize;
+    const [diffs, total] = await Promise.all([
+      new Promise<any[]>((resolve, reject) => {
+        this.db.all(
+          `SELECT id, session_id as sessionId, file_path as filePath, git_branch as gitBranch, patch, command_summary as commandSummary, timestamp
+           FROM code_diffs WHERE file_path = ? AND git_branch = ?
+           ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+          [filePath, gitBranch, pageSize, offset],
+          (err, rows) => err ? reject(err) : resolve(rows || [])
+        );
+      }),
+      new Promise<number>((resolve, reject) => {
+        this.db.get(
+          `SELECT COUNT(*) as cnt FROM code_diffs WHERE file_path = ? AND git_branch = ?`,
+          [filePath, gitBranch],
+          (err, row: any) => err ? reject(err) : resolve(row?.cnt || 0)
+        );
+      }),
+    ]);
+    return { diffs, total };
+  }
+
+  async getTrackedFiles(gitBranch: string): Promise<string[]> {
+    if (!this.db) return [];
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT DISTINCT file_path as filePath FROM code_diffs WHERE git_branch = ? ORDER BY file_path`,
+        [gitBranch],
+        (err, rows: any[]) => err ? reject(err) : resolve((rows || []).map(r => r.filePath))
+      );
+    });
+  }
+
+  async cleanupOldDiffs(retentionDays: number) {
+    if (!this.db) return;
+    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    await new Promise((resolve, reject) => {
+      this.db.run(`DELETE FROM code_diffs WHERE timestamp < ?`, [cutoff], (err) => err ? reject(err) : resolve(undefined));
+    });
+    await new Promise((resolve, reject) => {
+      this.db.run(
+        `DELETE FROM file_baselines WHERE id NOT IN (
+          SELECT DISTINCT b.id FROM file_baselines b
+          INNER JOIN code_diffs d ON b.file_path = d.file_path AND b.git_branch = d.git_branch
+        )`,
+        (err) => err ? reject(err) : resolve(undefined)
+      );
+    });
+  }
+
+  async deleteBaseline(filePath: string, gitBranch: string) {
+    if (!this.db) return;
+    return new Promise((resolve, reject) => {
+      this.db.run(`DELETE FROM file_baselines WHERE file_path = ? AND git_branch = ?`, [filePath, gitBranch], (err) => err ? reject(err) : resolve(undefined));
     });
   }
 }
