@@ -1,26 +1,26 @@
 <template>
   <div class="stats-grid">
-    <div class="stat-card stat-total" @click="emitFilter('all')" :class="{ active: activeFilter === 'all' }">
+    <div class="stat-card stat-total">
       <div class="stat-number">{{ stats.total }}</div>
       <div class="stat-label">{{ currentTexts.totalEvents }}</div>
     </div>
 
-    <div class="stat-card stat-blocked" @click="emitFilter('blocked')" :class="{ active: activeFilter === 'blocked' }">
+    <div class="stat-card stat-blocked">
       <div class="stat-number">{{ stats.blocked }}</div>
       <div class="stat-label">{{ currentTexts.commandsBlocked }}</div>
     </div>
 
-    <div class="stat-card stat-allowed" @click="emitFilter('allowed')" :class="{ active: activeFilter === 'allowed' }">
+    <div class="stat-card stat-allowed">
       <div class="stat-number">{{ stats.allowed }}</div>
       <div class="stat-label">{{ currentTexts.commandsAllowed }}</div>
     </div>
 
-    <div class="stat-card stat-pending" @click="emitFilter('pending')" :class="{ active: activeFilter === 'pending' }">
+    <div class="stat-card stat-pending">
       <div class="stat-number">{{ stats.pending }}</div>
       <div class="stat-label">{{ currentTexts.pendingReview }}</div>
     </div>
 
-    <div class="stat-card stat-timed-out" @click="emitFilter('timed_out')" :class="{ active: activeFilter === 'timed_out' }">
+    <div class="stat-card stat-timed-out">
       <div class="stat-number">{{ stats.timed_out }}</div>
       <div class="stat-label">{{ currentTexts.timedOut }}</div>
     </div>
@@ -28,7 +28,7 @@
 </template>
 
 <script setup>
-const props = defineProps({
+defineProps({
   stats: {
     type: Object,
     required: true,
@@ -37,19 +37,7 @@ const props = defineProps({
     type: Object,
     required: true,
   },
-  activeFilter: {
-    type: String,
-    default: 'all',
-  },
 });
-
-const emit = defineEmits(['filter-by-status']);
-
-const emitFilter = (status) => {
-  // 再次点击同一个取消筛选
-  const newFilter = props.activeFilter === status ? 'all' : status;
-  emit('filter-by-status', newFilter);
-};
 </script>
 
 <style scoped>
@@ -67,16 +55,6 @@ const emitFilter = (status) => {
   padding: 1.5rem;
   transition: all 0.3s ease;
   position: relative;
-  cursor: pointer;
-}
-
-.stat-card.active {
-  border-color: var(--accent-green);
-  background: rgba(34, 197, 94, 0.05);
-}
-
-.stat-card.active::before {
-  transform: scaleX(1);
 }
 
 .stat-card::before {
