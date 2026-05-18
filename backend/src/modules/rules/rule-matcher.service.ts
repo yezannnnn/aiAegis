@@ -848,12 +848,123 @@ export class RuleMatcherService {
   // 规则管理 API
   // =========================================================================
 
-  getAllRules(): YAMLRule[] {
-    const all: YAMLRule[] = [];
+  private readonly customRulesPath = path.join(os.homedir(), '.aegis', 'rules', 'custom.yaml');
+  private readonly disabledRulesPath = path.join(os.homedir(), '.aegis', 'rules', '.disabled.json');
+
+  private getDisabledRuleIds(): Set<string> {
+    try {
+      if (!fs.existsSync(this.disabledRulesPath)) return new Set();
+      const ids = JSON.parse(fs.readFileSync(this.disabledRulesPath, 'utf8'));
+      return new Set(Array.isArray(ids) ? ids : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  private saveDisabledRuleIds(ids: Set<string>): void {
+    fs.mkdirSync(path.dirname(this.disabledRulesPath), { recursive: true });
+    fs.writeFileSync(this.disabledRulesPath, JSON.stringify([...ids], null, 2), 'utf8');
+  }
+
+  private readCustomRuleSet(): YAMLRuleSet {
+    if (!fs.existsSync(this.customRulesPath)) {
+      return { name: 'custom', version: '1.0', rules: [] };
+    }
+    try {
+      const parsed = yaml.load(fs.readFileSync(this.customRulesPath, 'utf8')) as YAMLRuleSet;
+      return parsed?.rules ? parsed : { name: 'custom', version: '1.0', rules: [] };
+    } catch {
+      return { name: 'custom', version: '1.0', rules: [] };
+    }
+  }
+
+  private writeCustomRuleSet(ruleSet: YAMLRuleSet): void {
+    fs.mkdirSync(path.dirname(this.customRulesPath), { recursive: true });
+    const toWrite = {
+      ...ruleSet,
+      rules: ruleSet.rules.map(({ _source, ...r }: any) => {
+        if (r.selector?.arguments) {
+          r.selector.arguments = r.selector.arguments.map(({ _regex, ...a }: any) => a);
+        }
+        return r;
+      }),
+    };
+    fs.writeFileSync(this.customRulesPath, yaml.dump(toWrite, { lineWidth: 120 }), 'utf8');
+  }
+
+  getAllRules(): (YAMLRule & { enabled: boolean })[] {
+    const disabled = this.getDisabledRuleIds();
+    const all: (YAMLRule & { enabled: boolean })[] = [];
     for (const rs of this.ruleSets.values()) {
-      all.push(...Array.from(rs.rules.values()));
+      for (const rule of rs.rules.values()) {
+        const { _source, ...plainRule } = rule as any;
+        // Strip pre-compiled regexes before returning to client
+        if (plainRule.selector?.arguments) {
+          plainRule.selector.arguments = plainRule.selector.arguments.map(({ _regex, ...a }: any) => a);
+        }
+        all.push({ ...plainRule, _source, enabled: !disabled.has(rule.id!) && rule.severity !== 'off' });
+      }
     }
     return all;
+  }
+
+  createRule(rule: Partial<YAMLRule>): YAMLRule {
+    const ruleSet = this.readCustomRuleSet();
+    if (ruleSet.rules.some(r => r.id === rule.id)) {
+      throw new Error(`Rule "${rule.id}" already exists`);
+    }
+    ruleSet.rules.push(rule as YAMLRule);
+    this.writeCustomRuleSet(ruleSet);
+    this.reloadRules();
+    return rule as YAMLRule;
+  }
+
+  updateRule(id: string, updates: Partial<YAMLRule>): YAMLRule | null {
+    const ruleSet = this.readCustomRuleSet();
+    const idx = ruleSet.rules.findIndex(r => r.id === id);
+    if (idx >= 0) {
+      ruleSet.rules[idx] = { ...ruleSet.rules[idx], ...updates, id };
+    } else {
+      ruleSet.rules.push({ ...updates, id } as YAMLRule);
+    }
+    this.writeCustomRuleSet(ruleSet);
+    this.reloadRules();
+    for (const rs of this.ruleSets.values()) {
+      const rule = rs.rules.get(id);
+      if (rule) return rule;
+    }
+    return null;
+  }
+
+  deleteRule(id: string): boolean {
+    let changed = false;
+    const ruleSet = this.readCustomRuleSet();
+    const idx = ruleSet.rules.findIndex(r => r.id === id);
+    if (idx >= 0) {
+      ruleSet.rules.splice(idx, 1);
+      this.writeCustomRuleSet(ruleSet);
+      changed = true;
+    }
+    const disabled = this.getDisabledRuleIds();
+    if (disabled.delete(id)) {
+      this.saveDisabledRuleIds(disabled);
+      changed = true;
+    }
+    if (changed) this.reloadRules();
+    return changed;
+  }
+
+  toggleRule(id: string): { id: string; enabled: boolean } | null {
+    let found = false;
+    for (const rs of this.ruleSets.values()) {
+      if (rs.rules.has(id)) { found = true; break; }
+    }
+    if (!found) return null;
+    const disabled = this.getDisabledRuleIds();
+    const wasDisabled = disabled.has(id);
+    wasDisabled ? disabled.delete(id) : disabled.add(id);
+    this.saveDisabledRuleIds(disabled);
+    return { id, enabled: wasDisabled };
   }
 
   getRulesSummary() {
@@ -887,5 +998,56 @@ export class RuleMatcherService {
 
   getUserRulesDir(): string {
     return this.userRulesDir;
+  }
+
+  testDraftRule(
+    ruleData: Partial<YAMLRule>,
+    commandStr: string,
+    ast: CommandNode,
+    context: CommandContext,
+  ): { matched: boolean; action: string; severity: string; triggeredConditions: string[] } {
+    const rule: YAMLRule = {
+      id: ruleData.id || '__draft__',
+      description: ruleData.description || '',
+      severity: (ruleData.severity as RuleSeverity) || 'warn',
+      action: (ruleData.action as RuleAction) || 'review',
+      selector: ruleData.selector,
+      conditions: ruleData.conditions,
+      reason: ruleData.reason,
+    };
+
+    if (rule.selector?.arguments) {
+      for (const argSel of rule.selector.arguments) {
+        try {
+          argSel._regex = new RegExp(argSel.pattern, 'i');
+        } catch {
+          // invalid pattern, match will fail gracefully
+        }
+      }
+    }
+
+    let matchResult: MatchResult;
+    if (rule.selector) {
+      const signatures = this.bashAst.parse(commandStr);
+      const sigs = signatures.length > 0 ? signatures : [{
+        binary: ast.binary,
+        positionalArgs: [],
+        flags: [],
+        raw: commandStr,
+        hasPipes: false,
+        hasRedirects: false,
+        hasLogicalOperators: false,
+      }];
+      matchResult = this.matchRuleSelector(rule, sigs, commandStr, context);
+    } else {
+      matchResult = this.matchRule(rule, ast, context);
+    }
+
+    return {
+      matched: matchResult.matched,
+      action: matchResult.matched ? (matchResult.action || 'allow') : 'allow',
+      severity: matchResult.matched ? (matchResult.severity || 'off') : 'off',
+      triggeredConditions: matchResult.metadata?.triggeredRules || [],
+    };
   }
 }
