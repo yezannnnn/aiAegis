@@ -70,9 +70,10 @@ export class BashAstService {
       }
 
       case 'AndOr': {
-        // Only recurse into the primary (first) side; others are separate logical commands
-        const [primary] = (node.commands || []);
-        if (primary) this.walkNode(primary, out, raw, hasPipes, true);
+        // Recurse into ALL children — each command in a && / || chain must be evaluated
+        for (const child of (node.commands || [])) {
+          this.walkNode(child, out, raw, hasPipes, true);
+        }
         break;
       }
 
