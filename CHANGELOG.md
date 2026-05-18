@@ -1,3 +1,22 @@
+## [0.4.1](https://github.com/yezannnnn/aiAegis/compare/v0.4.0...v0.4.1) (2026-05-18)
+
+
+### Bug Fixes
+
+* **rules:** `&&` / `||` / `;` chained commands now fully evaluated — previously only the first sub-command was checked, allowing `cd /tmp && git reset --hard HEAD` to bypass all rules ([df34072](https://github.com/yezannnnn/aiAegis/commit/df34072))
+* **rules:** AndOr AST node now recursively processes all children in bash-ast.service.ts ([4f16e6e](https://github.com/yezannnnn/aiAegis/commit/4f16e6e))
+* **frontend:** restore component-based Dashboard with full styles, previously unstyled after merge ([739e062](https://github.com/yezannnnn/aiAegis/commit/739e062))
+* **storage:** add `getLlmConfig` / `saveLlmConfig` methods and `llm_config` table required by LLM settings page ([ba8114d](https://github.com/yezannnnn/aiAegis/commit/ba8114d))
+* **rules:** restore rule CRUD methods (create / edit / delete / toggle via web UI) lost in prior merge ([df34072](https://github.com/yezannnnn/aiAegis/commit/df34072))
+
+
+### Features
+
+* **frontend:** restore Web-based Rule Management page (`/rules`) with search, filter, YAML editor and live preview ([cd201a9](https://github.com/yezannnnn/aiAegis/commit/cd201a9))
+* **frontend:** add Settings page (`/settings`) for LLM provider configuration ([cd201a9](https://github.com/yezannnnn/aiAegis/commit/cd201a9))
+* **backup:** add `file_baselines` and `code_diffs` SQLite tables for code recovery feature (experimental) ([369565c](https://github.com/yezannnnn/aiAegis/commit/369565c))
+
+
 # [0.4.0](https://github.com/yezannnnn/aiAegis/compare/v0.3.2...v0.4.0) (2026-05-17)
 
 
