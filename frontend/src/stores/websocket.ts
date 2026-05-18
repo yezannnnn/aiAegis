@@ -36,7 +36,7 @@ export const useWebSocketStore = defineStore('websocket', {
       const socketUrl = import.meta.env.VITE_API_URL ||
         (import.meta.env.PROD ? window.location.origin : 'http://localhost:3001')
 
-      this.socket = io(`${socketUrl}/monitor`, {
+      this.socket = io(socketUrl, {
         transports: ['websocket'],
         autoConnect: true,
       })
@@ -105,7 +105,8 @@ export const useWebSocketStore = defineStore('websocket', {
 
       this.socket.on('approval_request', (data) => {
         console.log('🔔 审批请求:', data)
-        this.handleApprovalRequest(data)
+        // 通过事件总线通知全局审批处理器
+        window.dispatchEvent(new CustomEvent('global-approval-request', { detail: data }))
       })
 
       this.socket.on('approval_resolved', (data) => {
@@ -127,39 +128,7 @@ export const useWebSocketStore = defineStore('websocket', {
       }
     },
 
-    async handleApprovalRequest(approvalData: any) {
-      try {
-        const result = await ElMessageBox.confirm(
-          `
-          <div style="margin-bottom: 12px;">
-            <strong>命令:</strong> <code>${approvalData.command}</code>
-          </div>
-          <div style="margin-bottom: 12px;">
-            <strong>AI代理:</strong> ${approvalData.agent}
-          </div>
-          <div style="margin-bottom: 12px;">
-            <strong>风险级别:</strong>
-            <span style="color: ${this.getRiskColor(approvalData.risk)}">${approvalData.risk}</span>
-          </div>
-          <div>
-            <strong>检测原因:</strong> ${approvalData.description || approvalData.reason || '安全检查'}
-          </div>
-          `,
-          '🛡️ 命令审批请求',
-          {
-            confirmButtonText: '批准执行',
-            cancelButtonText: '拒绝执行',
-            dangerouslyUseHTMLString: true,
-            type: 'warning',
-            customClass: 'approval-dialog',
-          }
-        )
-
-        this.sendApprovalResponse(approvalData.sessionId, true)
-      } catch {
-        this.sendApprovalResponse(approvalData.sessionId, false, '用户拒绝')
-      }
-    },
+    // 审批处理已移至全局组件
 
     sendApprovalResponse(sessionId: string, approved: boolean, reason?: string) {
       if (this.socket) {

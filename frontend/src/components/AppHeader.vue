@@ -5,6 +5,9 @@
       <p class="subtitle">{{ currentTexts.subtitle }}</p>
     </div>
     <div class="header-controls">
+      <router-link to="/" class="nav-link" :class="{ active: $route.path === '/' }">DASHBOARD</router-link>
+      <router-link to="/rules" class="nav-link" :class="{ active: $route.path === '/rules' }">RULES</router-link>
+      <router-link to="/settings" class="nav-link" :class="{ active: $route.path === '/settings' }">SETTINGS</router-link>
       <button class="lang-switch" @click="$emit('toggle-language')">
         {{ currentTexts.langSwitch }}
       </button>
@@ -170,5 +173,22 @@ defineEmits(['toggle-language', 'notif-click']);
 
 .connection-status.disconnected {
   color: var(--danger);
+}
+
+.nav-link {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover, .nav-link.active {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+  background: rgba(34, 197, 94, 0.1);
 }
 </style>
