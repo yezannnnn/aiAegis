@@ -51,14 +51,25 @@ export class RulesController {
   async evaluate(@Body() body: EvaluateRequest): Promise<EvaluateResponse> {
     const requestId = body.requestId || `req_${Date.now()}`;
 
-    // 1. 解析命令为 AST
-    const ast = this.astParser.parse(body.command);
+    // 1. 拆分 && / || / ; 链，对每个子命令独立评估，取最严格结果
+    // 例：cd /tmp && git reset --hard HEAD → 分别评估 "cd /tmp" 和 "git reset --hard HEAD"
+    const subCommands = this.splitCompoundCommand(body.command);
 
     // 2. 收集上下文（git分支、项目类型等）
     const context = await this.astContext.collectContext(body.cwd);
 
-    // 3. 规则匹配（传入 cwd 以支持项目级自定义规则）
-    const evaluation = this.ruleMatcher.evaluate(ast, context, body.cwd, body.lang);
+    // 3. 对每个子命令分别解析 + 规则匹配，取最严格结果
+    const ACTION_SEVERITY = { block: 4, review: 3, warn: 2, allow: 1 };
+    let ast = this.astParser.parse(subCommands[0]);
+    let evaluation = this.ruleMatcher.evaluate(ast, context, body.cwd, body.lang);
+    for (let i = 1; i < subCommands.length; i++) {
+      const subAst = this.astParser.parse(subCommands[i]);
+      const result = this.ruleMatcher.evaluate(subAst, context, body.cwd, body.lang);
+      if ((ACTION_SEVERITY[result.action] ?? 0) > (ACTION_SEVERITY[evaluation.action] ?? 0)) {
+        evaluation = result;
+        ast = subAst; // 记录触发规则的那个子命令 AST
+      }
+    }
 
     // 所有命令都记录到事件列表
     // block   = 直接拒绝，不创建审批弹窗
@@ -191,5 +202,35 @@ export class RulesController {
     this.ruleMatcher.reloadRules();
     const summary = this.ruleMatcher.getRulesSummary();
     return { success: true, message: 'Rules reloaded', summary };
+  }
+
+  /**
+   * Split a compound shell command on && / || / ; into individual sub-commands.
+   * Respects single/double quotes so quoted ; or && are not treated as separators.
+   */
+  private splitCompoundCommand(raw: string): string[] {
+    const results: string[] = [];
+    let current = '';
+    let inSingle = false;
+    let inDouble = false;
+
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw[i];
+      if (ch === "'" && !inDouble) { inSingle = !inSingle; current += ch; continue; }
+      if (ch === '"' && !inSingle) { inDouble = !inDouble; current += ch; continue; }
+      if (!inSingle && !inDouble) {
+        if ((ch === '&' && raw[i + 1] === '&') || (ch === '|' && raw[i + 1] === '|')) {
+          if (current.trim()) results.push(current.trim());
+          current = ''; i++; continue;
+        }
+        if (ch === ';') {
+          if (current.trim()) results.push(current.trim());
+          current = ''; continue;
+        }
+      }
+      current += ch;
+    }
+    if (current.trim()) results.push(current.trim());
+    return results.length > 0 ? results : [raw];
   }
 }

@@ -146,3 +146,5 @@ PRD/
 # Superpowers brainstorming sessions
 .superpowers/
 docs/superpowers/
+docs/architecture.md
+docs/tech-decisions.md
