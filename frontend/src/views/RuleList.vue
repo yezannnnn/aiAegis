@@ -111,7 +111,7 @@
           <div class="search-icon">🔍</div>
         </div>
         <div v-if="searchQuery" class="search-results">
-          {{ texts.searchResults.replace('{count}', filteredRules.length) }}
+          {{ texts.searchResults.replace('{count}', filteredRules.length) }}<!-- total matches from all rules -->
         </div>
       </div>
     </div>
@@ -121,11 +121,11 @@
       <div v-if="loading && rules.length === 0" class="loading-state">
         {{ texts.loading }}
       </div>
-      <div v-else-if="filteredRules.length === 0" class="empty-state">
+      <div v-else-if="displayedRules.length === 0" class="empty-state">
         {{ texts.noRulesFound }}
       </div>
       <div
-        v-for="rule in filteredRules"
+        v-for="rule in displayedRules"
         :key="rule.id"
         class="rule-item"
         :class="{ disabled: isDisabled(rule) }"
@@ -846,31 +846,25 @@ const pageSize = 50;
 const rules = ref<Rule[]>([]);
 
 const stats = computed(() => {
-  const total = rules.value.length;
-  const active = rules.value.filter((r) => r.enabled).length;
-  const block = rules.value.filter(
-    (r) => r.action === "block" && r.enabled
-  ).length;
-  const review = rules.value.filter(
-    (r) => r.action === "review" && r.enabled
-  ).length;
-  const allow = rules.value.filter(
-    (r) => r.action === "allow" && r.enabled
-  ).length;
+  const src = allRules.value;
+  const total = src.length;
+  const active = src.filter((r) => r.enabled).length;
+  const block = src.filter((r) => r.action === "block" && r.enabled).length;
+  const review = src.filter((r) => r.action === "review" && r.enabled).length;
+  const allow = src.filter((r) => r.action === "allow" && r.enabled).length;
   return { total, active, block, review, allow };
 });
 
+// 搜索/过滤始终作用于全量规则，确保自定义规则和超出首屏的规则都能被找到
 const filteredRules = computed(() => {
-  let filtered = rules.value;
+  let filtered = allRules.value;
 
-  // 按状态过滤
   if (currentFilter.value === "off") {
     filtered = filtered.filter((r) => !r.enabled);
   } else if (currentFilter.value !== "all") {
     filtered = filtered.filter((r) => r.action === currentFilter.value && r.enabled);
   }
 
-  // 按搜索关键词过滤
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase().trim();
     filtered = filtered.filter((r) =>
@@ -883,6 +877,12 @@ const filteredRules = computed(() => {
   }
 
   return filtered;
+});
+
+// 展示用：有搜索/过滤时显示全部匹配结果；默认视图使用滚动分页的 rules.value
+const displayedRules = computed(() => {
+  const hasFilter = currentFilter.value !== "all" || searchQuery.value.trim();
+  return hasFilter ? filteredRules.value : rules.value;
 });
 
 // ==================== FORM ====================

@@ -194,6 +194,18 @@ export class RulesController {
   }
 
   /**
+   * POST /api/v1/rules/test-draft
+   * 测试草稿规则是否命中某条命令（不保存，仅评估）
+   */
+  @Post('test-draft')
+  async testDraftRule(@Body() body: { rule: any; command: string; lang?: string }) {
+    const context = await this.astContext.collectContext(undefined);
+    const ast = this.astParser.parse(body.command);
+    const result = this.ruleMatcher.testDraftRule(body.rule, body.command, ast, context);
+    return result;
+  }
+
+  /**
    * POST /api/v1/rules/reload
    * 热更新规则（含用户规则）
    */
