@@ -202,7 +202,9 @@ rules:
     category: "deploy"
     severity: "error"
     action: "review"
-    reason: "Deploying to production requires your confirmation"
+    reason:
+      en: "Deploying to production requires your confirmation"
+      zh: "部署到生产环境需要您的确认"
     selector:
       binary: sh
       arguments:
@@ -214,7 +216,9 @@ rules:
     category: "filesystem"
     severity: "block"
     action: "block"
-    reason: "data/ contains important data, deletion is prohibited"
+    reason:
+      en: "data/ contains important data, deletion is prohibited"
+      zh: "data/ 目录包含重要数据，禁止删除"
     selector:
       binary: rm
       arguments:
