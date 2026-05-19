@@ -292,10 +292,11 @@ rules:
     reason:
       en: "Explain why this should be blocked"
       zh: "说明为什么要阻止"
-    conditions:
+    selector:
       binary: "rm"
-      argumentPatterns:
-        - "important-dir/"
+      arguments:
+        - pattern: "important-dir/"
+          anyPosition: true
 
   # Example: require approval before execution
   - id: ${name}/example-review
@@ -307,10 +308,11 @@ rules:
     reason:
       en: "Explain why this needs approval"
       zh: "说明为什么需要审批"
-    conditions:
+    selector:
       binary: "sh"
-      argumentPatterns:
-        - "deploy"
+      arguments:
+        - pattern: "deploy"
+          anyPosition: true
 `;
 
     await fs.writeFile(dest, template, 'utf8');

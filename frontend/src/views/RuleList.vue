@@ -1013,15 +1013,35 @@ const autoSelectFromSelector = (selector: any) => {
   }
   if (selector.arguments?.length) {
     for (const argSel of selector.arguments) {
-      const lit = argSel.pattern
+      const originalPattern = argSel.pattern;
+      const lit = originalPattern
         .replace(/^\^/, "")
         .replace(/\$$/, "")
         .replace(/[\\.*+?[\]{}|]/g, "")
         .trim();
       const item = items.find(
-        (i) => i.type === "arguments" && i.value.includes(lit)
+        (i) => i.type === "arguments" && (lit ? i.value.includes(lit) : false)
       );
-      if (item && !isConditionSelected(item)) toggleCondition(item);
+      if (item && !isConditionSelected(item)) {
+        toggleCondition(item);
+        // Restore original regex pattern — toggleCondition uses the simplified AST value
+        const added = selectedConditions.value.find((c) => c.elementId === item.id);
+        if (added) {
+          added.value = originalPattern;
+          added.label = `arg matches "${originalPattern}"`;
+          updateYamlPreview();
+        }
+      } else if (!item && originalPattern) {
+        // Pattern too complex to map to AST node — add directly with a stable unique id
+        selectedConditions.value.push({
+          key: 'arguments',
+          type: 'arguments',
+          value: originalPattern,
+          label: `arg matches "${originalPattern}"`,
+          elementId: `arg_pattern_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        });
+        updateYamlPreview();
+      }
     }
   }
 };
@@ -1505,14 +1525,17 @@ const toggleAdvancedYaml = () => {
 
 const syncFromYaml = () => {
   const text = rawYamlEdit.value;
+  // 支持 key: value / key: "value" / key: 'value'
   const get = (key: string) => {
-    const m = text.match(new RegExp(`^${key}:\\s*"?([^"\\n]+)"?`, "m"));
+    const m = text.match(new RegExp(`^${key}:\\s*['""]?([^'"\\n]+)['""]?`, "m"));
     return m ? m[1].trim() : null;
   };
   const v = get("id");
   if (v) form.ruleId = v;
   const d = get("description");
   if (d) form.ruleDesc = d;
+  const cat = get("category");
+  if (cat) form.ruleCategory = cat;
   const sev = get("severity");
   if (sev && ["off", "warn", "error", "block"].includes(sev))
     form.severity = sev;
@@ -1754,12 +1777,6 @@ const saveRule = async () => {
   }
 
   const sel = buildSelector();
-  if (sel.arguments) {
-    sel.arguments = sel.arguments.map((a: any) => ({
-      ...a,
-      pattern: a.pattern.replace(/\\/g, '\\\\'),
-    }));
-  }
   const rule = {
     id: form.ruleId,
     description: form.ruleDesc,
