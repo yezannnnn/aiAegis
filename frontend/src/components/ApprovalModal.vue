@@ -7,7 +7,7 @@
         <div class="modal-title">🛡️ COMMAND APPROVAL REQUEST</div>
         <div class="modal-meta">
           <span class="session-info">{{ currentApproval.sessionId }}</span>
-          <span class="risk-indicator" :class="`risk-${currentApproval.risk.toLowerCase()}`">
+          <span class="risk-indicator" :class="`risk-${(currentApproval.risk ?? '').toLowerCase()}`">
             {{ currentApproval.risk }}
           </span>
         </div>

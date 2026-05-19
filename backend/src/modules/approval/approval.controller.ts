@@ -1,9 +1,15 @@
-import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Inject, forwardRef } from '@nestjs/common';
 import { ApprovalService } from './approval.service';
+import { MonitoringService } from '../monitoring/monitoring.service';
+import { EventStatus } from '../monitoring/dto';
 
 @Controller('api/v1/approvals')
 export class ApprovalController {
-  constructor(private readonly approvalService: ApprovalService) {}
+  constructor(
+    private readonly approvalService: ApprovalService,
+    @Inject(forwardRef(() => MonitoringService))
+    private readonly monitoringService: MonitoringService,
+  ) {}
 
   @Get('pending')
   async getPendingApprovals() {
@@ -51,6 +57,11 @@ export class ApprovalController {
     const result = await this.approvalService.makeDecision(approvalId, decision.action, decision.reason);
     if (!result) {
       return { success: false, message: '审批不存在或已处理' };
+    }
+    // 同步更新监控事件状态并通过 WebSocket 广播
+    if (result.eventId) {
+      const newStatus = decision.action === 'approve' ? EventStatus.ALLOWED : EventStatus.BLOCKED;
+      this.monitoringService.updateEventStatus(result.eventId, newStatus);
     }
     return { success: true, approval: this.sanitizeApproval(result) };
   }

@@ -7,7 +7,7 @@ import { StorageModule } from '../storage/storage.module';
 import { ApprovalModule } from '../approval/approval.module';
 
 @Module({
-  imports: [forwardRef(() => WebSocketGatewayModule), StorageModule, ApprovalModule],
+  imports: [forwardRef(() => WebSocketGatewayModule), StorageModule, forwardRef(() => ApprovalModule)],
   controllers: [MonitoringController],
   providers: [MonitoringService, EventManagerService],
   exports: [MonitoringService, EventManagerService],

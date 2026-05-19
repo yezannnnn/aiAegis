@@ -1,8 +1,8 @@
-import { Controller, Post, Body, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Put, Delete, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { AstParserService } from './ast-parser.service';
 import { AstContextService } from './ast-context.service';
 import { RuleMatcherService } from './rule-matcher.service';
-import { CommandNode, RuleEvaluation, RuleSeverity } from './types';
+import { CommandNode, RuleEvaluation, RuleSeverity, YAMLRule } from './types';
 import { ApprovalService } from '../approval/approval.service';
 import { WebSocketGateway } from '../websocket/websocket.gateway';
 import { MonitoringService } from '../monitoring/monitoring.service';
@@ -159,6 +159,60 @@ export class RulesController {
       block: RiskLevel.CRITICAL,
     };
     return map[severity] || RiskLevel.MEDIUM;
+  }
+
+  /**
+   * POST /api/v1/rules
+   * 创建自定义规则
+   */
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  createRule(@Body() rule: Partial<YAMLRule>) {
+    try {
+      const created = this.ruleMatcher.createRule(rule);
+      return { success: true, rule: created };
+    } catch (e: any) {
+      return { success: false, message: e.message };
+    }
+  }
+
+  /**
+   * PUT /api/v1/rules?id=xxx
+   * 更新自定义规则
+   */
+  @Put()
+  updateRule(@Query('id') id: string, @Body() updates: Partial<YAMLRule>) {
+    const updated = this.ruleMatcher.updateRule(id, updates);
+    if (!updated) {
+      return { success: false, message: `Rule "${id}" not found` };
+    }
+    return { success: true, rule: updated };
+  }
+
+  /**
+   * DELETE /api/v1/rules?id=xxx
+   * 删除自定义规则
+   */
+  @Delete()
+  deleteRule(@Query('id') id: string) {
+    const deleted = this.ruleMatcher.deleteRule(id);
+    if (!deleted) {
+      return { success: false, message: `Rule "${id}" not found` };
+    }
+    return { success: true };
+  }
+
+  /**
+   * POST /api/v1/rules/toggle
+   * 启用/禁用规则
+   */
+  @Post('toggle')
+  toggleRule(@Body() body: { id: string }) {
+    const result = this.ruleMatcher.toggleRule(body.id);
+    if (!result) {
+      return { success: false, message: `Rule "${body.id}" not found` };
+    }
+    return { success: true, ...result };
   }
 
   /**

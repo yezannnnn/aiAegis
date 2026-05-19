@@ -91,7 +91,7 @@
         class="event-item-detailed"
         :class="[event.status, { 'new-event': event.isNew }]"
       >
-        <div class="event-status" :class="event.risk.toLowerCase()"></div>
+        <div class="event-status" :class="(event.risk ?? '').toLowerCase()"></div>
         <div class="event-main">
           <div class="event-command">{{ event.command }}</div>
           <div class="event-context">

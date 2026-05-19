@@ -848,10 +848,10 @@ const rules = ref<Rule[]>([]);
 const stats = computed(() => {
   const src = allRules.value;
   const total = src.length;
-  const active = src.filter((r) => r.enabled).length;
-  const block = src.filter((r) => r.action === "block" && r.enabled).length;
-  const review = src.filter((r) => r.action === "review" && r.enabled).length;
-  const allow = src.filter((r) => r.action === "allow" && r.enabled).length;
+  const active = src.filter((r) => r.enabled && r.severity !== 'off').length;
+  const block = src.filter((r) => r.action === "block" && r.enabled && r.severity !== 'off').length;
+  const review = src.filter((r) => r.action === "review" && r.enabled && r.severity !== 'off').length;
+  const allow = src.filter((r) => r.action === "allow" && r.enabled && r.severity !== 'off').length;
   return { total, active, block, review, allow };
 });
 
@@ -860,19 +860,19 @@ const filteredRules = computed(() => {
   let filtered = allRules.value;
 
   if (currentFilter.value === "off") {
-    filtered = filtered.filter((r) => !r.enabled);
+    filtered = filtered.filter((r) => !r.enabled || r.severity === 'off');
   } else if (currentFilter.value !== "all") {
-    filtered = filtered.filter((r) => r.action === currentFilter.value && r.enabled);
+    filtered = filtered.filter((r) => r.action === currentFilter.value && r.enabled && r.severity !== 'off');
   }
 
   if (searchQuery.value.trim()) {
     const query = searchQuery.value.toLowerCase().trim();
     filtered = filtered.filter((r) =>
-      r.id.toLowerCase().includes(query) ||
-      r.description.toLowerCase().includes(query) ||
-      r.category.toLowerCase().includes(query) ||
-      r.action.toLowerCase().includes(query) ||
-      r.severity.toLowerCase().includes(query)
+      (r.id ?? '').toLowerCase().includes(query) ||
+      (r.description ?? '').toLowerCase().includes(query) ||
+      (r.category ?? '').toLowerCase().includes(query) ||
+      (r.action ?? '').toLowerCase().includes(query) ||
+      (r.severity ?? '').toLowerCase().includes(query)
     );
   }
 
@@ -906,8 +906,12 @@ const form = reactive({
 // ==================== METHODS ====================
 
 // 搜索处理
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 const onSearchInput = () => {
-  // 搜索时重置分页，搜索是在前端过滤，不需要重新加载
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    loadRules();
+  }, 300);
 };
 
 // 滚动检测
@@ -918,8 +922,9 @@ const onRuleListScroll = (e: Event) => {
   }
 };
 
-const filterRules = (filter: string) => {
+const filterRules = async (filter: string) => {
   currentFilter.value = filter;
+  await loadRules();
 };
 
 const isDisabled = (rule: Rule) => !rule.enabled || rule.severity === "off";
@@ -1186,7 +1191,7 @@ const toggleRule = async (rule: Rule) => {
       body: JSON.stringify({ id: rule.id }),
     });
     const data = await res.json();
-    if (data.success) rule.enabled = data.enabled;
+    if (data.success) await loadRules();
   } catch (e) {
     console.error("Toggle failed:", e);
   }
@@ -1564,7 +1569,7 @@ const syncFromYaml = () => {
     });
   });
   argM.forEach((m, i) => {
-    const val = m[1].trim().replace(/"/g, "");
+    const val = m[1].trim().replace(/"/g, "").replace(/\\\\/g, '\\');
     selectedConditions.value.push({
       key: "arguments",
       type: "arguments",
@@ -1748,6 +1753,13 @@ const saveRule = async () => {
     return;
   }
 
+  const sel = buildSelector();
+  if (sel.arguments) {
+    sel.arguments = sel.arguments.map((a: any) => ({
+      ...a,
+      pattern: a.pattern.replace(/\\/g, '\\\\'),
+    }));
+  }
   const rule = {
     id: form.ruleId,
     description: form.ruleDesc,
@@ -1755,7 +1767,7 @@ const saveRule = async () => {
     severity: form.severity,
     action: form.action,
     reason: { zh: form.reasonZh, en: form.reasonEn },
-    selector: buildSelector(),
+    selector: sel,
     contextChecks: buildContext(),
   };
 

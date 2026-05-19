@@ -45,7 +45,7 @@
     :show-notif-guide="showNotifGuide"
     :current-texts="currentTexts"
     @grant="grantNotifPermission"
-    @skip="showNotifModal = false"
+    @skip="skipNotifModal"
     @close-guide="showNotifGuide = false"
     @test-notif="handleTestNotification"
   />
@@ -225,6 +225,11 @@ const onEventsScroll = (e: Event) => {
   if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) {
     loadMoreEvents();
   }
+};
+
+const skipNotifModal = () => {
+  showNotifModal.value = false;
+  sessionStorage.setItem('notif-modal-dismissed', '1');
 };
 
 const grantNotifPermission = async () => {
@@ -800,7 +805,7 @@ onMounted(() => {
   console.log("notifPermission ref值:", notifPermission.value);
   console.log("🔍 === 调试信息结束 ===");
 
-  if ("Notification" in window && Notification.permission === "default") {
+  if ("Notification" in window && Notification.permission === "default" && !sessionStorage.getItem('notif-modal-dismissed')) {
     showNotifModal.value = true;
   }
 });

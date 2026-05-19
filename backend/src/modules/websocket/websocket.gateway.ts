@@ -7,9 +7,12 @@ import {
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
+import { Inject, forwardRef, OnModuleInit } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { EventManagerService } from '../monitoring/event-manager.service';
 import { SqliteStorageService } from '../storage/sqlite-storage.service';
+import { ApprovalService } from '../approval/approval.service';
+import { EventStatus } from '../monitoring/dto';
 
 @WSGateway({
   cors: {
@@ -17,15 +20,19 @@ import { SqliteStorageService } from '../storage/sqlite-storage.service';
     credentials: true,
   },
 })
-export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit {
   @WebSocketServer()
   server: Server;
 
   constructor(
     private readonly eventManager: EventManagerService,
     private readonly storage: SqliteStorageService,
-  ) {
-    // 监听事件管理器的事件
+    @Inject(forwardRef(() => ApprovalService))
+    private readonly approvalService: ApprovalService,
+  ) {}
+
+  onModuleInit() {
+    // 所有模块初始化完成后再挂监听器，避免 forwardRef proxy 问题
     this.eventManager.on('new_event', (event) => {
       this.broadcastEvent('new_event', event);
     });
@@ -70,13 +77,19 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
   }
 
   @SubscribeMessage('approval_response')
-  handleApprovalResponse(
-    @MessageBody() data: { sessionId: string; approved: boolean; reason?: string },
+  async handleApprovalResponse(
+    @MessageBody() data: { approvalId?: string; sessionId: string; approved: boolean; reason?: string },
     @ConnectedSocket() client: Socket,
   ) {
     console.log('📋 收到审批响应:', data);
-    // 这里会与审批模块集成
-    this.broadcastEvent('approval_resolved', data);
+    const approvalId = data.approvalId || data.sessionId;
+    const action = data.approved ? 'approve' : 'deny';
+    const result = await this.approvalService.makeDecision(approvalId, action, data.reason);
+    if (result?.eventId) {
+      const newStatus = data.approved ? EventStatus.ALLOWED : EventStatus.BLOCKED;
+      this.eventManager.updateEventStatus(result.eventId, newStatus);
+    }
+    this.broadcastEvent('approval_resolved', { ...data, approvalId });
   }
 
   // 广播审批请求
@@ -89,6 +102,7 @@ export class WebSocketGateway implements OnGatewayConnection, OnGatewayDisconnec
 
   // 广播事件到所有客户端
   private broadcastEvent(eventType: string, data: any) {
+    if (!this.server) return;
     this.server.emit(eventType, {
       type: eventType,
       data,

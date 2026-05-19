@@ -94,7 +94,7 @@ export class RuleMatcherService {
 
     const files = fs.readdirSync(rulesDir).filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
     for (const file of files) {
-      if (file.startsWith('aegis.')) continue;
+      if (file.startsWith('aegis.') || file.startsWith('example-')) continue;
       try {
         const content = fs.readFileSync(path.join(rulesDir, file), 'utf8');
         const ruleSet = yaml.load(content) as YAMLRuleSet;
@@ -252,6 +252,15 @@ export class RuleMatcherService {
       }
       if (!found) {
         this.logger.warn(`Config override for unknown rule: ${id}`);
+      }
+    }
+    // Apply disabled rules — set severity='off' so evaluate() skips them
+    const disabled = this.getDisabledRuleIds();
+    for (const rs of this.ruleSets.values()) {
+      for (const rule of rs.rules.values()) {
+        if (rule.id && disabled.has(rule.id)) {
+          rule.severity = 'off';
+        }
       }
     }
   }
@@ -922,11 +931,8 @@ export class RuleMatcherService {
   updateRule(id: string, updates: Partial<YAMLRule>): YAMLRule | null {
     const ruleSet = this.readCustomRuleSet();
     const idx = ruleSet.rules.findIndex(r => r.id === id);
-    if (idx >= 0) {
-      ruleSet.rules[idx] = { ...ruleSet.rules[idx], ...updates, id };
-    } else {
-      ruleSet.rules.push({ ...updates, id } as YAMLRule);
-    }
+    if (idx < 0) return null;
+    ruleSet.rules[idx] = { ...ruleSet.rules[idx], ...updates, id };
     this.writeCustomRuleSet(ruleSet);
     this.reloadRules();
     for (const rs of this.ruleSets.values()) {
@@ -964,6 +970,7 @@ export class RuleMatcherService {
     const wasDisabled = disabled.has(id);
     wasDisabled ? disabled.delete(id) : disabled.add(id);
     this.saveDisabledRuleIds(disabled);
+    this.reloadRules();
     return { id, enabled: wasDisabled };
   }
 
