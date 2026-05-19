@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aegis Recovery Panel — UI Design Preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-primary: #0f172a;
+  --bg-card: rgba(255,255,255,0.02);
+  --accent-green: #22c55e;
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255,255,255,0.7);
+  --border: rgba(255,255,255,0.08);
+  --border-accent: rgba(34,197,94,0.3);
+  --danger: #dc2626;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 2rem;
+}
+
+/* ---- LAYOUT ---- */
+.page-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.6rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 0.5rem;
+  opacity: 0.5;
+}
+.section-gap { margin-bottom: 3rem; }
+
+/* ---- RECOVERY PANEL ---- */
+.recovery-panel {
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+}
+.panel-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-green);
+  letter-spacing: 0.1em;
+}
+.panel-status-on {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--accent-green);
+  color: var(--accent-green);
+  background: rgba(34,197,94,0.08);
+}
+
+/* Settings */
+.settings-block {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.section-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.15em;
+  margin-bottom: 0.75rem;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-key {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.06em;
+}
+.setting-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+}
+
+/* Toggle */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.toggle-track {
+  width: 2.2rem; height: 1.1rem;
+  border-radius: 0;
+  position: relative;
+  display: inline-block;
+}
+.toggle-track.on {
+  background: rgba(34,197,94,0.2);
+  border: 1px solid var(--accent-green);
+}
+.toggle-track.off {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--border);
+}
+.toggle-thumb {
+  position: absolute;
+  top: 1px; height: 0.75rem; width: 0.85rem;
+}
+.toggle-track.on .toggle-thumb {
+  right: 1px; background: var(--accent-green);
+}
+.toggle-track.off .toggle-thumb {
+  left: 1px; background: rgba(255,255,255,0.4);
+}
+.toggle-text-on { font-size: 0.7rem; color: var(--accent-green); }
+.toggle-text-off { font-size: 0.7rem; color: var(--text-secondary); }
+
+/* Input / Select */
+.mock-input {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.6rem;
+  width: 55%;
+}
+.mock-select {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.6rem;
+}
+.btn-save {
+  font-family: 'Orbitron', monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--accent-green);
+  border: 1px solid var(--accent-green);
+  background: transparent;
+  padding: 0.4rem 1rem;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+}
+.btn-save:hover { background: var(--accent-green); color: var(--bg-primary); }
+
+/* Branch */
+.branch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.branch-left { display: flex; align-items: center; gap: 0.75rem; }
+.branch-select {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--accent-green);
+  background: transparent;
+  border: 1px solid var(--border-accent);
+  padding: 0.3rem 0.6rem;
+}
+.btn-refresh {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
+/* File list */
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.file-row:hover { background: rgba(255,255,255,0.02); }
+.file-chevron { font-size: 0.65rem; color: var(--text-secondary); width: 0.8rem; }
+.file-path { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; flex: 1; }
+.file-missing { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--warning); }
+.file-count { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text-secondary); }
+
+/* Diff chain */
+.diff-chain {
+  padding: 0.5rem 1.25rem 0.75rem 2.75rem;
+  background: rgba(0,0,0,0.2);
+  border-bottom: 1px solid var(--border);
+}
+.chain-baseline, .chain-current {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+}
+.chain-dot { color: var(--text-secondary); }
+.chain-dot-current { color: var(--accent-green); }
+.chain-label { font-size: 0.62rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+.chain-meta { font-size: 0.62rem; color: var(--text-secondary); opacity: 0.6; }
+.chain-entry { display: flex; gap: 0.5rem; align-items: flex-start; }
+.chain-vline { color: var(--border); font-family: monospace; padding-top: 0.3rem; user-select: none; }
+.chain-row {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  flex-wrap: wrap;
+}
+.chain-arrow { color: var(--text-secondary); font-size: 0.65rem; }
+.stat-add { color: #4ade80; min-width: 2.5rem; font-size: 0.7rem; }
+.stat-del { color: #f87171; min-width: 2.5rem; font-size: 0.7rem; }
+.chain-summary { color: var(--text-primary); flex: 1; }
+.chain-time { color: var(--text-secondary); font-size: 0.68rem; }
+.btn-diff {
+  font-family: 'Orbitron', monospace; font-size: 0.58rem; font-weight: 700;
+  color: var(--info); border: 1px solid var(--info);
+  background: transparent; padding: 0.2rem 0.5rem; cursor: pointer; letter-spacing: 0.04em;
+}
+.btn-diff:hover { background: rgba(59,130,246,0.15); }
+.btn-restore {
+  font-family: 'Orbitron', monospace; font-size: 0.58rem; font-weight: 700;
+  color: var(--warning); border: 1px solid var(--warning);
+  background: transparent; padding: 0.2rem 0.5rem; cursor: pointer; letter-spacing: 0.04em;
+}
+.btn-restore:hover { background: rgba(245,158,11,0.15); }
+.load-more-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.68rem;
+  color: var(--text-secondary);
+  background: transparent; border: 1px dashed var(--border);
+  padding: 0.35rem; width: 100%; text-align: center; cursor: pointer; margin-top: 0.35rem;
+}
+
+/* ---- DIFF VIEWER ---- */
+.diff-viewer {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  background: #0a0f1e;
+  border: 1px solid var(--border);
+  overflow-x: auto;
+}
+.diff-line { display: flex; white-space: pre; min-width: max-content; }
+.diff-line.add { background: rgba(34,197,94,0.12); color: #4ade80; }
+.diff-line.del { background: rgba(220,38,38,0.12); color: #f87171; }
+.diff-line.hunk { background: rgba(59,130,246,0.12); color: #60a5fa; }
+.diff-line.fhdr { background: rgba(255,255,255,0.03); color: var(--text-secondary); }
+.diff-line.ctx { color: var(--text-secondary); }
+.diff-gutter {
+  display: inline-block; width: 1.5rem; text-align: center;
+  flex-shrink: 0; border-right: 1px solid var(--border);
+  padding: 0 0.25rem; opacity: 0.7; user-select: none;
+}
+.diff-content { padding: 0 0.75rem; }
+
+/* ---- MODALS ---- */
+.modal-row { display: flex; gap: 2rem; flex-wrap: wrap; }
+
+/* Diff Modal */
+.diff-modal {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-accent);
+  width: 100%; max-width: 720px;
+}
+.diff-modal-hdr {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+}
+.diff-modal-title {
+  font-family: 'Orbitron', monospace; font-size: 0.75rem;
+  font-weight: 700; color: var(--accent-green); flex: 1;
+}
+.diff-modal-meta { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--text-secondary); }
+.btn-x { color: var(--text-secondary); background: transparent; border: none; font-size: 0.9rem; cursor: pointer; }
+
+/* Confirm Modal */
+.confirm-modal {
+  background: var(--bg-primary);
+  border: 1px solid var(--warning);
+  width: 420px;
+}
+.confirm-hdr {
+  font-family: 'Orbitron', monospace; font-size: 0.8rem; font-weight: 700;
+  color: var(--warning); padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(245,158,11,0.3); letter-spacing: 0.08em;
+}
+.confirm-body { padding: 1.25rem; }
+.confirm-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.5rem 0; border-bottom: 1px solid var(--border);
+}
+.confirm-row:last-of-type { border-bottom: none; }
+.confirm-key {
+  font-family: 'Orbitron', monospace; font-size: 0.62rem;
+  font-weight: 700; color: var(--text-secondary); letter-spacing: 0.08em;
+}
+.confirm-val { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); }
+.confirm-val.warn { color: var(--warning); }
+.confirm-warn-box {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+  color: var(--text-secondary); margin-top: 1rem; padding: 0.6rem;
+  border: 1px solid rgba(245,158,11,0.2); background: rgba(245,158,11,0.04);
+}
+.confirm-actions {
+  display: flex; gap: 0.75rem; padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border); justify-content: flex-end;
+}
+.btn-cancel {
+  font-family: 'Orbitron', monospace; font-size: 0.65rem; font-weight: 700;
+  color: var(--text-secondary); border: 1px solid var(--border);
+  background: transparent; padding: 0.5rem 1rem; cursor: pointer; letter-spacing: 0.06em;
+}
+.btn-confirm {
+  font-family: 'Orbitron', monospace; font-size: 0.65rem; font-weight: 700;
+  color: var(--warning); border: 1px solid var(--warning);
+  background: transparent; padding: 0.5rem 1.25rem; cursor: pointer; letter-spacing: 0.06em;
+}
+.btn-confirm:hover { background: var(--warning); color: var(--bg-primary); }
+
+/* Receipt Modal */
+.receipt-modal {
+  background: var(--bg-primary);
+  border: 1px solid var(--accent-green);
+  width: 420px;
+}
+.receipt-hdr {
+  font-family: 'Orbitron', monospace; font-size: 0.8rem; font-weight: 700;
+  color: var(--accent-green); padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-accent); letter-spacing: 0.08em;
+}
+.receipt-body { padding: 1.25rem; }
+.receipt-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.5rem 0; border-bottom: 1px solid var(--border);
+}
+.receipt-row:last-of-type { border-bottom: none; }
+.receipt-key {
+  font-family: 'Orbitron', monospace; font-size: 0.62rem;
+  font-weight: 700; color: var(--text-secondary); letter-spacing: 0.08em;
+}
+.receipt-val { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-primary); }
+.receipt-note {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+  color: var(--text-secondary); margin-top: 1rem; padding: 0.6rem;
+  border: 1px solid var(--border-accent); background: rgba(34,197,94,0.04);
+}
+.btn-receipt-close {
+  display: block; width: calc(100% - 2.5rem); margin: 0 1.25rem 1.25rem;
+  font-family: 'Orbitron', monospace; font-size: 0.7rem; font-weight: 700;
+  color: var(--accent-green); border: 1px solid var(--accent-green);
+  background: transparent; padding: 0.6rem; cursor: pointer; letter-spacing: 0.1em;
+}
+.btn-receipt-close:hover { background: var(--accent-green); color: var(--bg-primary); }
+</style>
+</head>
+<body>
+
+<!-- =========== SECTION 1: Recovery Panel =========== -->
+<p class="page-label">UI DESIGN PREVIEW · AEGIS-V2 · CODE RECOVERY PANEL</p>
+
+<div class="section-gap">
+<p class="page-label">01 — RECOVERY PANEL (完整面板)</p>
+<div class="recovery-panel">
+
+  <!-- Header -->
+  <div class="panel-header">
+    <div class="panel-title">💾 CODE RECOVERY</div>
+    <div class="panel-status-on">ENABLED ●</div>
+  </div>
+
+  <!-- Settings -->
+  <div class="settings-block">
+    <div class="section-label">SETTINGS</div>
+    <div class="setting-row">
+      <span class="setting-key">ENABLE BACKUP</span>
+      <div class="toggle">
+        <div class="toggle-track on"><div class="toggle-thumb"></div></div>
+        <span class="toggle-text-on">ON</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <span class="setting-key">WATCH DIR</span>
+      <div class="mock-input">/Users/yuhao/Desktop/yezannnnn/aegis-v2</div>
+    </div>
+    <div class="setting-row">
+      <span class="setting-key">READ .GITIGNORE</span>
+      <div class="toggle">
+        <div class="toggle-track on"><div class="toggle-thumb"></div></div>
+        <span class="toggle-text-on">ON</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <span class="setting-key">RETAIN</span>
+      <div class="mock-select">30 DAYS ▾</div>
+    </div>
+    <div class="setting-row" style="justify-content:flex-end;">
+      <button class="btn-save">SAVE</button>
+    </div>
+  </div>
+
+  <!-- Branch -->
+  <div class="branch-row">
+    <div class="branch-left">
+      <span class="section-label" style="margin:0">BRANCH</span>
+      <div class="branch-select">main ▾</div>
+    </div>
+    <button class="btn-refresh">↻</button>
+  </div>
+
+  <!-- File list -->
+  <div class="file-row">
+    <span class="file-chevron">▶</span>
+    <span class="file-path">src/App.vue</span>
+    <span class="file-count">3 changes</span>
+  </div>
+
+  <!-- 展开状态 -->
+  <div class="file-row" style="background:rgba(255,255,255,0.01)">
+    <span class="file-chevron">▼</span>
+    <span class="file-path">src/components/EventList.vue</span>
+    <span class="file-count">7 changes</span>
+  </div>
+  <div class="diff-chain">
+    <div class="chain-baseline">
+      <span class="chain-dot">◉</span>
+      <span class="chain-label">baseline</span>
+      <span class="chain-meta">src/components/EventList.vue · main</span>
+    </div>
+    <div class="chain-entry">
+      <span class="chain-vline">│</span>
+      <div class="chain-row">
+        <span class="chain-arrow">▼</span>
+        <span class="stat-add">+12</span>
+        <span class="stat-del">-3</span>
+        <span class="chain-summary">"Edit EventList.vue"</span>
+        <span class="chain-time">05-18 14:15</span>
+        <button class="btn-diff">DIFF</button>
+        <button class="btn-restore">RESTORE</button>
+      </div>
+    </div>
+    <div class="chain-entry">
+      <span class="chain-vline">│</span>
+      <div class="chain-row">
+        <span class="chain-arrow">▼</span>
+        <span class="stat-add">+45</span>
+        <span class="stat-del">-0</span>
+        <span class="chain-summary">"Write EventList.vue"</span>
+        <span class="chain-time">05-18 14:20</span>
+        <button class="btn-diff">DIFF</button>
+        <button class="btn-restore">RESTORE</button>
+      </div>
+    </div>
+    <div class="chain-entry">
+      <span class="chain-vline">│</span>
+      <div class="chain-row">
+        <span class="chain-arrow">▼</span>
+        <span class="stat-add">+2</span>
+        <span class="stat-del">-8</span>
+        <span class="chain-summary">"Edit EventList.vue"</span>
+        <span class="chain-time">05-18 14:30</span>
+        <button class="btn-diff">DIFF</button>
+        <button class="btn-restore">RESTORE</button>
+      </div>
+    </div>
+    <button class="load-more-btn">LOAD MORE (4 remaining)</button>
+    <div class="chain-current">
+      <span class="chain-dot-current">●</span>
+      <span class="chain-label">current state</span>
+    </div>
+  </div>
+
+  <!-- 文件不存在 -->
+  <div class="file-row">
+    <span class="file-chevron">▶</span>
+    <span class="file-path">src/stores/websocket.ts</span>
+    <span class="file-missing">⚠ FILE NOT FOUND · CAN RESTORE</span>
+    <span class="file-count">2 changes</span>
+  </div>
+
+</div>
+</div>
+
+<!-- =========== SECTION 2: Diff Viewer =========== -->
+<div class="section-gap">
+<p class="page-label">02 — DIFF VIEWER 组件</p>
+<div class="diff-viewer">
+  <div class="diff-line fhdr"><span class="diff-gutter"> </span><span class="diff-content">--- src/components/EventList.vue</span></div>
+  <div class="diff-line fhdr"><span class="diff-gutter"> </span><span class="diff-content">+++ src/components/EventList.vue</span></div>
+  <div class="diff-line hunk"><span class="diff-gutter">@@</span><span class="diff-content">@@ -47,8 +47,12 @@ export default defineComponent({</span></div>
+  <div class="diff-line ctx"><span class="diff-gutter"> </span><span class="diff-content">    const eventFilter = ref('all')</span></div>
+  <div class="diff-line ctx"><span class="diff-gutter"> </span><span class="diff-content">    const timeFilter = ref('all')</span></div>
+  <div class="diff-line del"><span class="diff-gutter">-</span><span class="diff-content">    const PAGE_SIZE = 30</span></div>
+  <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">    const PAGE_SIZE = 20</span></div>
+  <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">    const isLoadingMore = ref(false)</span></div>
+  <div class="diff-line ctx"><span class="diff-gutter"> </span><span class="diff-content">    </span></div>
+  <div class="diff-line del"><span class="diff-gutter">-</span><span class="diff-content">    const loadMore = () => { offset.value += 30 }</span></div>
+  <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">    const loadMore = async () => {</span></div>
+  <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">      isLoadingMore.value = true</span></div>
+  <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">      await fetchEvents(offset.value)</span></div>
+  <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">      isLoadingMore.value = false</span></div>
+  <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">    }</span></div>
+  <div class="diff-line ctx"><span class="diff-gutter"> </span><span class="diff-content">    return { eventFilter, timeFilter, loadMore }</span></div>
+  <div class="diff-line hunk"><span class="diff-gutter">@@</span><span class="diff-content">@@ -89,3 +93,4 @@ export default defineComponent({</span></div>
+  <div class="diff-line ctx"><span class="diff-gutter"> </span><span class="diff-content">  &lt;/div&gt;</span></div>
+  <div class="diff-line del"><span class="diff-gutter">-</span><span class="diff-content">  &lt;!-- old footer --&gt;</span></div>
+  <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">  &lt;LoadMoreBtn :loading="isLoadingMore" /&gt;</span></div>
+</div>
+</div>
+
+<!-- =========== SECTION 3: Modals =========== -->
+<div class="section-gap">
+<p class="page-label">03 — MODALS</p>
+<div class="modal-row">
+
+  <!-- Diff Modal -->
+  <div class="diff-modal">
+    <div class="diff-modal-hdr">
+      <div class="diff-modal-title">📄 src/components/EventList.vue</div>
+      <div class="diff-modal-meta">Edit EventList.vue · 05-18 14:20</div>
+      <button class="btn-x">✕</button>
+    </div>
+    <div class="diff-viewer" style="max-height:200px;overflow-y:auto">
+      <div class="diff-line hunk"><span class="diff-gutter">@@</span><span class="diff-content">@@ -47,5 +47,9 @@</span></div>
+      <div class="diff-line ctx"><span class="diff-gutter"> </span><span class="diff-content">    const eventFilter = ref('all')</span></div>
+      <div class="diff-line del"><span class="diff-gutter">-</span><span class="diff-content">    const PAGE_SIZE = 30</span></div>
+      <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">    const PAGE_SIZE = 20</span></div>
+      <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">    const isLoadingMore = ref(false)</span></div>
+      <div class="diff-line ctx"><span class="diff-gutter"> </span><span class="diff-content">    </span></div>
+      <div class="diff-line del"><span class="diff-gutter">-</span><span class="diff-content">    const loadMore = () => { offset.value += 30 }</span></div>
+      <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">    const loadMore = async () => {</span></div>
+      <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">      isLoadingMore.value = true</span></div>
+      <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">      isLoadingMore.value = false</span></div>
+      <div class="diff-line add"><span class="diff-gutter">+</span><span class="diff-content">    }</span></div>
+    </div>
+  </div>
+
+  <!-- Confirm + Receipt stacked -->
+  <div style="display:flex;flex-direction:column;gap:1.5rem">
+
+    <!-- Confirm Restore -->
+    <div class="confirm-modal">
+      <div class="confirm-hdr">⚠ CONFIRM RESTORE</div>
+      <div class="confirm-body">
+        <div class="confirm-row">
+          <span class="confirm-key">FILE</span>
+          <span class="confirm-val">src/components/EventList.vue</span>
+        </div>
+        <div class="confirm-row">
+          <span class="confirm-key">RESTORE TO</span>
+          <span class="confirm-val">05-18 14:20 version</span>
+        </div>
+        <div class="confirm-row">
+          <span class="confirm-key">CHANGE</span>
+          <span class="confirm-val warn">+45 -0</span>
+        </div>
+        <div class="confirm-warn-box">This will overwrite the current file contents.</div>
+      </div>
+      <div class="confirm-actions">
+        <button class="btn-cancel">CANCEL</button>
+        <button class="btn-confirm">RESTORE</button>
+      </div>
+    </div>
+
+    <!-- Receipt -->
+    <div class="receipt-modal">
+      <div class="receipt-hdr">✅ RESTORE COMPLETE</div>
+      <div class="receipt-body">
+        <div class="receipt-row">
+          <span class="receipt-key">FILE</span>
+          <span class="receipt-val">src/components/EventList.vue</span>
+        </div>
+        <div class="receipt-row">
+          <span class="receipt-key">RESTORED TO</span>
+          <span class="receipt-val">05-18 14:20</span>
+        </div>
+        <div class="receipt-row">
+          <span class="receipt-key">CHANGES UNDONE</span>
+          <span class="receipt-val">+45 -0</span>
+        </div>
+        <div class="receipt-row">
+          <span class="receipt-key">BRANCH</span>
+          <span class="receipt-val">main</span>
+        </div>
+        <div class="receipt-note">File has been restored. You may need to inform your Agent of the change.</div>
+      </div>
+      <button class="btn-receipt-close">CLOSE</button>
+    </div>
+
+  </div>
+</div>
+</div>
+
+</body>
+</html>

@@ -179,6 +179,50 @@ async function apiDelete(path) {
     console.log('     审批拒绝成功');
   });
 
+  await run('P0', 'P0-5b: 审批拒绝 → 事件列表状态同步为 BLOCKED（回归: 拒绝后状态不更新 Bug）', async () => {
+    // Step 1: 触发 review 命令，获取 approvalId 和 eventId
+    const evalRes = await apiPost('/rules/evaluate', {
+      command: 'git push --force origin main',
+      sessionId: 'smoke-approval-status-sync',
+      agentType: 'SmokeTest',
+    });
+    const approvalId = evalRes.data.approvalRequestId;
+    const eventId = evalRes.data.eventId;
+
+    if (!approvalId) {
+      console.log('     ⚠ 无审批ID (规则可能已改为block)，跳过状态同步验证');
+      return;
+    }
+
+    // Step 2: 通过 API 拒绝审批
+    const decisionRes = await fetch(`${BASE_URL}/api/v1/approvals/${approvalId}/decision`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'deny', reason: 'smoke-status-sync-test' }),
+    });
+    assert(decisionRes.status === 200 || decisionRes.status === 201, `decision HTTP ${decisionRes.status}`);
+    const decisionData = await decisionRes.json();
+    assert(decisionData.success === true, `decision failed: ${JSON.stringify(decisionData)}`);
+    console.log('     拒绝请求已发送');
+
+    // Step 3: 从审批响应中获取 eventId（如 evaluate 未返回则从 approval 取）
+    const resolvedEventId = eventId || decisionData.approval?.eventId;
+    assert(resolvedEventId, `无法获取 eventId，无法验证事件状态同步`);
+
+    // Step 4: 通过单条事件接口验证状态已更新为 BLOCKED
+    // 注意: monitoring 端点路径为 /api/monitoring（无 v1 前缀）
+    const eventsRes = await fetch(`${BASE_URL}/api/monitoring/events/${resolvedEventId}`);
+    assert(eventsRes.status === 200, `events HTTP ${eventsRes.status}`);
+    const eventsData = await eventsRes.json();
+    const targetEvent = eventsData.data;
+    assert(targetEvent, `事件 ${resolvedEventId} 不存在`);
+    assert(
+      targetEvent.status === 'blocked' || targetEvent.status === 'BLOCKED',
+      `事件状态未同步！期望 BLOCKED，实际: ${targetEvent.status}（回归：approval.controller 未调用 updateEventStatus）`
+    );
+    console.log(`     ✓ 事件 ${resolvedEventId} 状态已同步为 BLOCKED`);
+  });
+
   await run('P0', 'P0-6: WebSocket (Socket.IO) 实时事件推送', async () => {
     // Aegis 后端使用 Socket.IO，通过 HTTP polling 握手验证可达性
     // Socket.IO polling 端点: /socket.io/?EIO=4&transport=polling
@@ -193,6 +237,96 @@ async function apiDelete(path) {
     const connected = await page.locator('.connection-status.connected, [class*="connection-status"][class*="connected"]').isVisible().catch(() => false);
     console.log(`     前端 WS 连接状态: ${connected ? '✓ CONNECTED' : '⚠ 未显示 connected (可能正在重连)'}`);
     // polling 握手成功已足够证明 Socket.IO 服务正常
+  });
+
+  // ─────────────────── P0: && 链命令拦截（Bug Fix 验证）───────────────────
+
+  console.log('\n▶ P0 — && 链命令拦截（splitCompoundCommand 修复验证）');
+
+  await run('P0', 'P0-7: 单条危险命令基线 → review', async () => {
+    const { status, data } = await apiPost('/rules/evaluate', {
+      command: 'git reset --hard HEAD',
+      sessionId: 'smoke-chain-test',
+      agentType: 'SmokeTest',
+    });
+    assert(status === 201 || status === 200, `HTTP ${status}`);
+    assert(data.evaluation?.action === 'review', `action=${data.evaluation?.action}, expected review`);
+    assert(data.evaluation?.matchedRules?.includes('git/reset-hard'), `未命中 git/reset-hard 规则`);
+  });
+
+  await run('P0', 'P0-8: && 链式命令 — 危险命令在后段不被绕过 → review', async () => {
+    const { status, data } = await apiPost('/rules/evaluate', {
+      command: 'cd /tmp && git reset --hard HEAD',
+      sessionId: 'smoke-chain-test',
+      agentType: 'SmokeTest',
+    });
+    assert(status === 201 || status === 200, `HTTP ${status}`);
+    assert(data.evaluation?.action === 'review', `action=${data.evaluation?.action}, expected review（&&链绕过Bug未修复）`);
+    assert(data.evaluation?.matchedRules?.includes('git/reset-hard'), `未命中 git/reset-hard 规则`);
+    console.log('     && 链命令核心修复验证通过');
+  });
+
+  await run('P0', 'P0-9: 多节 && 链式命令 → 取最严格结果 review', async () => {
+    const { status, data } = await apiPost('/rules/evaluate', {
+      command: 'git checkout -b test-branch && git checkout master && git reset --hard 187f4df',
+      sessionId: 'smoke-chain-test',
+      agentType: 'SmokeTest',
+    });
+    assert(status === 201 || status === 200, `HTTP ${status}`);
+    assert(data.evaluation?.action === 'review', `action=${data.evaluation?.action}, expected review`);
+  });
+
+  await run('P0', 'P0-10: && 链式命令 — 全部无害命令不误伤 → allow', async () => {
+    const { status, data } = await apiPost('/rules/evaluate', {
+      command: 'cd /tmp && echo hello && ls',
+      sessionId: 'smoke-chain-test',
+      agentType: 'SmokeTest',
+    });
+    assert(status === 201 || status === 200, `HTTP ${status}`);
+    assert(data.evaluation?.action === 'allow', `action=${data.evaluation?.action}, expected allow（误伤！）`);
+    assert(!data.requiresApproval, '无害链式命令不应触发审批');
+    console.log('     无害链式命令不误伤验证通过');
+  });
+
+  await run('P0', 'P0-11: 分号分隔命令 — 危险命令在后段 → review', async () => {
+    const { status, data } = await apiPost('/rules/evaluate', {
+      command: 'echo start; git reset --hard HEAD',
+      sessionId: 'smoke-chain-test',
+      agentType: 'SmokeTest',
+    });
+    assert(status === 201 || status === 200, `HTTP ${status}`);
+    assert(data.evaluation?.action === 'review', `action=${data.evaluation?.action}, expected review`);
+  });
+
+  await run('P0', 'P0-12: || 链式命令 — 危险命令 → review', async () => {
+    const { status, data } = await apiPost('/rules/evaluate', {
+      command: 'false || git reset --hard HEAD',
+      sessionId: 'smoke-chain-test',
+      agentType: 'SmokeTest',
+    });
+    assert(status === 201 || status === 200, `HTTP ${status}`);
+    assert(data.evaluation?.action === 'review', `action=${data.evaluation?.action}, expected review`);
+  });
+
+  await run('P0', 'P0-13: 引号内的 && 不应触发分割 → allow', async () => {
+    const { status, data } = await apiPost('/rules/evaluate', {
+      command: 'echo "a && b"',
+      sessionId: 'smoke-chain-test',
+      agentType: 'SmokeTest',
+    });
+    assert(status === 201 || status === 200, `HTTP ${status}`);
+    assert(data.evaluation?.action === 'allow', `action=${data.evaluation?.action}, 引号内 && 被错误分割`);
+  });
+
+  await run('P0', 'P0-14: && 链式 rm -rf 命令 → block（最严格优先）', async () => {
+    const { status, data } = await apiPost('/rules/evaluate', {
+      command: 'cd /tmp && rm -rf /',
+      sessionId: 'smoke-chain-test',
+      agentType: 'SmokeTest',
+    });
+    assert(status === 201 || status === 200, `HTTP ${status}`);
+    assert(data.evaluation?.action === 'block', `action=${data.evaluation?.action}, expected block`);
+    console.log('     && 链 rm -rf 命中最严格规则 block');
   });
 
   // ─────────────────── P1: 核心 UI 功能 ───────────────────
