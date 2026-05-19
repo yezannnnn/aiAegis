@@ -1,3 +1,24 @@
+## [0.4.2](https://github.com/yezannnnn/aiAegis/compare/v0.4.1...v0.4.2) (2026-05-19)
+
+
+### Bug Fixes
+
+* **rules:** `updateRule()` no longer silently upserts when ID is not found — returns `success: false` instead ([e45893a](https://github.com/yezannnnn/aiAegis/commit/e45893a))
+* **rules:** `toggleRule()` now validates rule existence before toggling — returns `success: false` for unknown IDs ([e45893a](https://github.com/yezannnnn/aiAegis/commit/e45893a))
+* **rules:** `loadBuiltInRules()` now skips files prefixed with `example-`, preventing example rules from interfering with real evaluations ([e45893a](https://github.com/yezannnnn/aiAegis/commit/e45893a))
+* **rules:** disabled rules now correctly set `severity: 'off'` at load time via `applyConfigOverrides()`, so `evaluate()` skips them ([e45893a](https://github.com/yezannnnn/aiAegis/commit/e45893a))
+* **rules:** argument pattern double-escaping fixed in `RuleList.vue` — `\\.env` patterns now correctly match `.env` after save and reload ([e45893a](https://github.com/yezannnnn/aiAegis/commit/e45893a))
+* **rules:** add missing `POST /`, `PUT ?id=`, `DELETE ?id=`, `POST /toggle` CRUD endpoints to `rules.controller.ts` ([e45893a](https://github.com/yezannnnn/aiAegis/commit/e45893a))
+* **approval:** `makeDecision()` now calls `monitoringService.updateEventStatus()` to sync event list status to `BLOCKED`/`ALLOWED` after a decision ([e45893a](https://github.com/yezannnnn/aiAegis/commit/e45893a))
+* **approval:** `ApprovalModule` imports `MonitoringModule` via `forwardRef` to resolve circular dependency ([e45893a](https://github.com/yezannnnn/aiAegis/commit/e45893a))
+
+
+### Tests
+
+* add automated Playwright smoke suites: `&&`-chain bypass (P0-7~P0-14), approval status sync (P0-5b), Rules CRUD (17 cases), session full regression (13 cases) ([b128e5d](https://github.com/yezannnnn/aiAegis/commit/b128e5d))
+* add `docs/smoke-testing.md` documenting the smoke test architecture (P0×15 / P1×9 / P2×3)
+
+
 ## [0.4.1](https://github.com/yezannnnn/aiAegis/compare/v0.4.0...v0.4.1) (2026-05-18)
 
 

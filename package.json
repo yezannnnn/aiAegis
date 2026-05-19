@@ -1,6 +1,6 @@
 {
   "name": "ai-aegis",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "AI Agent Security Monitor — intercept and approve dangerous commands in real-time",
   "main": "bin/aegis.js",
   "bin": {
